@@ -1,4 +1,5 @@
 ---
+name: sequence-diagram
 description: Generate a UML sequence diagram in D2 format showing function call flows
 ---
 
@@ -9,7 +10,7 @@ Create a UML sequence diagram in D2 format that visualizes the execution flow an
 ## Variables
 
 SCOPE: $ARGUMENTS
-OUTPUT_DIR: `AIDOCS\architecture`
+OUTPUT_DIR: `AIDOCSrchitecture`
 OUTPUT_FILE: Will be generated based on diagram type and flow (e.g., `app-startup-sequence-diagram.d2`)
 
 ## Instructions
