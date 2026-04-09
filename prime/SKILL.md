@@ -9,7 +9,6 @@ Gather project context at the start of a conversation.
 
 ## Instructions
 
-1. Run `git ls-files` to list all tracked files in the repository.
-2. Check if `AGENTS.md` exists in the repository root.
-   - If it exists, `cat AGENTS.md` and display its contents.
-   - If it does not exist, skip this step silently.
+1. !`git ls-files 2> /dev/null || true`
+2. !`cat AGENTS.md 2> /dev/null || true`
+   
