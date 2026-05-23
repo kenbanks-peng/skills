@@ -65,5 +65,5 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 1. !`git ls-files 2> /dev/null || true`
 2. !`cat AGENTS.md 2> /dev/null || true`
-3. If it exists, run gitnexus_list_repos tool and based on the results, say verbatum "GitNexus is ready", or "consider running /gitnexus"
+3. Run the bash command "gitnexus list" (only run gitnexus_list_repos tool as fallback) and based on the results, say verbatum "GitNexus is ready", or "consider running /gitnexus analyze"
 
