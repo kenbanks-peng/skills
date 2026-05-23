@@ -66,5 +66,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 1. !`git ls-files 2> /dev/null || true`
 2. !`cat AGENTS.md 2> /dev/null || true`
 3. !`gitnexus list 2> /dev/null || true`
-   Based on the results, say verbatum "GitNexus is ready", or "consider running /gitnexus analyze".
+
+Based on the results of gitnexus, simply say verbatum "GitNexus is ready", or "consider running /gitnexus analyze". Do not ramble on. 
 
