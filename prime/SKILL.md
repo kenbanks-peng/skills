@@ -65,5 +65,5 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 1. !`git ls-files 2> /dev/null || true`
 2. !`cat AGENTS.md 2> /dev/null || true`
-
+3. If the Pi slash command exists, run `/gitnexus` from Pi.
 
