@@ -325,11 +325,125 @@ plan:parser-cleanup phase:2 docs
 
 ## Cron Management
 
-Cron continuation is optional. Only create a cron job when the user requests autonomous continuation and supplies the required schedule, repo, plan, execution mode, branch/worktree, verification, and self-stop parameters.
+Cron continuation is optional. Use it for long-running phased work, periodic continuation, or scheduled checks for the next eligible phase. Do not use cron for work that requires active user decisions at every step. Cron runs execute in fresh sessions and cannot ask questions.
+
+Only create a cron job when the user requests autonomous continuation. Ask for or derive all required parameters before creation:
+
+- schedule
+- repository path
+- plan path
+- execution mode: sequential or parallel
+- branch naming mode: plan branch or phase branch
+- worktree mode and worktree path pattern for parallel phases
+- max phases/tasks per run; sequential cron defaults to exactly `1` and must not batch phases unless explicitly requested
+- verification command(s)
+- delivery target, if not the current chat
+- cron job identity for self-stop: job id if known, otherwise a unique job name
+- self-stop action when the whole plan is complete: default `pause`; use `remove` only if explicitly requested
+
+### Cron Creation Example
+
+Only call `cronjob(action='create', ...)` from an interactive session after collecting parameters. Cron-run sessions must not recursively create additional cron jobs.
+
+```python
+cronjob(
+    action="create",
+    name="continue-<plan-slug>",
+    schedule="every 2h",
+    prompt="""
+You are continuing a git-managed implementation plan. This prompt is self-contained; do not rely on chat history.
+
+Repository path: /absolute/path/to/repo
+Plan path: /absolute/path/to/repo/docs/plans/<plan>.md
+Execution mode: sequential
+Branch naming mode: plan branch
+Plan branch: plan/<plan-slug>
+Phase branch pattern: plan/<plan-slug>-phase-<NN>
+Worktree mode: none for sequential; for parallel use ../<repo>-plan-<plan-slug>-phase-<NN>
+Max phases/tasks per run: 1
+Verification commands: <commands>
+Commit format: plan:<plan-slug> phase:<N> <keyword>
+Valid statuses: TODO, IN PROGRESS, DONE, DEFERRED, FAILED, BLOCKED, SKIPPED
+Completion terminal statuses: DONE only unless this plan explicitly accepts SKIPPED/DEFERRED.
+Self-stop identity: job name continue-<plan-slug>; if a job id is provided in this prompt, use that exact id.
+Self-stop action after completion verifier passes: pause
+
+Rules:
+1. Cron runs cannot ask questions. If required parameters are missing or ambiguous, stop and report.
+2. Do not create more cron jobs. The only allowed cron management side effect is pausing/removing this continuation job after completion verification passes.
+3. Re-read the plan from disk immediately before selecting work to avoid double-claiming.
+4. Run git preflight: git rev-parse --show-toplevel, git branch --show-current, git status --short, git worktree list.
+5. Stop if unrelated uncommitted changes exist.
+6. Sequential mode: if any phase is IN PROGRESS, stop and report. Select at most one next TODO phase, execute it, run verification, commit, run the completion verifier, report, and exit. Do not start a second phase in the same tick.
+7. Parallel mode: select only independent TODO phases with explicit dependency/file-ownership metadata. Use distinct phase branches and distinct worktrees. Never run two workers in the same worktree. Stop on ambiguous ownership or conflicts.
+8. Local verification only. No PR creation, no CI watching, no merge automation, no destructive git operations, no branch/worktree cleanup unless explicitly authorized.
+9. Do not auto-resolve worktree, branch, merge, or status-table conflicts.
+10. Completion verifier is shallow and read-only except self-stop. It re-reads the plan, parses the bottom Phase Status table, runs configured safe verification commands, checks git status --short, and decides whether the plan is complete. It must not implement work, start another phase, reconcile branches, rewrite code, or make speculative fixes.
+11. If complete and verification passes, first list cron jobs, identify only this continuation job by provided id or unique name, then pause it by default or remove it only if explicitly configured. If incomplete or ambiguous, leave cron active.
+
+End-of-run report format:
+- Phase attempted: <number/title or none>
+- Phase result: <DONE/BLOCKED/FAILED/DEFERRED/SKIPPED/none>
+- Verification result: <commands and pass/fail>
+- Commit: <hash/message or none>
+- Completion verifier: <complete/incomplete/ambiguous and why>
+- Cron action: <none/paused/removed and job id/name>
+- Next expected action: <next phase/user decision/fix blocker>
+""",
+    enabled_toolsets=["terminal", "file", "cronjob"],
+)
+```
+
+Add `"delegation"` to `enabled_toolsets` only if the cron prompt may use subagents. Include `"cronjob"` only when self-stop behavior is expected.
+
+### Cron Job Management
+
+Always list jobs before update, pause, resume, or remove:
+
+```python
+cronjob(action="list")
+cronjob(action="pause", job_id="<confirmed-job-id>")
+```
+
+Cron runs may pause or remove only their own continuation job, and only after completion verification passes. Default to pausing. Remove only if the user explicitly requested removal.
+
+### Cron Stop Behavior
+
+A cron run must stop and report when:
+
+- required parameters are missing
+- phase ownership is ambiguous
+- another phase is already `IN PROGRESS` in sequential mode
+- another runner appears to be working on the selected phase
+- branch/worktree/status-table conflicts exist
+- verification fails without an obvious in-scope fix
+- the next step requires user authorization
+
+Sequential cron must execute at most one eligible `TODO` phase per run, then run the completion verifier, report, and exit. It must not start another phase in the same tick, even if more `TODO` phases remain.
 
 ## Completion / Signoff Verifier
 
-At the end of execution or cron runs, re-read the phase status table, run configured safe local verification commands, check git status, and decide whether the plan is complete. The verifier is not an implementation worker.
+Run a shallow signoff verifier at the end of normal execution checkpoints and every cron run. It is read-only except for the narrow cron self-stop action after completion.
+
+Verifier steps:
+
+1. Re-read the plan from disk.
+2. Parse the bottom `## Phase Status` table.
+3. Determine accepted terminal statuses. Default plan completion requires every phase to be `DONE`. `SKIPPED` and `DEFERRED` count as complete only if the user or plan explicitly accepts them. `TODO`, `IN PROGRESS`, `BLOCKED`, and `FAILED` are not complete.
+4. Run only configured safe local verification commands.
+5. Check `git status --short`.
+6. Decide whether the plan lifecycle is complete.
+
+The verifier must not:
+
+- start another phase
+- perform broad semantic review
+- rewrite implementation
+- reconcile branches
+- make speculative fixes
+- create cron jobs
+
+If complete and verification passes in a cron run, list cron jobs and pause/remove only this continuation job according to the configured self-stop action. If incomplete or ambiguous, leave cron active and report the reason.
 
 ## Reconciliation
 
