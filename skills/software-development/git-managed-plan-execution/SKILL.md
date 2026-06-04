@@ -213,11 +213,115 @@ Parallel status ownership: do not let multiple phase branches race to update the
 
 ## Execution Workflow
 
-Read the plan, inspect the phase status table, run git preflight checks, select one eligible phase, execute scoped work, run local verification, update the durable phase status, inspect diff/status, and commit a terse checkpoint.
+Use this loop for phase execution:
+
+1. Read the plan from disk. Do not rely on chat history.
+2. Parse the bottom `## Phase Status` table.
+3. Parse `## Phase Dependencies` or file-ownership metadata if present.
+4. Run git preflight checks:
+
+```bash
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+git worktree list
+```
+
+5. Stop if unrelated uncommitted changes are present.
+6. Select the next eligible phase:
+   - sequential: choose the first `TODO` phase; stop if any phase is already `IN PROGRESS`
+   - parallel: choose only a `TODO` phase that is explicitly independent or user-confirmed independent
+7. Create or select the correct branch/worktree.
+8. Mark the phase `IN PROGRESS` before work only when coordination requires a visible claim. A separate claim commit is optional, not the default.
+9. Execute only the scoped work for that phase.
+10. Run the phase's local verification commands.
+11. Mark the phase `DONE`, or mark `FAILED`, `BLOCKED`, or `DEFERRED` with a short report when appropriate.
+12. Inspect status and diff before committing:
+
+```bash
+git status --short
+git diff --stat
+git diff -- <relevant-paths>
+```
+
+13. Commit only if the diff is scoped and verification has passed. Prefer committing implementation and the final phase status update together.
+14. Re-check clean state after committing:
+
+```bash
+git status --short
+```
+
+### Subagent Delegation Rules
+
+Use `delegate_task` when isolated implementation or review would improve quality. The parent orchestrator remains responsible for final verification.
+
+Pass every implementer subagent:
+
+- assigned repo root or exact worktree path
+- branch name
+- phase number and title
+- phase objective and scope
+- expected files and forbidden files
+- phase dependencies and file ownership constraints
+- exact local verification commands
+- commit message format and commit keyword
+- instruction to avoid PR creation, CI polling, merge automation, destructive git operations, and branch cleanup
+
+Parallel mode requirements:
+
+- Each implementation subagent gets exactly one assigned worktree path.
+- The subagent must run all commands inside that worktree only, for example `workdir=/abs/path/to/worktree`.
+- Never dispatch multiple implementation subagents to the same worktree.
+- Never dispatch overlapping file scopes unless the plan explicitly says they are parallel-safe.
+- Do not let implementation subagents independently update the canonical phase status table in parallel branches. The orchestrator serializes status updates.
+
+Reviewer subagents may inspect files and run safe local commands, but they must not create PRs, watch CI, merge branches, or clean worktrees.
 
 ## Commit Protocol
 
-Commit message format: `plan:<plan-slug> phase:<N> <keyword>`. Keep messages short and do not add long bodies unless requested.
+Checkpoint commits happen at least at the end of each phase. More frequent commits are allowed only when a sub-step is independently useful, verified, and scoped.
+
+Commit message format:
+
+```text
+plan:<plan-slug> phase:<N> <keyword>
+```
+
+Examples:
+
+```text
+plan:skill-git-exec phase:1 scaffold
+plan:skill-git-exec phase:2 branch-rules
+plan:skill-git-exec phase:3 cron
+```
+
+Rules:
+
+- Keep commit messages terse. Do not add long bodies unless the user asks.
+- Every phase commit references both the plan slug and phase number.
+- Prefer committing implementation and final phase status update together after verification.
+- A separate `IN PROGRESS` claim/status commit is optional and only for coordination.
+- Before committing, inspect `git status --short` and relevant diffs.
+- After committing, verify `git status --short` again.
+
+Suggested command sequence:
+
+```bash
+git status --short
+git diff --stat
+git diff -- <phase-files>
+git add <phase-files> <plan-file>
+git commit -m "plan:<plan-slug> phase:<N> <keyword>"
+git status --short
+```
+
+Multiple commits within one phase are acceptable when the plan says so or the sub-step is a clean checkpoint:
+
+```text
+plan:parser-cleanup phase:2 tests
+plan:parser-cleanup phase:2 parser
+plan:parser-cleanup phase:2 docs
+```
 
 ## Cron Management
 
@@ -229,11 +333,51 @@ At the end of execution or cron runs, re-read the phase status table, run config
 
 ## Reconciliation
 
-Parallel phase branches and worktrees may be created by this workflow, but merging or reconciling those branches requires explicit user authorization. Report branch names, worktree paths, commits, verification results, and merge/conflict risks.
+No PR creation, no CI polling, no merge automation, and no automatic merge/reconciliation of phase branches are part of this skill. Use `github-pr-workflow` only as a contrast: this skill does not import the GitHub PR/CI lifecycle.
+
+Parallel phase branches and worktrees may be created by this workflow. Merging phase branches back into a base or plan branch requires explicit user authorization. Before asking for or performing reconciliation, report:
+
+- plan branch and phase branch names
+- assigned worktree paths
+- commits created for each phase
+- verification commands and real results
+- files changed by each phase
+- likely merge/conflict risks, especially around the canonical phase status table
+
+If status-table merge conflicts appear, stop and present the conflict. Do not auto-resolve status-table conflicts.
+
+Worktree cleanup is optional. Do not remove a worktree if `git status --short` inside that worktree shows uncommitted changes.
 
 ## Verification
 
-Validate plan and skill file structure locally, inspect relevant diffs before commits, run local verification commands, and re-check `git status --short` after committing.
+Local verification replaces PR/CI monitoring in this workflow. Use the commands written in the plan and the smallest extra checks needed to prove the phase. Examples:
+
+```bash
+# repository and branch state
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+git worktree list
+
+# branch validation and creation
+git check-ref-format --branch plan/<slug>
+git switch -c plan/<slug>
+
+# phase worktree creation
+git worktree add ../<repo>-plan-<slug>-phase-03 -b plan/<slug>-phase-03
+
+# local project checks, examples only
+pytest -q
+ruff check .
+python -m compileall .
+
+# commit and post-commit check
+git add <paths>
+git commit -m "plan:<plan-slug> phase:<N> <keyword>"
+git status --short
+```
+
+Always report the real verification commands run and their results. Parent-orchestrator verification is mandatory; do not rely only on subagent self-reports.
 
 ## Stop Conditions
 
