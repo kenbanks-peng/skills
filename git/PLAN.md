@@ -1,12 +1,12 @@
 # Git-Managed Plan Execution Skill Implementation Plan
 
-> **For Hermes:** Use `subagent-driven-development` to implement this plan task-by-task, but apply the git/branch/worktree/cron conventions specified here. This plan creates a new Hermes skill that coordinates plan execution, branch management, optional worktree isolation, checkpoint commits, and cron scheduling without PR or CI workflows.
+> **For Hermes:** Use `subagent-driven-development` to implement this plan task-by-task, but apply the git/branch/worktree/cron conventions specified here. This plan creates an in-repo/shared Hermes skill in this working directory. Do not create or modify any user-local Hermes skill location; the user will manually install the finished skill later.
 
-**Goal:** Create a reusable Hermes skill for executing implementation plans on named git branches with minimal phase status tracking, short plan/phase-based commit messages, safe parallel worktree execution, and optional cron-driven continuation.
+**Goal:** Create a reusable in-repo Hermes skill for authoring and executing git-managed implementation plans. The produced skill should help agents generate plans that are self-executing by future Hermes sessions and execute those plans with named branches, optional worktree isolation, minimal phase status tracking, short plan/phase checkpoint commits, local verification, and optional cron-driven continuation.
 
-**Architecture:** Add a new skill named `git-managed-plan-execution`. The skill will be an umbrella workflow that composes existing planning, git, subagent execution, and cron tooling into one operational protocol. Sequential execution uses a single plan branch. Parallel execution uses one phase branch per independent phase, checked out into a dedicated git worktree so subagents and cron runs never share a mutable working directory. It should not require GitHub PRs or CI monitoring.
+**Architecture:** Add a new skill named `git-managed-plan-execution` under `skills/software-development/git-managed-plan-execution/SKILL.md` in this repository. The skill is an umbrella workflow that composes existing planning, git, subagent execution, and cron tooling into one operational protocol. It must cover both plan authoring and plan execution. Sequential execution uses a single plan branch. Parallel execution uses one phase branch per independent phase, checked out into a dedicated git worktree so subagents and cron runs never share a mutable working directory. It should not require GitHub PRs or CI monitoring.
 
-**Tech Stack:** Hermes skills, `skill_manage`, local file tools, `git`, `git worktree`, `cronjob`, `todo`, `delegate_task`.
+**Tech Stack:** Hermes skills, local file tools (`write_file`, `patch`, `read_file`, `search_files`), `git`, `git worktree`, `cronjob`, `todo`, `delegate_task`, local terminal verification commands.
 
 ---
 
@@ -14,7 +14,19 @@
 
 The new skill must encode these workflow rules:
 
-1. Branch management is first-class.
+1. The skill is authored in-repo only.
+   - Create or edit `skills/software-development/git-managed-plan-execution/SKILL.md` in this working directory.
+   - Do not use `skill_manage(action='create')`; that writes to `~/.hermes/skills/`, which is not the desired target.
+   - Do not modify any Hermes user-local profile or skill directory.
+   - The user will manually install or copy the finished skill later.
+
+2. The skill must produce self-executing plans.
+   - When asked to create a plan, the skill must generate a plan that a fresh Hermes session can continue from disk without relying on chat history.
+   - Generated plans must include a clear goal, repo/workdir path or repo-relative paths, phase list, phase scopes, verification commands, branch strategy, optional worktree strategy, stop conditions, and a bottom `## Phase Status` table.
+   - Generated plans must state whether parallelism is allowed and, if so, include phase dependency or file-ownership metadata.
+   - Generated plans must state that PR creation, CI watching, merge automation, and destructive git operations are out of scope unless explicitly requested.
+
+3. Branch management is first-class.
    - The agent discovers the current repo state before execution.
    - The agent determines the base branch before creating plan or phase branches. Default to the current branch unless the user specifies otherwise; do not assume `main`.
    - The agent creates or switches to a named branch before implementation.
@@ -22,7 +34,7 @@ The new skill must encode these workflow rules:
    - Branch names must be short, lowercase, and filesystem/git-safe.
    - Branch names should be validated with `git check-ref-format --branch <branch>` before creation when generated programmatically.
 
-2. Worktree management is first-class for parallel execution.
+4. Worktree management is first-class for parallel execution, but not mandatory overhead for simple sequential work.
    - Worktrees do not replace branches; a worktree is a separate checkout of a branch.
    - Sequential mode normally uses one plan branch in the main working tree.
    - Parallel mode uses one phase branch per independent phase, with each phase branch checked out into its own worktree.
@@ -33,7 +45,7 @@ The new skill must encode these workflow rules:
    - Worktrees must not be removed if they contain uncommitted changes.
    - Worktree removal is cleanup, not required implementation; avoid destructive cleanup unless explicitly authorized or clearly safe.
 
-3. Plans must have a minimal phase status table at the bottom.
+5. Plans must have a minimal phase status table at the bottom.
    - Columns: `Number`, `Title`, `Status`.
    - Valid statuses:
      - `TODO`
@@ -48,7 +60,7 @@ The new skill must encode these workflow rules:
    - In parallel mode, avoid letting multiple phase branches independently modify the canonical status table. The orchestrator owns canonical status updates on the plan branch, or status updates must be serialized before reconciliation.
    - If status-table merge conflicts appear, stop and reconcile manually rather than auto-resolving.
 
-4. Commits are checkpoint-oriented and terse.
+6. Commits are checkpoint-oriented and terse.
    - Commit message format:
      - `plan:<plan-slug> phase:<N> <keyword>`
    - Examples:
@@ -60,17 +72,17 @@ The new skill must encode these workflow rules:
    - Prefer committing implementation and the final phase status update together after verification.
    - A separate `IN PROGRESS` claim commit is optional and should be used only when needed for coordination.
 
-5. No PR and no CI lifecycle.
+7. No PR and no CI lifecycle.
    - The skill must explicitly avoid PR creation, PR monitoring, CI watching, merge automation, and branch cleanup automation.
    - Verification is local: tests, lint, validation commands, file inspection, and git status.
    - Reconciliation or merging of parallel phase branches must be reported for user decision unless the user explicitly authorizes merge steps.
 
-6. Checkpoint commits happen at least at the end of each phase.
+8. Checkpoint commits happen at least at the end of each phase.
    - More frequent commits are allowed when a sub-step is independently useful and the working tree is clean.
    - Before committing, the agent must inspect `git status --short` and the relevant diff.
    - After committing, the agent must verify `git status --short` again.
 
-7. Cron management is integrated.
+9. Cron management is integrated as an optional continuation mode.
    - The skill prompts/asks the user for cron parameters when autonomous continuation is requested.
    - Required cron parameters:
      - schedule
@@ -85,6 +97,7 @@ The new skill must encode these workflow rules:
      - cron job identity for self-stop: job id if known, otherwise a unique job name
      - self-stop action when the whole plan is complete: default `pause`, or `remove` only if explicitly requested
    - The created cron prompt must be self-contained because cron jobs run in fresh sessions.
+   - The created cron job must include the required toolsets for the prompt: `terminal` for git/tests, `file` for plan edits, `cronjob` for self-stop behavior, and `delegation` only if the cron prompt may use subagents.
    - Cron jobs must not recursively create more cron jobs.
    - Sequential cron mode advances at most one next eligible `TODO` phase per run, then runs the completion verifier, reports, and exits; it must not start another phase in the same cron tick.
    - Sequential mode must stop if another phase is already `IN PROGRESS`.
@@ -93,7 +106,7 @@ The new skill must encode these workflow rules:
    - Cron runs must stop with a clear report when parameters are missing, when phase ownership is ambiguous, or when another runner appears to be working on the same phase.
    - Cron runs may pause or remove only their own continuation job, and only after a shallow completion verifier determines the entire plan is complete.
 
-8. The skill must include clear stop conditions.
+10. The skill must include clear stop conditions.
    - Stop when a phase is `BLOCKED`, `FAILED`, or needs user input.
    - Stop when local verification fails and no obvious fix is in scope.
    - Stop before destructive git operations unless explicitly authorized.
@@ -101,10 +114,12 @@ The new skill must encode these workflow rules:
    - Stop if parallel phases conflict on files, phase ownership, worktree assignment, or phase status updates.
    - Stop before merging/reconciling phase branches unless explicitly authorized.
 
-9. The skill must distinguish user-local and in-repo skill targets.
-   - User-local skill creation uses `skill_manage(action='create')` and writes under `~/.hermes/skills/`.
-   - In-repo/shared skill creation uses local file tools to create `skills/software-development/git-managed-plan-execution/SKILL.md` and then commits it.
-   - The implementer must confirm which target is intended before creating the skill when the user's request is ambiguous.
+11. The skill must keep Hermes dependencies explicit and conditional.
+   - Use file tools for reading/writing plans and the skill file.
+   - Use `terminal` for git, tests, and validation commands.
+   - Use `delegate_task` only when subagent execution or review is beneficial.
+   - Use `cronjob` only when scheduled continuation is requested.
+   - Use `todo` only for session-local tracking; durable status belongs in the plan file.
 
 ---
 
@@ -114,32 +129,34 @@ The new skill must encode these workflow rules:
 
 **Category:** `software-development`
 
-**Description:** `Use when executing implementation plans in a git repository with named branches, worktree-isolated parallel phases, phase status tables, checkpoint commits, and optional cron-driven continuation; excludes PR and CI workflows.`
+**Path:** `skills/software-development/git-managed-plan-execution/SKILL.md`
+
+**Description:** `Use when authoring or executing git-managed implementation plans with phase status tables, named branches, optional worktree-isolated parallel phases, terse checkpoint commits, local verification, and optional cron-driven continuation; excludes PR and CI workflows.`
 
 **Related skills:**
 - `writing-plans`
 - `subagent-driven-development`
-- `github-pr-workflow`
 - `github-repo-management`
 - `hermes-agent-skill-authoring`
 
-**Important note:** Although this skill relates to `github-pr-workflow`, it must explicitly disable PR/CI portions and use only the branch/commit/checkpoint ideas.
+**Contrast-only skill:**
+- `github-pr-workflow` — mention only as an explicit non-goal/contrast. Do not import PR, CI, merge, or GitHub review lifecycle behavior.
 
 ---
 
 ## Phase Details
 
-### Phase 1: Draft the skill skeleton
+### Phase 1: Draft the in-repo skill skeleton
 
-**Objective:** Create the new skill with valid frontmatter and a peer-matched structure.
+**Objective:** Create the new in-repo skill with valid frontmatter and a peer-matched structure.
 
 **Files:**
-- User-local option: create via `skill_manage(action='create')`: `software-development/git-managed-plan-execution/SKILL.md` under `~/.hermes/skills/`.
-- In-repo/shared option: create with local file tools at `skills/software-development/git-managed-plan-execution/SKILL.md` and commit it.
+- Create: `skills/software-development/git-managed-plan-execution/SKILL.md`
 
 **Steps:**
-1. Confirm whether the skill target is user-local or in-repo/shared.
-2. Draft valid YAML frontmatter:
+1. Confirm the repository root and that the target path is inside this working directory.
+2. Do not use `skill_manage(action='create')`; create the in-repo file with local file tools.
+3. Draft valid YAML frontmatter:
    - `name`
    - `description`
    - `version`
@@ -148,9 +165,12 @@ The new skill must encode these workflow rules:
    - `platforms`
    - `metadata.hermes.tags`
    - `metadata.hermes.related_skills`
-3. Add top-level sections:
+4. Add top-level sections:
    - Overview
    - When to Use
+   - Hermes Dependencies
+   - Plan Authoring Workflow
+   - Generated Plan Requirements
    - Inputs to Collect
    - Branch Management
    - Worktree Management
@@ -163,40 +183,59 @@ The new skill must encode these workflow rules:
    - Verification
    - Stop Conditions
    - Common Pitfalls
+   - Generated Plan Quality Checklist
    - Verification Checklist
-4. Validate that the content starts with `---`, has non-empty body, and description is under 1024 characters.
+5. Validate skill-authoring constraints:
+   - file starts at byte 0 with `---`
+   - YAML frontmatter closes before the body
+   - `name` is present, lowercase/hyphenated, and no more than 64 characters
+   - `description` is present and no more than 1024 characters
+   - body is non-empty
+   - total file is no more than 100,000 characters
 
 **Verification:**
-- For user-local creation: `skill_manage(action='create', ...)` succeeds.
-- For in-repo/shared creation: file exists at `skills/software-development/git-managed-plan-execution/SKILL.md` and validates locally.
-- Skill content is readable with `skill_view(name='git-managed-plan-execution')` if the current session can see it, or inspect the written file path if current session cache prevents discovery.
+- File exists at `skills/software-development/git-managed-plan-execution/SKILL.md`.
+- Frontmatter/content validation passes locally.
+- Skill is peer-matched and readable by direct file inspection.
+- No files under `~/.hermes/` were created or modified.
 
 **Commit:**
-- If this repository is used to track the plan only, commit after the skill is created if the user wants this `PLAN.md` tracked.
 - Commit message: `plan:git-managed-plan-execution phase:1 scaffold`
 
-### Phase 2: Encode branch, worktree, and plan-status protocol
+### Phase 2: Encode plan authoring, branch, worktree, and status-table protocol
 
-**Objective:** Add concrete branch naming, worktree isolation, and status table instructions.
+**Objective:** Add rules for producing self-executing plans and for branch naming, worktree isolation, and durable status tracking.
 
 **Files:**
-- Modify: `git-managed-plan-execution/SKILL.md`
+- Modify: `skills/software-development/git-managed-plan-execution/SKILL.md`
 
 **Steps:**
-1. Define base branch and branch naming rules:
+1. Define plan-authoring rules. Generated plans must include:
+   - goal and scope
+   - repository/workdir path or repo-relative paths
+   - plan slug
+   - phases with objectives, expected files/scope, steps, verification, and commit keyword
+   - branch strategy
+   - worktree strategy only if needed
+   - phase dependency or file-ownership metadata when parallelism is allowed
+   - stop conditions
+   - local verification commands
+   - explicit exclusions for PR/CI/merge automation unless separately requested
+   - bottom `## Phase Status` table
+2. Define base branch and branch naming rules:
    - Determine base branch from current branch unless the user specifies otherwise.
    - Do not assume `main`.
    - Plan branch: `plan/<slug>`
    - Phase branch: `plan/<slug>-phase-<NN>`
    - Optional user-provided branch override.
    - Validate generated branch names with `git check-ref-format --branch <branch>`.
-2. Define preflight git checks:
+3. Define preflight git checks:
    - `git status --short`
    - `git branch --show-current`
    - `git rev-parse --show-toplevel`
    - `git worktree list`
    - check for unrelated uncommitted changes.
-3. Define worktree rules:
+4. Define worktree rules:
    - Worktrees complement branches; they do not replace branches.
    - Sequential mode usually uses one plan branch in the current worktree.
    - Parallel mode uses one phase branch per independent phase and one worktree per phase branch.
@@ -208,7 +247,7 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
 
    - Subagents and cron prompts must receive the exact worktree path and must operate only inside that path.
    - Do not remove a worktree with uncommitted changes.
-4. Define the bottom-of-plan phase status table format:
+5. Define the bottom-of-plan phase status table format:
 
 ```markdown
 ## Phase Status
@@ -219,18 +258,18 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
 | 2 | Encode branch and plan-status protocol | TODO |
 ```
 
-5. Define valid statuses and transitions:
+6. Define valid statuses and transitions:
    - `TODO -> IN PROGRESS -> DONE`
    - `TODO/IN PROGRESS -> DEFERRED`
    - `IN PROGRESS -> FAILED`
    - `TODO/IN PROGRESS -> BLOCKED`
    - `TODO -> SKIPPED`
-6. Define parallel status-table ownership:
+7. Define parallel status-table ownership:
    - Sequential mode may update the table on the plan branch directly.
    - Parallel mode must not let several phase branches race to update the canonical table.
    - The orchestrator owns canonical status updates, or status updates are serialized on the plan branch.
    - Stop on status-table conflicts rather than auto-resolving.
-7. Optionally define phase dependency metadata for plans that need parallel execution:
+8. Add optional phase dependency metadata for plans that need parallel execution:
 
 ```markdown
 ## Phase Dependencies
@@ -241,17 +280,18 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
 ```
 
 **Verification:**
-- Read the skill and confirm base branch discovery, branch naming, branch validation, worktree rules, status table, canonical status ownership, and transitions are explicit.
+- Skill can produce a self-executing plan with all required metadata.
+- Skill makes base branch discovery, branch naming, branch validation, worktree rules, status table, canonical status ownership, and transitions explicit.
 
 **Commit:**
-- `plan:git-managed-plan-execution phase:2 branch-worktree-status`
+- `plan:git-managed-plan-execution phase:2 plan-branch-status`
 
 ### Phase 3: Encode execution, subagent, commit, and reconciliation workflow
 
 **Objective:** Add the phase execution loop, subagent worktree assignment rules, short commit-message policy, and manual reconciliation boundary.
 
 **Files:**
-- Modify: `git-managed-plan-execution/SKILL.md`
+- Modify: `skills/software-development/git-managed-plan-execution/SKILL.md`
 
 **Steps:**
 1. Define the execution loop:
@@ -266,10 +306,10 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
    - Mark phase `IN PROGRESS` before work when coordination requires a visible claim.
    - Execute scoped work.
    - Run local verification.
-   - Inspect diff/status.
    - Mark phase `DONE`, or `FAILED`/`BLOCKED`/`DEFERRED` as appropriate.
+   - Inspect diff/status.
    - Commit if clean and scoped.
-   - Prefer committing implementation and final status update together after verification.
+   - Prefer committing implementation and the final status update together after verification.
    - Commit a separate claim/status update only when needed for coordination.
 2. Define subagent delegation rules:
    - Pass the assigned repo root or worktree path explicitly.
@@ -297,16 +337,17 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
    - rechecking clean state
 - Skill includes subagent worktree assignment rules.
 - Skill includes a manual reconciliation boundary.
+- Skill commits final phase status with implementation by default, not as a separate default commit.
 
 **Commit:**
 - `plan:git-managed-plan-execution phase:3 execution-commits`
 
 ### Phase 4: Add cron integration
 
-**Objective:** Add a cron-driven continuation workflow that asks for required parameters and creates a self-contained cron job.
+**Objective:** Add a cron-driven continuation workflow that asks for required parameters and creates a self-contained cron job only when requested.
 
 **Files:**
-- Modify: `git-managed-plan-execution/SKILL.md`
+- Modify: `skills/software-development/git-managed-plan-execution/SKILL.md`
 
 **Steps:**
 1. Add “When to use cron” guidance:
@@ -343,7 +384,10 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
    - shallow completion/signoff verifier behavior
    - accepted terminal statuses for plan completion
    - self-stop behavior: list cron jobs first, then pause/remove only this continuation job after completion verification passes
-4. Add `cronjob(action='create', ...)` example.
+4. Add `cronjob(action='create', ...)` example with `enabled_toolsets` that match the prompt:
+   - include `terminal` and `file` for normal execution
+   - include `cronjob` when self-stop behavior is expected
+   - include `delegation` only if subagents may be used
 5. Add guidance for listing/updating/removing jobs:
    - always `cronjob(action='list')` before update/pause/resume/remove.
 6. Define cron stop behavior:
@@ -372,23 +416,23 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
 - Skill defines self-stop behavior for completed plans.
 - Skill permits only self-pause/self-remove cron management after completion verification.
 - Skill says cron must not start another phase after completing one sequential phase.
+- Cron examples include required `enabled_toolsets`.
 
 **Commit:**
 - `plan:git-managed-plan-execution phase:4 cron`
 
 ### Phase 5: Validate, review, and harden the skill
 
-**Objective:** Verify the skill is actionable, non-duplicative, and safe.
+**Objective:** Verify the skill is actionable, coherent as a plan-authoring and plan-execution skill, non-duplicative, and safe.
 
 **Files:**
-- Modify: `git-managed-plan-execution/SKILL.md` if review finds gaps.
+- Modify: `skills/software-development/git-managed-plan-execution/SKILL.md` if review finds gaps.
 
 **Steps:**
-1. Run a local frontmatter/content validation script or inspect via skill tooling.
+1. Run a local frontmatter/content validation script or inspect via skill tooling rules.
 2. Compare against related skills:
    - `writing-plans`
    - `subagent-driven-development`
-   - `github-pr-workflow`
    - `github-repo-management`
    - `hermes-agent-skill-authoring`
 3. Confirm the new skill does not duplicate full PR/CI workflows.
@@ -399,13 +443,16 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
 8. Confirm status-table ownership is safe in parallel mode.
 9. Confirm cron runs cannot recursively create cron jobs or double-claim phases.
 10. Confirm merge/reconciliation remains manual unless explicitly authorized.
-11. Optionally dispatch a reviewer subagent for spec compliance and quality review.
+11. Confirm generated plans are self-executing by future agents.
+12. Confirm generated plans include phase scopes, verification commands, branch/worktree strategy, stop conditions, and the bottom status table.
+13. Optionally dispatch a reviewer subagent for spec compliance and quality review.
 
 **Verification:**
 - Frontmatter valid.
-- Description under 1024 characters.
+- Description no more than 1024 characters.
 - Body contains required workflow sections.
-- Branch, worktree, commit, status table, cron, subagent, and reconciliation requirements from this `PLAN.md` are all represented.
+- Branch, worktree, commit, status table, cron, subagent, generated-plan, and reconciliation requirements from this `PLAN.md` are all represented.
+- No user-local Hermes skill paths were created or modified.
 
 **Commit:**
 - `plan:git-managed-plan-execution phase:5 validate`
@@ -416,18 +463,21 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
 
 The skill is complete when:
 
-- `git-managed-plan-execution` exists as a user-local Hermes skill or an in-repo/shared skill, depending on the confirmed target.
-- The skill provides a single coordinated plan-execution workflow.
+- `skills/software-development/git-managed-plan-execution/SKILL.md` exists in this working directory.
+- The skill provides a single coordinated plan-authoring and plan-execution workflow.
+- Generated plans are self-executing by fresh Hermes sessions without chat history.
+- Generated plans include phase scopes, verification commands, branch strategy, optional worktree strategy, stop conditions, and a bottom `## Phase Status` table.
 - Base branch discovery is explicit and does not assume `main`.
 - Branch management is explicit.
-- Worktree management is explicit for parallel execution.
+- Worktree management is explicit for parallel execution and optional for simple sequential work.
 - Parallel execution uses distinct phase branches and distinct worktrees.
 - Bottom-of-plan phase status table is required and specified.
 - Parallel status-table ownership is safe and does not encourage conflicting branch edits.
 - Commit messages are short and reference plan + phase.
 - PR and CI workflows are explicitly excluded.
 - Merge/reconciliation automation is excluded unless explicitly authorized.
-- Cron creation and cron management are integrated.
+- Cron creation and cron management are integrated as optional continuation behavior.
+- Cron prompts are self-contained and include required toolsets.
 - Cron double-claim prevention and stop behavior are documented.
 - Sequential cron runs execute at most one phase per run and then exit.
 - A shallow completion/signoff verifier is documented.
@@ -436,17 +486,21 @@ The skill is complete when:
 - Subagent worktree assignment is documented.
 - Stop conditions and safety rules are documented.
 - The skill has been validated and reviewed.
+- No files under `~/.hermes/` were created or modified by this plan.
 
 ---
 
 ## What Not To Do
 
+- Do not create or modify a user-local Hermes skill as part of this plan.
+- Do not use `skill_manage(action='create')` for this in-repo skill.
 - Do not create PR automation in this skill.
 - Do not add CI monitoring or CI auto-fix loops.
 - Do not require GitHub; local git is sufficient.
 - Do not use long commit bodies by default.
 - Do not assume phases are parallel-safe unless the plan or user says so.
 - Do not use worktrees as a replacement for branches; use worktrees as isolated checkouts of branches.
+- Do not require worktrees for simple sequential work.
 - Do not run multiple workers in the same worktree.
 - Do not let cron jobs recursively create more cron jobs.
 - Do not let a sequential cron run begin a second phase after completing one phase.
@@ -467,8 +521,8 @@ The skill is complete when:
 
 | Number | Title | Status |
 |---:|---|---|
-| 1 | Draft the skill skeleton | TODO |
-| 2 | Encode branch, worktree, and plan-status protocol | TODO |
+| 1 | Draft the in-repo skill skeleton | TODO |
+| 2 | Encode plan authoring, branch, worktree, and status-table protocol | TODO |
 | 3 | Encode execution, subagent, commit, and reconciliation workflow | TODO |
 | 4 | Add cron integration | TODO |
 | 5 | Validate, review, and harden the skill | TODO |
