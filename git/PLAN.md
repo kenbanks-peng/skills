@@ -79,15 +79,19 @@ The new skill must encode these workflow rules:
      - execution mode: sequential or parallel
      - branch naming mode: plan branch or phase branch
      - worktree mode and worktree path pattern for parallel execution
-     - max phases/tasks per run
+     - max phases/tasks per run; sequential cron defaults to exactly `1` and must not continue to a second phase in the same run unless the user explicitly overrides batching
      - verification command(s)
      - delivery target, if not current chat
+     - cron job identity for self-stop: job id if known, otherwise a unique job name
+     - self-stop action when the whole plan is complete: default `pause`, or `remove` only if explicitly requested
    - The created cron prompt must be self-contained because cron jobs run in fresh sessions.
    - Cron jobs must not recursively create more cron jobs.
-   - Sequential mode advances only the next eligible `TODO` phase and must stop if another phase is already `IN PROGRESS`.
+   - Sequential cron mode advances at most one next eligible `TODO` phase per run, then runs the completion verifier, reports, and exits; it must not start another phase in the same cron tick.
+   - Sequential mode must stop if another phase is already `IN PROGRESS`.
    - Parallel mode may work on independent phases using distinct phase branches and distinct worktrees.
    - Cron runs must avoid double-claiming phases by re-reading the plan from disk immediately before selecting work.
    - Cron runs must stop with a clear report when parameters are missing, when phase ownership is ambiguous, or when another runner appears to be working on the same phase.
+   - Cron runs may pause or remove only their own continuation job, and only after a shallow completion verifier determines the entire plan is complete.
 
 8. The skill must include clear stop conditions.
    - Stop when a phase is `BLOCKED`, `FAILED`, or needs user input.
@@ -154,6 +158,7 @@ The new skill must encode these workflow rules:
    - Execution Workflow
    - Commit Protocol
    - Cron Management
+   - Completion / Signoff Verifier
    - Reconciliation
    - Verification
    - Stop Conditions
@@ -316,9 +321,11 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
    - Sequential or parallel phases?
    - Branch naming mode: plan branch or phase branch?
    - Worktree mode and path pattern for parallel phases?
-   - Max phases/tasks per run?
+   - Max phases/tasks per run? For sequential cron, default to `1` and do not batch phases unless explicitly requested.
    - Verification command(s)?
    - Delivery target, if not current chat?
+   - Cron job identity for self-stop: job id if known, otherwise a unique job name?
+   - Self-stop action when the whole plan is complete: `pause` by default, or `remove` only if explicitly requested?
 3. Add cron prompt template:
    - self-contained repo path
    - plan path
@@ -332,6 +339,10 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
    - no PR / no CI
    - no merge automation
    - no recursive cron creation
+   - sequential cron must execute at most one phase per run, then stop even if more `TODO` phases remain
+   - shallow completion/signoff verifier behavior
+   - accepted terminal statuses for plan completion
+   - self-stop behavior: list cron jobs first, then pause/remove only this continuation job after completion verification passes
 4. Add `cronjob(action='create', ...)` example.
 5. Add guidance for listing/updating/removing jobs:
    - always `cronjob(action='list')` before update/pause/resume/remove.
@@ -340,11 +351,27 @@ git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
    - Cron must stop and report when parameters are missing.
    - Cron must stop if phase ownership is ambiguous, another phase is `IN PROGRESS` in sequential mode, or another runner appears to be working on the selected phase.
    - Cron must stop rather than auto-resolving worktree, branch, or status-table conflicts.
+   - Cron-run sessions must not create additional cron jobs. The only allowed cron management side effect inside a cron run is stopping its own continuation job after the completion verifier passes.
+   - Default self-stop action is `pause`; use `remove` only if the user explicitly requested removal.
+7. Add a shallow completion/signoff verifier:
+   - It runs at the end of every cron run, especially sequential runs.
+   - It is read-only except for the narrow self-stop cron action.
+   - It must not start another phase, perform broad semantic review, rewrite implementation, reconcile branches, or make speculative fixes.
+   - It re-reads the plan from disk, parses the bottom `## Phase Status` table, runs only configured safe verification commands, checks `git status --short`, and decides whether the plan lifecycle is complete.
+   - Default plan-complete status is every phase `DONE`. `SKIPPED` and `DEFERRED` count as complete only if explicitly accepted by the user or plan. `TODO`, `IN PROGRESS`, `BLOCKED`, and `FAILED` are not complete.
+   - If complete and verification passes, list cron jobs and pause/remove only this continuation job. If incomplete or ambiguous, leave cron active and report the reason.
+8. Add an end-of-run cron report format with phase attempted, phase result, verification result, commit, completion-verifier result, cron action, and next expected action.
 
 **Verification:**
 - Skill includes a complete cron prompt template that can run without current-chat context.
 - Skill states cron runs must not ask questions and must stop with a clear report when parameters are missing.
 - Skill states cron runs must avoid double-claiming phases and must use distinct worktrees for parallel execution.
+- Skill states sequential cron executes at most one phase per run and exits.
+- Skill includes a shallow completion/signoff verifier.
+- Skill defines accepted terminal statuses for plan completion.
+- Skill defines self-stop behavior for completed plans.
+- Skill permits only self-pause/self-remove cron management after completion verification.
+- Skill says cron must not start another phase after completing one sequential phase.
 
 **Commit:**
 - `plan:git-managed-plan-execution phase:4 cron`
@@ -402,6 +429,9 @@ The skill is complete when:
 - Merge/reconciliation automation is excluded unless explicitly authorized.
 - Cron creation and cron management are integrated.
 - Cron double-claim prevention and stop behavior are documented.
+- Sequential cron runs execute at most one phase per run and then exit.
+- A shallow completion/signoff verifier is documented.
+- Cron self-stop behavior is documented, defaults to pausing the continuation job, and is allowed only after completion verification passes.
 - Sequential vs parallel phase execution is documented.
 - Subagent worktree assignment is documented.
 - Stop conditions and safety rules are documented.
@@ -419,6 +449,11 @@ The skill is complete when:
 - Do not use worktrees as a replacement for branches; use worktrees as isolated checkouts of branches.
 - Do not run multiple workers in the same worktree.
 - Do not let cron jobs recursively create more cron jobs.
+- Do not let a sequential cron run begin a second phase after completing one phase.
+- Do not let the completion verifier perform implementation work.
+- Do not stop cron when any phase is `TODO`, `IN PROGRESS`, `BLOCKED`, or `FAILED`.
+- Do not stop cron on `DEFERRED` or `SKIPPED` phases unless those statuses are explicitly accepted as terminal for this plan.
+- Do not remove the cron job by default; pause it unless the user requested removal.
 - Do not let cron jobs double-claim the same phase.
 - Do not let multiple parallel branches race to update the canonical status table.
 - Do not auto-resolve status-table merge conflicts.
