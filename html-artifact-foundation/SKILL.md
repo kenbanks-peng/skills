@@ -19,6 +19,8 @@ Use this as the shared base for agent-generated single-file HTML artifacts. The 
 
 Default to one portable `.html` file with embedded CSS, embedded JavaScript only when it earns its place, inline SVG where useful, and no build step. Category skills should reference this skill for shared rules rather than repeating them.
 
+Unless the user asks for a different look, use a Catppuccin Mocha dark theme for diagrams and diagram-like visualizations. Prefer `#1e1e2e` as the canvas, `#313244`/`#45475a` for surfaces and strokes, `#cdd6f4` for primary text, `#a6adc8` for secondary text, and accents from Mocha (`#89b4fa`, `#a6e3a1`, `#f9e2af`, `#f38ba8`, `#cba6f7`, `#94e2d5`). Keep contrast accessible and only override this default when the user's brand, content, or explicit instructions call for another palette.
+
 The patterns are distilled from the public `html-effectiveness` demos. Do not copy demo code or prose unless the user explicitly asks and the copied material keeps the source attribution and Apache-2.0 notice.
 
 ## When to Use

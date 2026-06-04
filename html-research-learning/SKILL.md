@@ -17,6 +17,8 @@ metadata:
 
 This skill creates self-contained HTML artifacts for interactive explainers for concepts, features, and research. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
+For diagrams and diagram-like visualizations, inherit the foundation default: Catppuccin Mocha dark theme unless the user asks otherwise.
+
 Local examples: `examples/14-research-feature-explainer.html`, `examples/15-research-concept-explainer.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use

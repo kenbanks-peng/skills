@@ -17,6 +17,8 @@ metadata:
 
 This skill creates self-contained HTML artifacts for visual review of tokens, components, variants, and states. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
+For diagrams and diagram-like visualizations, inherit the foundation default: Catppuccin Mocha dark theme unless the user asks otherwise.
+
 Local examples: `examples/05-design-system.html`, `examples/06-component-variants.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use

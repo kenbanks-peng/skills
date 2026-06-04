@@ -17,6 +17,8 @@ metadata:
 
 This skill creates self-contained HTML artifacts for reviewing diffs, explaining PRs, and mapping code structure. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
+For diagrams and diagram-like visualizations, inherit the foundation default: Catppuccin Mocha dark theme unless the user asks otherwise.
+
 Local examples: `examples/03-code-review-pr.html`, `examples/17-pr-writeup.html`, `examples/04-code-understanding.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use
