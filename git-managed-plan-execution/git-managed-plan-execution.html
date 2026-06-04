@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cron-driven Phase 0 Logic Diagram</title>
+  <title>CRON Bootstrap vs Phase 0 Logic Diagram</title>
   <style>
     :root {
       color-scheme: dark;
@@ -153,9 +153,9 @@
 <body>
   <header>
     <p class="eyebrow">HTML logic diagram</p>
-    <h1>Cron-driven Phase 0 flow</h1>
-    <p class="subtitle">A scan-first diagram of how an interactive bootstrap run hands off to cron continuation, why Phase 0 is treated as bootstrap state, and where each run must stop, commit, verify, or self-pause.</p>
-    <p class="source">Source evidence: <code>cron-driven-phase-0-flow.md</code></p>
+    <h1>CRON bootstrap vs Phase 0</h1>
+    <p class="subtitle">A scan-first diagram of how an interactive bootstrap run hands off to scheduled continuation, why numbered Phase 0 is not automatically bootstrap state, and where each run must stop, commit, verify, or self-pause.</p>
+    <p class="source">Source evidence: <code>SKILL.md</code> / <code>## CRON Bootstrap</code></p>
   </header>
 
   <main>
@@ -176,7 +176,7 @@
     <section class="card" aria-labelledby="overview-title">
       <div class="section-title">
         <h2 id="overview-title">One-page lifecycle</h2>
-        <p class="note">Interactive run bootstraps once; cron ticks execute implementation phases only.</p>
+        <p class="note">Interactive run bootstraps once; cron ticks execute normal implementation phases, including Phase 0 when it is real work.</p>
       </div>
       <div class="logic-map" role="img" aria-label="Logic map showing interactive bootstrap, cron tick execution, and completion verifier.">
         <article class="flow-panel">
@@ -195,7 +195,7 @@
               </div>
               <div>
                 <span class="path-label">yes</span>
-                <div class="branch compact"><strong>Already bootstrapped?</strong><span>yes = do not create another job</span></div>
+                <div class="branch compact"><strong>Explicit CRON bootstrap row done?</strong><span>yes = do not create another job</span></div>
               </div>
             </div>
             <div class="split">
@@ -209,29 +209,29 @@
               </div>
             </div>
             <div class="connector">↓</div>
-            <div class="step cron"><strong>Record Cron Continuation + mark Phase 0 DONE</strong><span>Commit scoped plan update if git-managed.</span></div>
+            <div class="step cron"><strong>Record CRON Bootstrap + mark only bootstrap row DONE</strong><span>Never mark implementation Phase 0 done just because cron was created.</span></div>
             <div class="connector">↓</div>
-            <div class="stopbox"><strong>Stop immediately before Phase 1</strong><span>Interactive bootstrap does not start implementation work.</span></div>
+            <div class="stopbox"><strong>Stop immediately before implementation work</strong><span>Interactive bootstrap does not start Phase 0, Phase 1, or any other phase.</span></div>
           </div>
         </article>
 
         <article class="flow-panel">
           <h3>Cron tick run</h3>
-          <p class="panel-note">Fresh session; never creates cron and never executes Phase 0.</p>
+          <p class="panel-note">Fresh session; never creates cron and treats only an explicit CRON bootstrap row as bootstrap state.</p>
           <div class="flow">
-            <div class="step preflight"><strong>Read plan, Phase Status, and Cron Continuation</strong><span>Missing required cron params stop as ambiguity.</span></div>
+            <div class="step preflight"><strong>Read plan, Phase Status, and CRON Bootstrap</strong><span>Missing required cron params stop as ambiguity.</span></div>
             <div class="connector">↓</div>
             <div class="step preflight"><strong>Git preflight</strong><span>Stop on unrelated uncommitted changes.</span></div>
             <div class="connector">↓</div>
-            <div class="branch"><strong>Phase 0/bootstrap exists?</strong><span>If present, it must already be DONE.</span></div>
+            <div class="branch"><strong>Explicit CRON bootstrap row exists?</strong><span>If present, it must already be DONE.</span></div>
             <div class="split">
               <div>
                 <span class="path-label">not DONE</span>
-                <div class="stopbox compact"><strong>Stop: bootstrap incomplete</strong><span>Cron must not execute Phase 0.</span></div>
+                <div class="stopbox compact"><strong>Stop: bootstrap incomplete</strong><span>Cron must not execute bootstrap setup.</span></div>
               </div>
               <div>
                 <span class="path-label">DONE / absent</span>
-                <div class="step phase compact"><strong>Ignore Phase 0 for selection</strong><span>Select implementation work only.</span></div>
+                <div class="step phase compact"><strong>Select normal implementation work</strong><span>Phase 0 is eligible if it is real implementation work.</span></div>
               </div>
             </div>
             <div class="connector">↓</div>
@@ -239,7 +239,7 @@
             <div class="split">
               <div>
                 <span class="path-label">sequential</span>
-                <div class="step phase compact"><strong>First TODO phase after Phase 0</strong><span>At most one phase per tick; stop if another phase is in progress.</span></div>
+                <div class="step phase compact"><strong>First eligible TODO phase</strong><span>At most one phase per tick; stop if another phase is in progress.</span></div>
               </div>
               <div>
                 <span class="path-label">parallel</span>
@@ -283,11 +283,11 @@
       <div class="insights">
         <article class="insight">
           <strong>1. Bootstrap is a one-shot handoff</strong>
-          <p>The interactive run creates the cron continuation, records concrete continuation config, marks Phase 0 done when it is the bootstrap phase, commits the plan update, then stops before Phase 1.</p>
+          <p>The interactive run creates the cron continuation, records concrete bootstrap config, marks only an explicit CRON bootstrap row done, commits the plan update, then stops before any implementation work.</p>
         </article>
         <article class="insight">
           <strong>2. Cron never does bootstrap work</strong>
-          <p>Each cron tick starts in a fresh session, reads the plan/config, requires Phase 0/bootstrap to already be done, and skips Phase 0 during implementation selection.</p>
+          <p>Each cron tick starts in a fresh session, reads the plan/config, requires any explicit CRON bootstrap row to already be done, and may select Phase 0 if Phase 0 is normal implementation work.</p>
         </article>
         <article class="insight">
           <strong>3. Completion is verified every tick</strong>
@@ -299,22 +299,22 @@
     <section class="card" aria-labelledby="rules-title">
       <div class="section-title">
         <h2 id="rules-title">Allowed vs forbidden actions</h2>
-        <p class="note">Phase 0 is bootstrap state when cron continuation is enabled.</p>
+        <p class="note">Phase 0 is bootstrap state only when it is explicitly titled CRON bootstrap.</p>
       </div>
       <div class="rules">
         <article>
           <h3>Interactive run</h3>
           <ul class="rule-list">
             <li><span class="badge ok">✓</span><span>May create the cron job with a self-contained prompt.</span></li>
-            <li><span class="badge ok">✓</span><span>Records <code>## Cron Continuation</code>, marks bootstrap/Phase 0 done, and commits the scoped plan update.</span></li>
-            <li><span class="badge no">×</span><span>Must not start Phase 1 in the same run after cron bootstrap succeeds.</span></li>
+            <li><span class="badge ok">✓</span><span>Records <code>## CRON Bootstrap</code>, marks only an explicit bootstrap row done, and commits the scoped plan update.</span></li>
+            <li><span class="badge no">×</span><span>Must not start Phase 0, Phase 1, or any other implementation work after cron bootstrap succeeds.</span></li>
           </ul>
         </article>
         <article>
           <h3>Cron tick</h3>
           <ul class="rule-list">
-            <li><span class="badge no">×</span><span>Must not create another cron job and must not execute Phase 0.</span></li>
-            <li><span class="badge ok">✓</span><span>Starts with the first eligible TODO implementation phase after Phase 0 in sequential mode.</span></li>
+            <li><span class="badge no">×</span><span>Must not create another cron job and must not execute an explicit CRON bootstrap row.</span></li>
+            <li><span class="badge ok">✓</span><span>Starts with the first eligible TODO implementation phase, including Phase 0 if it is normal work.</span></li>
             <li><span class="badge ok">✓</span><span>Self-pauses by default, or removes itself only when explicitly configured.</span></li>
           </ul>
         </article>
@@ -323,7 +323,7 @@
   </main>
 
   <footer>
-    Generated as a self-contained HTML artifact from <code>cron-driven-phase-0-flow.md</code>. No remote assets or copied demo code.
+    Generated as a self-contained HTML artifact from <code>SKILL.md</code>. No remote assets or copied demo code.
   </footer>
 </body>
 </html>

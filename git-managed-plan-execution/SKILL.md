@@ -549,6 +549,7 @@ Stop when local verification fails without an obvious in-scope fix, when user in
 4. Creating PR or CI lifecycle automation when only local git execution was requested.
 5. Using scheduled continuation without a self-contained cron prompt.
 6. Creating cron and then continuing into Phase 1 in the same initial run. CRON bootstrap is a gate: record the cron state, update only an explicit CRON bootstrap status row if present, report, and stop.
+7. Treating any numbered `Phase 0` as bootstrap. Only an explicit `CRON bootstrap` status row is bootstrap state. A real implementation Phase 0 remains normal implementation work and may be selected by the next cron event.
 
 ## Generated Plan Quality Checklist
 
