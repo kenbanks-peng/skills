@@ -312,7 +312,6 @@ PY
 
 ## What not to do yet
 
-- Do not copy the full demo files verbatim into skills unless attribution and licensing are intentionally handled.
 - Do not create a build system; the point is self-contained HTML.
 - Do not require screenshots or browser automation for every skill use; use browser verification when the artifact has meaningful interaction or visual complexity.
 - Do not collapse all categories into one giant skill unless implementation proves the category skills are too thin.
