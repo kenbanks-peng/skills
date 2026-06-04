@@ -39,27 +39,177 @@ Do not use this skill for one-off edits that do not need durable phase tracking,
 
 ## Plan Authoring Workflow
 
-When asked to create a plan, write it so a fresh Hermes session can resume from the file alone. Include the repository path or repo-relative paths, clear phase scopes, branch strategy, verification commands, stop conditions, and the bottom `## Phase Status` table.
+When asked to create a plan, produce a self-executing document. Assume the future executor has the file and the repository, but not the current chat.
+
+1. Discover and record repository context:
+   - repository root or workdir path
+   - current branch as the default base branch, unless the user specifies a base
+   - relevant repo-relative paths
+   - local verification commands that are safe to run
+2. Choose a short plan slug, lowercase and git/filesystem-safe.
+3. Decide execution mode:
+   - `sequential`: one plan branch in the current worktree unless the user requests isolation
+   - `parallel`: one branch and one worktree per independent phase
+4. Write phases with objective, scope, expected files, steps, verification commands, and commit keyword.
+5. State whether parallelism is allowed. If it is, include phase dependencies or file-ownership metadata.
+6. State explicit exclusions: no PR creation, CI watching, merge automation, destructive git operations, or branch/worktree cleanup unless explicitly requested.
+7. Put `## Phase Status` at the bottom of the plan and keep it as the durable control surface.
 
 ## Generated Plan Requirements
 
-A generated plan must include a goal, repo/workdir path or repo-relative paths, plan slug, phases, local verification commands, branch strategy, optional worktree strategy, stop conditions, and explicit exclusions for PR/CI/merge automation unless explicitly requested.
+Every generated plan must include:
+
+- `Goal`: one clear outcome.
+- `Scope`: in-scope and out-of-scope work.
+- `Repository`: absolute repo/workdir path or explicit repo-relative paths.
+- `Plan slug`: short, lowercase, git-safe name used in branches and commits.
+- `Base branch`: discovered from `git branch --show-current` unless the user overrides it. Do not assume `main`.
+- `Execution mode`: sequential or parallel.
+- `Branch strategy`:
+  - plan branch: `plan/<slug>`
+  - phase branch: `plan/<slug>-phase-<NN>`
+  - any user-provided branch override
+- `Worktree strategy`: required for parallel execution, optional for sequential execution.
+- `Phase list`: objective, files/scope, steps, verification commands, and commit keyword for each phase.
+- `Phase Dependencies` or file ownership metadata when parallelism is allowed.
+- `Local verification commands`: tests, lint, validation scripts, inspections, or smoke checks.
+- `Stop conditions`: user input, failed verification, unrelated changes, destructive git actions, conflicts, or ambiguous ownership.
+- `Explicit exclusions`: no PR creation, CI polling, merge automation, or destructive cleanup unless separately authorized.
+- Bottom `## Phase Status` table with `Number`, `Title`, and `Status`.
+
+Use this optional metadata table when parallel execution is possible:
+
+```markdown
+## Phase Dependencies
+
+| Phase | Depends On | Parallel Safe With | Primary Files |
+|---:|---|---|---|
+| 1 | - | 2, 3 | `src/a.py`, `tests/test_a.py` |
+| 2 | - | 1, 3 | `src/b.py`, `tests/test_b.py` |
+```
 
 ## Inputs to Collect
 
-Collect the goal, repo path, desired plan path, plan slug, base branch override if any, sequential vs parallel execution mode, phase scopes, local verification commands, and whether cron continuation is requested.
+Collect these before authoring or executing:
+
+- Goal and scope.
+- Repository/workdir path and plan path.
+- Plan slug. Generate one only if the user did not provide it.
+- Base branch override, if any. Otherwise discover the current branch.
+- Sequential vs parallel mode.
+- Phase scopes, expected files, dependencies, and file ownership.
+- Local verification commands.
+- Branch naming mode: plan branch or phase branch.
+- Worktree mode and path pattern for parallel phases.
+- Whether cron continuation is requested.
+- Any accepted terminal statuses besides `DONE` for plan completion.
 
 ## Branch Management
 
-Discover the current repository state before execution. Determine the base branch from the current branch unless the user specifies otherwise. Create or switch to a named branch before implementation.
+Branch management is first-class. Always discover the repo state before creating or switching branches:
+
+```bash
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+git worktree list
+```
+
+Rules:
+
+- Default the base branch to the current branch unless the user specifies otherwise. Never assume `main`.
+- Stop if `git status --short` shows unrelated uncommitted changes. Ask before touching or moving them.
+- Sequential mode normally uses one plan branch: `plan/<slug>`.
+- Parallel mode normally uses phase branches: `plan/<slug>-phase-<NN>`.
+- User-provided branch names are allowed, but still verify they are safe for the intended operation.
+- Generated branch names must be short, lowercase, and git/filesystem-safe.
+- Validate generated names before creation:
+
+```bash
+git check-ref-format --branch plan/<slug>
+git check-ref-format --branch plan/<slug>-phase-03
+```
+
+Create or switch only after validation and status checks:
+
+```bash
+branch=plan/<slug>
+git check-ref-format --branch "$branch"
+if git show-ref --verify --quiet "refs/heads/$branch"; then
+  git switch "$branch"
+else
+  git switch -c "$branch"
+fi
+```
 
 ## Worktree Management
 
-Use the main worktree for simple sequential work. Use separate phase branches and separate worktrees for parallel phase work. Worktrees complement branches; they do not replace them.
+Worktrees complement branches; they do not replace branches. A worktree is a separate checkout of one branch.
+
+Rules:
+
+- Run `git worktree list` before creating or assigning worktrees.
+- Sequential mode normally uses the current worktree on `plan/<slug>`; do not add worktree overhead unless useful.
+- Parallel mode uses one phase branch per independent phase and exactly one worktree per phase branch.
+- Never run two workers in the same worktree.
+- Never assign parallel phases to overlapping file scopes unless the plan explicitly confirms they are independent.
+- Pass the assigned worktree path explicitly to every subagent and cron prompt.
+- Do not remove worktrees with uncommitted changes. Worktree removal is cleanup, not required implementation.
+
+Suggested parallel worktree path:
+
+```bash
+../<repo>-plan-<slug>-phase-<NN>
+```
+
+Suggested creation command:
+
+```bash
+git worktree add ../<repo>-plan-<slug>-phase-<NN> -b plan/<slug>-phase-<NN>
+```
+
+Before removing a worktree, if cleanup is explicitly authorized, verify it is clean from inside that worktree:
+
+```bash
+git -C ../<repo>-plan-<slug>-phase-<NN> status --short
+```
+
+If any output appears, do not remove it.
 
 ## Plan Phase Status Table
 
-Every generated git-managed plan must end with a minimal `## Phase Status` table containing `Number`, `Title`, and `Status` columns. Valid statuses are `TODO`, `IN PROGRESS`, `DONE`, `DEFERRED`, `FAILED`, `BLOCKED`, and `SKIPPED`.
+Every generated git-managed plan must end with this durable status table:
+
+```markdown
+## Phase Status
+
+| Number | Title | Status |
+|---:|---|---|
+| 1 | Draft the skill skeleton | TODO |
+| 2 | Encode branch and plan-status protocol | TODO |
+```
+
+Valid statuses:
+
+- `TODO`
+- `IN PROGRESS`
+- `DONE`
+- `DEFERRED`
+- `FAILED`
+- `BLOCKED`
+- `SKIPPED`
+
+Allowed transitions:
+
+- `TODO -> IN PROGRESS -> DONE`
+- `TODO/IN PROGRESS -> DEFERRED`
+- `IN PROGRESS -> FAILED`
+- `TODO/IN PROGRESS -> BLOCKED`
+- `TODO -> SKIPPED`
+
+Sequential status ownership: the active execution branch may update the canonical table directly.
+
+Parallel status ownership: do not let multiple phase branches race to update the canonical table. The orchestrator owns canonical status updates on the plan branch, or status updates must be serialized before reconciliation. If status-table conflicts appear, stop for manual reconciliation; do not auto-resolve them.
 
 ## Execution Workflow
 
