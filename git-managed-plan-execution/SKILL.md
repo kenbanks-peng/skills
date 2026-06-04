@@ -73,6 +73,7 @@ Every generated plan must include:
 - `Phase list`: objective, files/scope, steps, verification commands, and commit keyword for each phase.
 - `Phase Dependencies` or file ownership metadata when parallelism is allowed.
 - `Local verification commands`: tests, lint, validation scripts, inspections, or smoke checks.
+- If cron continuation is requested, a durable `## Cron Continuation` section with the concrete cron configuration and bootstrap rule. Keep the generic cron decision procedure in this skill; plans record only the selected cron state.
 - `Stop conditions`: user input, failed verification, unrelated changes, destructive git actions, conflicts, or ambiguous ownership.
 - `Explicit exclusions`: no PR creation, CI polling, merge automation, or destructive cleanup unless separately authorized.
 - Bottom `## Phase Status` table with `Number`, `Title`, and `Status`.
@@ -101,7 +102,7 @@ Collect these before authoring or executing:
 - Local verification commands.
 - Branch naming mode: plan branch or phase branch.
 - Worktree mode and path pattern for parallel phases.
-- Whether cron continuation is requested.
+- Whether cron continuation is requested. Treat cron as requested only when the user explicitly asks for scheduled/autonomous continuation or when the plan already contains a cron continuation section or cron/bootstrap phase.
 - Any accepted terminal statuses besides `DONE` for plan completion.
 
 ## Branch Management
@@ -228,15 +229,19 @@ git worktree list
 ```
 
 5. Stop if unrelated uncommitted changes are present.
-6. Select the next eligible phase:
+6. Run the cron decision/bootstrap gate before selecting implementation work:
+   - if cron continuation is not requested, continue normally
+   - if cron continuation is requested and has not been bootstrapped, execute only the cron bootstrap procedure, record the concrete cron configuration in the plan, update an existing cron/bootstrap phase status if present, commit/checkpoint when appropriate, report the cron job, and stop
+   - do not start, claim, delegate, or execute the next implementation phase in the same interactive run after creating cron
+7. Select the next eligible phase:
    - sequential: choose the first `TODO` phase; stop if any phase is already `IN PROGRESS`
    - parallel: choose only a `TODO` phase that is explicitly independent or user-confirmed independent
-7. Create or select the correct branch/worktree.
-8. Mark the phase `IN PROGRESS` before work only when coordination requires a visible claim. A separate claim commit is optional, not the default.
-9. Execute only the scoped work for that phase.
-10. Run the phase's local verification commands.
-11. Mark the phase `DONE`, or mark `FAILED`, `BLOCKED`, or `DEFERRED` with a short report when appropriate.
-12. Inspect status and diff before committing:
+8. Create or select the correct branch/worktree.
+9. Mark the phase `IN PROGRESS` before work only when coordination requires a visible claim. A separate claim commit is optional, not the default.
+10. Execute only the scoped work for that phase.
+11. Run the phase's local verification commands.
+12. Mark the phase `DONE`, or mark `FAILED`, `BLOCKED`, or `DEFERRED` with a short report when appropriate.
+13. Inspect status and diff before committing:
 
 ```bash
 git status --short
@@ -244,8 +249,8 @@ git diff --stat
 git diff -- <relevant-paths>
 ```
 
-13. Commit only if the diff is scoped and verification has passed. Prefer committing implementation and the final phase status update together.
-14. Re-check clean state after committing:
+14. Commit only if the diff is scoped and verification has passed. Prefer committing implementation and the final phase status update together.
+15. Re-check clean state after committing:
 
 ```bash
 git status --short
@@ -327,6 +332,42 @@ plan:parser-cleanup phase:2 docs
 
 Cron continuation is optional. Use it for long-running phased work, periodic continuation, or scheduled checks for the next eligible phase. Do not use cron for work that requires active user decisions at every step. Cron runs execute in fresh sessions and cannot ask questions.
 
+### Cron Decision and Bootstrap Gate
+
+The cron decision procedure belongs in this skill. Do not append the generic decision tree to every plan. A plan should record only the concrete cron state when cron is actually used.
+
+Before selecting the first implementation phase, determine whether cron continuation is requested:
+
+- Cron is requested only when the user explicitly asks for scheduled/autonomous continuation, or when the plan already contains a cron continuation section or cron/bootstrap phase.
+- If cron is not requested, do not create a cron job, do not add cron metadata to the plan, and continue with normal phase execution.
+- If cron is requested, run cron bootstrap before implementation work.
+
+Cron bootstrap from an interactive session:
+
+1. Collect or derive all cron parameters: schedule, repository path, plan path, execution mode, branch/worktree strategy, max phases/tasks per run, verification commands, delivery target, self-stop identity, and self-stop action.
+2. Create the cron job with a self-contained prompt.
+3. Record the concrete cron configuration in the plan under `## Cron Continuation`.
+4. If the plan already has a Phase 0 or other cron/bootstrap phase, update that phase status to `DONE` after successful cron creation. If Phase 0 is real implementation work, do not overload it; use only the `## Cron Continuation` section.
+5. Commit/checkpoint the plan update if operating under git-managed execution and the diff is scoped.
+6. Stop immediately. Do not start, claim, delegate, or execute Phase 1 or any other implementation phase in the same initial run.
+
+If cron creation fails, mark the cron/bootstrap phase `BLOCKED` or `FAILED` if such a phase exists, report the blocker, and stop. Do not start implementation work as a fallback unless the user explicitly asks to continue manually.
+
+Suggested plan section when cron is enabled:
+
+```markdown
+## Cron Continuation
+
+Status: enabled
+Job name: continue-<plan-slug>
+Job id: <unknown until created>
+Schedule: every 2h
+Max phases per run: 1
+Self-stop action: pause
+Delivery target: origin/current chat
+Bootstrap rule: the interactive setup run creates the cron job, records this section, updates phase status if applicable, then stops before implementation work.
+```
+
 Only create a cron job when the user requests autonomous continuation. Ask for or derive all required parameters before creation:
 
 - schedule
@@ -374,12 +415,13 @@ Rules:
 3. Re-read the plan from disk immediately before selecting work to avoid double-claiming.
 4. Run git preflight: git rev-parse --show-toplevel, git branch --show-current, git status --short, git worktree list.
 5. Stop if unrelated uncommitted changes exist.
-6. Sequential mode: if any phase is IN PROGRESS, stop and report. Select at most one next TODO phase, execute it, run verification, commit, run the completion verifier, report, and exit. Do not start a second phase in the same tick.
-7. Parallel mode: select only independent TODO phases with explicit dependency/file-ownership metadata. Use distinct phase branches and distinct worktrees. Never run two workers in the same worktree. Stop on ambiguous ownership or conflicts.
-8. Local verification only. No PR creation, no CI watching, no merge automation, no destructive git operations, no branch/worktree cleanup unless explicitly authorized.
-9. Do not auto-resolve worktree, branch, merge, or status-table conflicts.
-10. Completion verifier is shallow and read-only except self-stop. It re-reads the plan, parses the bottom Phase Status table, runs configured safe verification commands, checks git status --short, and decides whether the plan is complete. It must not implement work, start another phase, reconcile branches, rewrite code, or make speculative fixes.
-11. If complete and verification passes, first list cron jobs, identify only this continuation job by provided id or unique name, then pause it by default or remove it only if explicitly configured. If incomplete or ambiguous, leave cron active.
+6. If a Phase 0 or cron/bootstrap phase exists, treat it as interactive bootstrap state only. It must already be DONE before implementation work; do not execute Phase 0 from a cron run.
+7. Sequential mode: if any phase is IN PROGRESS, stop and report. Select at most one next TODO implementation phase, execute it, run verification, commit, run the completion verifier, report, and exit. Do not start a second phase in the same tick.
+8. Parallel mode: select only independent TODO implementation phases with explicit dependency/file-ownership metadata. Use distinct phase branches and distinct worktrees. Never run two workers in the same worktree. Stop on ambiguous ownership or conflicts.
+9. Local verification only. No PR creation, no CI watching, no merge automation, no destructive git operations, no branch/worktree cleanup unless explicitly authorized.
+10. Do not auto-resolve worktree, branch, merge, or status-table conflicts.
+11. Completion verifier is shallow and read-only except self-stop. It re-reads the plan, parses the bottom Phase Status table, runs configured safe verification commands, checks git status --short, and decides whether the plan is complete. It must not implement work, start another phase, reconcile branches, rewrite code, or make speculative fixes.
+12. If complete and verification passes, first list cron jobs, identify only this continuation job by provided id or unique name, then pause it by default or remove it only if explicitly configured. If incomplete or ambiguous, leave cron active.
 
 End-of-run report format:
 - Phase attempted: <number/title or none>
@@ -420,6 +462,8 @@ A cron run must stop and report when:
 - the next step requires user authorization
 
 Sequential cron must execute at most one eligible `TODO` phase per run, then run the completion verifier, report, and exit. It must not start another phase in the same tick, even if more `TODO` phases remain.
+
+Cron bootstrap is not a cron-run responsibility. A cron run must not create another cron job or execute a Phase 0/bootstrap phase; if bootstrap state is missing or not `DONE`, report the ambiguity and stop.
 
 ## Completion / Signoff Verifier
 
@@ -504,12 +548,14 @@ Stop when local verification fails without an obvious in-scope fix, when user in
 3. Letting multiple parallel workers edit the canonical phase status table.
 4. Creating PR or CI lifecycle automation when only local git execution was requested.
 5. Using cron continuation without a self-contained prompt.
+6. Creating cron and then continuing into Phase 1 in the same initial run. Cron bootstrap is a gate: record the cron state, update bootstrap status if present, report, and stop.
 
 ## Generated Plan Quality Checklist
 
 - [ ] Fresh sessions can continue from the plan file alone.
 - [ ] Branch strategy and optional worktree strategy are explicit.
 - [ ] Phase scopes and verification commands are concrete.
+- [ ] If cron is enabled, the plan records concrete `## Cron Continuation` state while the generic decision/bootstrap procedure remains in this skill.
 - [ ] Stop conditions and excluded PR/CI/merge behaviors are documented.
 - [ ] Bottom `## Phase Status` table is present.
 
