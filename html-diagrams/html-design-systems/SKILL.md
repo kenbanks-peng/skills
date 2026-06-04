@@ -17,7 +17,7 @@ metadata:
 
 This skill creates self-contained HTML artifacts for visual review of tokens, components, variants, and states. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
-Source demo mapping: 05-design-system.html, 06-component-variants.html. Patterns are distilled, not copied verbatim.
+Local examples: `examples/05-design-system.html`, `examples/06-component-variants.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use
 

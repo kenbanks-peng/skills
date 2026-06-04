@@ -17,7 +17,7 @@ metadata:
 
 This skill creates self-contained HTML artifacts for comparing options, choosing directions, and handing off plans visually. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
-Source demo mapping: 01-exploration-code-approaches.html, 02-exploration-visual-designs.html, 16-implementation-plan.html. Patterns are distilled, not copied verbatim.
+Local examples: `examples/01-exploration-code-approaches.html`, `examples/02-exploration-visual-designs.html`, `examples/16-implementation-plan.html`, plus `examples/exploration-plan-board.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use
 

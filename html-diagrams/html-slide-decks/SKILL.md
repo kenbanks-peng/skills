@@ -17,7 +17,7 @@ metadata:
 
 This skill creates self-contained HTML artifacts for lightweight browser-native decks. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
-Source demo mapping: 09-slide-deck.html. Patterns are distilled, not copied verbatim.
+Local example: `examples/09-slide-deck.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use
 

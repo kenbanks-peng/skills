@@ -17,7 +17,7 @@ metadata:
 
 This skill creates self-contained HTML artifacts for temporary task-specific editors with explicit export loops. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
-Source demo mapping: 18-editor-triage-board.html, 19-editor-feature-flags.html, 20-editor-prompt-tuner.html. Patterns are distilled, not copied verbatim.
+Local examples: `examples/18-editor-triage-board.html`, `examples/19-editor-feature-flags.html`, `examples/20-editor-prompt-tuner.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use
 

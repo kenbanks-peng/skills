@@ -17,7 +17,7 @@ metadata:
 
 This skill creates self-contained HTML artifacts for browser-native prototypes for motion and interaction. It builds on `html-artifact-foundation`: keep the shared single-file, accessibility, responsive, print, attribution, and verification rules centralized there, and use this skill for the category-specific structure.
 
-Source demo mapping: 07-prototype-animation.html, 08-prototype-interaction.html. Patterns are distilled, not copied verbatim.
+Local examples: `examples/07-prototype-animation.html`, `examples/08-prototype-interaction.html`. The guidance below distills reusable patterns; copied examples preserve the upstream Apache-2.0 notice.
 
 ## When to Use
 
