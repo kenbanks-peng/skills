@@ -320,12 +320,12 @@ PY
 
 | Number | Title | Status |
 |---:|---|---|
-| 0 | Repository and target-category discovery | TODO |
-| 1 | Create the foundation skill | TODO |
-| 2 | Create Exploration & Planning and Code Review & Understanding skills | TODO |
-| 3 | Create Design and Prototyping skills | TODO |
-| 4 | Create Illustrations & Diagrams and Decks skills | TODO |
-| 5 | Create Research & Learning and Reports skills | TODO |
-| 6 | Create Custom Editing Interfaces skill | TODO |
-| 7 | Cross-link, deduplicate, and validate | TODO |
-| 8 | Add sample artifact smoke test | TODO |
+| 0 | Repository and target-category discovery | DONE |
+| 1 | Create the foundation skill | DONE |
+| 2 | Create Exploration & Planning and Code Review & Understanding skills | DONE |
+| 3 | Create Design and Prototyping skills | DONE |
+| 4 | Create Illustrations & Diagrams and Decks skills | DONE |
+| 5 | Create Research & Learning and Reports skills | DONE |
+| 6 | Create Custom Editing Interfaces skill | DONE |
+| 7 | Cross-link, deduplicate, and validate | DONE |
+| 8 | Add sample artifact smoke test | DONE |
