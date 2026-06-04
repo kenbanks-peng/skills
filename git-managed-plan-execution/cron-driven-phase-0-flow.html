@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cron-driven Phase 0 Logic Diagram</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f3ee;
+      --surface: #fffdf9;
+      --surface-2: #fdf7ed;
+      --ink: #172033;
+      --muted: #647086;
+      --line: #d9d0c2;
+      --line-strong: #9c8f7e;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --cron: #7c3aed;
+      --cron-soft: #ede9fe;
+      --phase: #0f766e;
+      --phase-soft: #ccfbf1;
+      --warn: #b45309;
+      --warn-soft: #fef3c7;
+      --stop: #b91c1c;
+      --stop-soft: #fee2e2;
+      --success: #15803d;
+      --success-soft: #dcfce7;
+      --radius: 18px;
+      --radius-sm: 11px;
+      --shadow: 0 22px 70px rgba(23, 32, 51, .10);
+      --max: 1280px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 18% 5%, rgba(37, 99, 235, .12), transparent 28%),
+        radial-gradient(circle at 82% 12%, rgba(124, 58, 237, .10), transparent 30%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--font);
+      line-height: 1.5;
+    }
+    header, main, footer { width: min(var(--max), calc(100% - 32px)); margin-inline: auto; }
+    header { padding: 46px 0 22px; }
+    .eyebrow { margin: 0 0 8px; color: var(--cron); font-weight: 800; text-transform: uppercase; letter-spacing: .14em; font-size: .76rem; }
+    h1 { margin: 0; font-size: clamp(2rem, 4vw, 4.2rem); letter-spacing: -.055em; line-height: .98; }
+    .subtitle { margin: 16px 0 0; max-width: 880px; color: var(--muted); font-size: clamp(1rem, 1.7vw, 1.18rem); }
+    .source { margin-top: 18px; display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.62); color: var(--muted); font-size: .9rem; }
+
+    main { display: grid; gap: 22px; padding-bottom: 42px; }
+    .card {
+      background: rgba(255, 253, 249, .92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: clamp(18px, 2vw, 28px);
+      overflow: hidden;
+    }
+    .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    h2 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.8rem); letter-spacing: -.025em; }
+    .note { margin: 0; color: var(--muted); font-size: .95rem; }
+
+    .legend { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; }
+    .legend-item { display: flex; gap: 8px; align-items: center; padding: 10px 11px; background: #fff; border: 1px solid var(--line); border-radius: 999px; font-size: .88rem; color: var(--muted); }
+    .dot { width: 13px; height: 13px; border-radius: 50%; flex: 0 0 auto; border: 2px solid currentColor; }
+    .dot.blue { color: var(--accent); background: var(--accent-soft); }
+    .dot.purple { color: var(--cron); background: var(--cron-soft); }
+    .dot.teal { color: var(--phase); background: var(--phase-soft); }
+    .dot.amber { color: var(--warn); background: var(--warn-soft); }
+    .dot.red { color: var(--stop); background: var(--stop-soft); }
+
+    .svg-wrap { overflow-x: auto; padding: 4px 0 0; }
+    svg { max-width: 100%; height: auto; display: block; }
+    .node rect, .decision path, .terminal rect { stroke-width: 2; }
+    .node text, .decision text, .terminal text, .lane-label { font-family: var(--font); fill: var(--ink); }
+    .small { font-size: 13px; fill: var(--muted); }
+    .label { font-size: 15px; font-weight: 750; }
+    .tiny { font-size: 12px; fill: var(--muted); }
+    .arrow { fill: none; stroke: var(--line-strong); stroke-width: 2.2; marker-end: url(#arrow); }
+    .arrow-success { stroke: var(--success); }
+    .arrow-stop { stroke: var(--stop); }
+    .arrow-cron { stroke: var(--cron); }
+    .dashed { stroke-dasharray: 7 7; }
+    .lane-bg { fill: rgba(255,255,255,.58); stroke: var(--line); stroke-width: 1.3; }
+    .lane-title { font-size: 17px; font-weight: 850; fill: var(--ink); }
+    .lane-subtitle { font-size: 12px; fill: var(--muted); }
+
+    .insights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .insight { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 15px; }
+    .insight strong { display: block; margin-bottom: 5px; }
+    .insight p { margin: 0; color: var(--muted); font-size: .94rem; }
+
+    .rules { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .rule-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+    .rule-list li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; padding: 11px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+    .badge { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 800; font-size: .8rem; }
+    .badge.ok { color: var(--success); background: var(--success-soft); }
+    .badge.no { color: var(--stop); background: var(--stop-soft); }
+    .rule-list span:last-child { color: var(--muted); }
+
+    footer { color: var(--muted); font-size: .88rem; padding: 8px 0 34px; }
+    code { background: rgba(23,32,51,.06); padding: .12em .35em; border-radius: 6px; }
+
+
+
+    .logic-map { display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; align-items: start; }
+    .flow-panel { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+    .flow-panel h3 { margin: 0 0 4px; font-size: 1.1rem; }
+    .flow-panel .panel-note { margin: 0 0 14px; color: var(--muted); font-size: .9rem; }
+    .flow { display: grid; gap: 10px; }
+    .step, .branch, .stopbox, .successbox { border: 2px solid var(--line-strong); border-radius: 14px; padding: 10px 12px; background: #fff; min-height: 58px; display: grid; align-content: center; }
+    .step strong, .branch strong, .stopbox strong, .successbox strong { display: block; line-height: 1.15; }
+    .step span, .branch span, .stopbox span, .successbox span { color: var(--muted); font-size: .87rem; }
+    .step.preflight { border-color: var(--accent); background: linear-gradient(180deg, #fff, var(--accent-soft)); }
+    .step.cron { border-color: var(--cron); background: linear-gradient(180deg, #fff, var(--cron-soft)); }
+    .step.phase { border-color: var(--phase); background: linear-gradient(180deg, #fff, var(--phase-soft)); }
+    .branch { border-color: var(--warn); background: var(--warn-soft); clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%); text-align: center; padding-inline: 32px; }
+    .stopbox { border-color: var(--stop); background: var(--stop-soft); }
+    .successbox { border-color: var(--success); background: var(--success-soft); }
+    .connector { display: grid; place-items: center; min-height: 18px; color: var(--line-strong); font-weight: 900; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; position: relative; }
+    .split::before { content: ''; position: absolute; left: 50%; top: -10px; bottom: -10px; width: 1px; background: var(--line); transform: translateX(-.5px); }
+    .path-label { display: inline-block; width: fit-content; margin: 0 auto -2px; padding: 2px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: var(--muted); font-size: .78rem; font-weight: 750; }
+    .handoff { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 12px 14px; border: 2px dashed var(--cron); border-radius: 16px; background: rgba(237,233,254,.55); }
+    .handoff .arrow-word { color: var(--cron); font-weight: 900; font-size: 1.35rem; }
+    .verifier-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: stretch; }
+    .compact { min-height: 76px; }
+
+    @media (max-width: 900px) {
+      .legend, .insights, .rules, .logic-map, .verifier-row { grid-template-columns: 1fr; }
+      header, main, footer { width: min(100% - 24px, var(--max)); }
+      .section-title { display: block; }
+      .section-title .note { margin-top: 6px; }
+    }
+    @media print {
+      body { background: white; }
+      header, main, footer { width: 100%; }
+      .card { box-shadow: none; break-inside: avoid; }
+      .svg-wrap { overflow: visible; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">HTML logic diagram</p>
+    <h1>Cron-driven Phase 0 flow</h1>
+    <p class="subtitle">A scan-first diagram of how an interactive bootstrap run hands off to cron continuation, why Phase 0 is treated as bootstrap state, and where each run must stop, commit, verify, or self-pause.</p>
+    <p class="source">Source evidence: <code>cron-driven-phase-0-flow.md</code></p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="legend-title">
+      <div class="section-title">
+        <h2 id="legend-title">Legend</h2>
+        <p class="note">Color and shape carry status, but every state is also labeled in text.</p>
+      </div>
+      <div class="legend" aria-label="Diagram legend">
+        <div class="legend-item"><span class="dot blue"></span>Common preflight / parsing</div>
+        <div class="legend-item"><span class="dot purple"></span>Cron-specific handoff</div>
+        <div class="legend-item"><span class="dot teal"></span>Phase selection / execution</div>
+        <div class="legend-item"><span class="dot amber"></span>Decision or verification gate</div>
+        <div class="legend-item"><span class="dot red"></span>Stop / blocker path</div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="overview-title">
+      <div class="section-title">
+        <h2 id="overview-title">One-page lifecycle</h2>
+        <p class="note">Interactive run bootstraps once; cron ticks execute implementation phases only.</p>
+      </div>
+      <div class="logic-map" role="img" aria-label="Logic map showing interactive bootstrap, cron tick execution, and completion verifier.">
+        <article class="flow-panel">
+          <h3>Interactive bootstrap run</h3>
+          <p class="panel-note">Creates the continuation once, records it, then stops before implementation work.</p>
+          <div class="flow">
+            <div class="step preflight"><strong>Read plan + Phase Status</strong><span>Find the bottom status table and current phase states.</span></div>
+            <div class="connector">↓</div>
+            <div class="step preflight"><strong>Git preflight</strong><span>Stop on unrelated uncommitted changes.</span></div>
+            <div class="connector">↓</div>
+            <div class="branch"><strong>Cron continuation requested?</strong><span>no = manual execution</span></div>
+            <div class="split">
+              <div>
+                <span class="path-label">no</span>
+                <div class="successbox compact"><strong>Continue manual phase execution</strong><span>Normal non-cron path.</span></div>
+              </div>
+              <div>
+                <span class="path-label">yes</span>
+                <div class="branch compact"><strong>Already bootstrapped?</strong><span>yes = do not create another job</span></div>
+              </div>
+            </div>
+            <div class="split">
+              <div>
+                <span class="path-label">creation failed</span>
+                <div class="stopbox compact"><strong>Mark bootstrap blocked/failed</strong><span>Report blocker and stop.</span></div>
+              </div>
+              <div>
+                <span class="path-label">not yet bootstrapped</span>
+                <div class="step cron compact"><strong>Create cron job</strong><span>Use a self-contained prompt.</span></div>
+              </div>
+            </div>
+            <div class="connector">↓</div>
+            <div class="step cron"><strong>Record Cron Continuation + mark Phase 0 DONE</strong><span>Commit scoped plan update if git-managed.</span></div>
+            <div class="connector">↓</div>
+            <div class="stopbox"><strong>Stop immediately before Phase 1</strong><span>Interactive bootstrap does not start implementation work.</span></div>
+          </div>
+        </article>
+
+        <article class="flow-panel">
+          <h3>Cron tick run</h3>
+          <p class="panel-note">Fresh session; never creates cron and never executes Phase 0.</p>
+          <div class="flow">
+            <div class="step preflight"><strong>Read plan, Phase Status, and Cron Continuation</strong><span>Missing required cron params stop as ambiguity.</span></div>
+            <div class="connector">↓</div>
+            <div class="step preflight"><strong>Git preflight</strong><span>Stop on unrelated uncommitted changes.</span></div>
+            <div class="connector">↓</div>
+            <div class="branch"><strong>Phase 0/bootstrap exists?</strong><span>If present, it must already be DONE.</span></div>
+            <div class="split">
+              <div>
+                <span class="path-label">not DONE</span>
+                <div class="stopbox compact"><strong>Stop: bootstrap incomplete</strong><span>Cron must not execute Phase 0.</span></div>
+              </div>
+              <div>
+                <span class="path-label">DONE / absent</span>
+                <div class="step phase compact"><strong>Ignore Phase 0 for selection</strong><span>Select implementation work only.</span></div>
+              </div>
+            </div>
+            <div class="connector">↓</div>
+            <div class="branch"><strong>Execution mode?</strong><span>sequential or parallel</span></div>
+            <div class="split">
+              <div>
+                <span class="path-label">sequential</span>
+                <div class="step phase compact"><strong>First TODO phase after Phase 0</strong><span>At most one phase per tick; stop if another phase is in progress.</span></div>
+              </div>
+              <div>
+                <span class="path-label">parallel</span>
+                <div class="step phase compact"><strong>Independent TODO phase(s)</strong><span>Requires explicit ownership and distinct branch/worktree.</span></div>
+              </div>
+            </div>
+            <div class="connector">↓</div>
+            <div class="step phase"><strong>Execute only scoped phase work</strong><span>Run local verification; mark DONE on pass, FAILED/BLOCKED/DEFERRED on failure; commit scoped result when appropriate.</span></div>
+          </div>
+        </article>
+
+        <div class="handoff" aria-label="Bootstrap handoff to next cron tick">
+          <span><strong>Bootstrap success</strong><br><span class="small">job id/name/schedule reported</span></span>
+          <span class="arrow-word">→</span>
+          <span><strong>Next scheduled tick</strong><br><span class="small">fresh session resumes from plan state</span></span>
+        </div>
+
+        <article class="flow-panel verifier-row" aria-label="Completion verifier">
+          <div class="step preflight compact"><strong>Re-read plan</strong><span>Parse Phase Status again.</span></div>
+          <div class="step preflight compact"><strong>Run safe verification</strong><span>Configured commands plus git status --short.</span></div>
+          <div class="branch compact"><strong>All accepted phases complete?</strong><span>and verification passes</span></div>
+          <div class="split">
+            <div>
+              <span class="path-label">no</span>
+              <div class="successbox compact"><strong>Leave cron active</strong><span>Report result and next action.</span></div>
+            </div>
+            <div>
+              <span class="path-label">yes</span>
+              <div class="step cron compact"><strong>Pause/remove only this job</strong><span>Pause by default; remove only if explicit.</span></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="gates-title">
+      <div class="section-title">
+        <h2 id="gates-title">Gate logic distilled</h2>
+        <p class="note">The important behavior is less “two big flowcharts” and more these invariants.</p>
+      </div>
+      <div class="insights">
+        <article class="insight">
+          <strong>1. Bootstrap is a one-shot handoff</strong>
+          <p>The interactive run creates the cron continuation, records concrete continuation config, marks Phase 0 done when it is the bootstrap phase, commits the plan update, then stops before Phase 1.</p>
+        </article>
+        <article class="insight">
+          <strong>2. Cron never does bootstrap work</strong>
+          <p>Each cron tick starts in a fresh session, reads the plan/config, requires Phase 0/bootstrap to already be done, and skips Phase 0 during implementation selection.</p>
+        </article>
+        <article class="insight">
+          <strong>3. Completion is verified every tick</strong>
+          <p>After a phase attempt, failure, or no eligible work, the tick re-reads the plan, runs safe verification, checks git status, and only pauses/removes its own cron job when complete.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="rules-title">
+      <div class="section-title">
+        <h2 id="rules-title">Allowed vs forbidden actions</h2>
+        <p class="note">Phase 0 is bootstrap state when cron continuation is enabled.</p>
+      </div>
+      <div class="rules">
+        <article>
+          <h3>Interactive run</h3>
+          <ul class="rule-list">
+            <li><span class="badge ok">✓</span><span>May create the cron job with a self-contained prompt.</span></li>
+            <li><span class="badge ok">✓</span><span>Records <code>## Cron Continuation</code>, marks bootstrap/Phase 0 done, and commits the scoped plan update.</span></li>
+            <li><span class="badge no">×</span><span>Must not start Phase 1 in the same run after cron bootstrap succeeds.</span></li>
+          </ul>
+        </article>
+        <article>
+          <h3>Cron tick</h3>
+          <ul class="rule-list">
+            <li><span class="badge no">×</span><span>Must not create another cron job and must not execute Phase 0.</span></li>
+            <li><span class="badge ok">✓</span><span>Starts with the first eligible TODO implementation phase after Phase 0 in sequential mode.</span></li>
+            <li><span class="badge ok">✓</span><span>Self-pauses by default, or removes itself only when explicitly configured.</span></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Generated as a self-contained HTML artifact from <code>cron-driven-phase-0-flow.md</code>. No remote assets or copied demo code.
+  </footer>
+</body>
+</html>
