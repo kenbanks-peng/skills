@@ -521,7 +521,7 @@ The skill is complete when:
 
 | Number | Title | Status |
 |---:|---|---|
-| 1 | Draft the in-repo skill skeleton | TODO |
+| 1 | Draft the in-repo skill skeleton | DONE |
 | 2 | Encode plan authoring, branch, worktree, and status-table protocol | TODO |
 | 3 | Encode execution, subagent, commit, and reconciliation workflow | TODO |
 | 4 | Add cron integration | TODO |
