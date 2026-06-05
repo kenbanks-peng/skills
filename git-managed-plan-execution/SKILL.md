@@ -46,6 +46,7 @@ Do not use this skill when:
 - `todo`: session tracking only.
 - `delegate_task`: optional isolated implementation or review.
 - `cronjob`: required.
+- macOS CRON keep-awake setup: terminal is required during bootstrap on macOS.
 
 ## Plan File Contract
 
@@ -163,12 +164,14 @@ If `## CRON Bootstrap` is absent or incomplete:
 4. Stop before creating CRON if the original checkout has uncommitted changes.
 5. Derive and record the base branch.
 6. Create or reuse the dedicated execution worktree for `plan/<slug>`.
-7. Create the CRON job, attaching this skill by name.
-8. Record concrete bootstrap state in the plan.
-9. Update any CRON bootstrap status row.
-10. Commit if appropriate.
-11. Report the job id/name/schedule.
-12. End the current run.
+7. On macOS, ensure a per-user keep-awake LaunchAgent is installed and loaded before creating the CRON job.
+8. Create the CRON job, attaching this skill by name.
+9. Compare the returned CRON job fields to the intended bootstrap values, especially `job_id`, `name`, `schedule`, `deliver`, `workdir`, attached `skills`, and enabled/scheduled state.
+10. Record concrete bootstrap state in the plan. If delivery resolves differently than expected (for example, a CLI-origin run returns `deliver: local`), record the actual returned value and keep the prompt/bootstrap section consistent with it.
+11. Update any CRON bootstrap status row.
+12. Commit if appropriate.
+13. Report the job id/name/schedule, actual delivery mode, and macOS keep-awake status.
+14. End the current run.
 
 Required parameters:
 
@@ -204,9 +207,73 @@ Max phases per run: 1
 Verification commands: <commands-or-derive-obvious-local-checks>
 Self-stop action: pause
 Delivery target: <target-or-origin>
+macOS keep-awake: <not-applicable-or-enabled:com.hermes.keepawake>
 ```
 
 After creating or starting the CRON job, recording `## CRON Bootstrap`, updating any bootstrap status row, and reporting the job id/name/schedule, the initiating agent is done. Do not execute an implementation phase in the same run unless the user explicitly requested bootstrap plus immediate execution.
+
+## macOS Keep-Awake Integration
+
+On macOS, scheduled Hermes CRON work pauses while the machine is asleep. During CRON bootstrap, install and load a per-user LaunchAgent that runs `caffeinate` so the Mac stays awake while plugged in. This is part of the skill's default integrated bootstrap; do not merely suggest it to the user.
+
+Use a user LaunchAgent rather than `sudo pmset` by default:
+
+- It does not require a password prompt.
+- It is reversible without changing global power settings.
+- It allows the display to sleep while preventing idle/system sleep for scheduled work.
+- It survives logout/login as long as the user session and LaunchAgent domain are available.
+
+Bootstrap command:
+
+```bash
+mkdir -p "$HOME/Library/LaunchAgents"
+cat > "$HOME/Library/LaunchAgents/com.hermes.keepawake.plist" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.hermes.keepawake</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/caffeinate</string>
+      <string>-ims</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/com.hermes.keepawake.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/com.hermes.keepawake.err</string>
+  </dict>
+</plist>
+EOF
+plutil -lint "$HOME/Library/LaunchAgents/com.hermes.keepawake.plist"
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.hermes.keepawake.plist" >/dev/null 2>&1 || true
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.hermes.keepawake.plist"
+launchctl enable "gui/$(id -u)/com.hermes.keepawake"
+launchctl kickstart -k "gui/$(id -u)/com.hermes.keepawake"
+```
+
+Verification command:
+
+```bash
+launchctl print "gui/$(id -u)/com.hermes.keepawake" >/dev/null && \
+pmset -g assertions | grep -E 'caffeinate|PreventUserIdleSystemSleep|PreventSystemSleep' || true
+```
+
+Record the result in `## CRON Bootstrap` as one of:
+
+- `macOS keep-awake: enabled:com.hermes.keepawake`
+- `macOS keep-awake: not-applicable`
+- `macOS keep-awake: failed:<brief-reason>`
+
+If keep-awake setup fails during interactive bootstrap, stop and report the failure before creating the CRON job. If it fails during unattended CRON, report the failure and do not modify phase status.
+
+Do not click System Settings permission prompts or type passwords. If macOS requires user permission or admin credentials, stop and report exactly what is needed.
 
 ## CRON Prompt
 
@@ -397,7 +464,13 @@ During unattended CRON ticks, do not ask the user questions. Mark `BLOCKED` or `
 9. Pausing or removing the wrong CRON job.
    Use the recorded job id/name from `## CRON Bootstrap`; list jobs when identity is uncertain.
 
-10. Performing cleanup too early.
+10. Recording intended CRON settings instead of returned CRON settings.
+   After `cronjob(action='create')`, record the actual returned `job_id`, `deliver`, `workdir`, `skills`, and schedule state. Delivery can legitimately resolve to `local` in CLI-origin contexts even when the unattended prompt text says `origin`; keep the prompt and bootstrap block consistent with the returned job.
+
+11. Skipping macOS keep-awake during bootstrap.
+   On macOS, install and verify `com.hermes.keepawake` before creating the CRON job. Otherwise CRON can pause whenever the machine sleeps.
+
+12. Performing cleanup too early.
    Do not delete branches, remove worktrees, merge, reset, or clean unless explicitly authorized.
 
 ## Verification Checklist
@@ -409,6 +482,7 @@ During unattended CRON ticks, do not ask the user questions. Mark `BLOCKED` or `
 - [ ] Git preflight completed.
 - [ ] No unrelated uncommitted changes were present.
 - [ ] CRON bootstrap state is complete.
+- [ ] On macOS, `com.hermes.keepawake` was installed/verified or a keep-awake failure was reported before CRON creation.
 - [ ] At most one eligible `TODO` phase was selected.
 - [ ] Selected phase was marked `IN PROGRESS` before work began.
 - [ ] The `IN PROGRESS` claim was not committed by default.
