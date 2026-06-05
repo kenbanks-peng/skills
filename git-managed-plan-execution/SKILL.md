@@ -51,7 +51,7 @@ Allowed transitions:
 - `TODO/IN PROGRESS -> BLOCKED`
 - `TODO -> SKIPPED`
 
-Sequential mode may update the table directly. In parallel mode, only the orchestrator updates the canonical table on the plan branch. Stop on table conflicts.
+Update the table as each phase is claimed and completed. Stop on status-table conflicts.
 
 ## Git Rules
 
@@ -70,10 +70,6 @@ Rules:
 - Validate generated branch names with `git check-ref-format --branch`.
 - Plan branch: `plan/<slug>`.
 - Phase branch: `plan/<slug>-phase-<NN>`.
-- Sequential mode uses the plan branch unless overridden.
-- Parallel mode uses one phase branch and one worktree per phase.
-- Never run two workers in one worktree.
-- Never assign overlapping file scopes unless the plan allows it.
 - Do not remove worktrees with uncommitted changes.
 
 ## CRON Bootstrap
@@ -92,9 +88,8 @@ Required parameters:
 
 - schedule
 - repo path and plan path
-- execution mode
 - branch strategy and worktree pattern
-- max phases per run; sequential default is `1`
+- max phases per run; default is `1`
 - verification commands
 - delivery target
 - self-stop identity
@@ -116,19 +111,18 @@ Delivery target: <target>
 
 ## CRON Prompt
 
-The CRON prompt must include repo path, plan path, mode, branch/worktree strategy, max phases per run, verification commands, commit format, valid statuses, terminal statuses, self-stop identity/action, and these rules:
+The CRON prompt must include repo path, plan path, branch/worktree strategy, max phases per run, verification commands, commit format, valid statuses, terminal statuses, self-stop identity/action, and these rules:
 
 1. Do not ask questions. Stop and report missing or ambiguous input.
 2. Re-read the plan before selecting work.
 3. Run git preflight.
 4. Stop on unrelated uncommitted changes.
 5. Require complete CRON bootstrap state.
-6. Sequential mode executes at most one `TODO` phase per tick.
-7. Parallel mode uses only independent phases, distinct branches, and distinct worktrees.
-8. Use local verification only.
-9. Do not create PRs, poll CI, merge, clean worktrees, or run destructive commands unless authorized.
-10. Do not auto-resolve branch, worktree, merge, or status-table conflicts.
-11. On complete verified plans, pause this CRON job by default; remove it only if configured.
+6. Execute at most one `TODO` phase per tick unless configured otherwise.
+7. Use local verification only.
+8. Do not create PRs, poll CI, merge, clean worktrees, or run destructive commands unless authorized.
+9. Do not auto-resolve branch, worktree, merge, or status-table conflicts.
+10. On complete verified plans, pause this CRON job by default; remove it only if configured.
 
 End-of-run report: phase attempted, result, verification, commit, completion result, CRON action, next action.
 
@@ -141,9 +135,7 @@ Add `delegation` to CRON `enabled_toolsets` only when subagents may be used. Inc
 3. Run git preflight.
 4. Stop on unrelated uncommitted changes.
 5. Ensure CRON bootstrap is complete.
-6. Select the next eligible phase:
-   - sequential: first `TODO`; stop if any phase is `IN PROGRESS`
-   - parallel: a `TODO` phase marked independent
+6. Select the next eligible phase: the first `TODO`; stop if any phase is `IN PROGRESS`.
 7. Create or switch to the required branch/worktree.
 8. Mark `IN PROGRESS` only when claiming work.
 9. Execute only scoped phase work.
@@ -156,11 +148,9 @@ Add `delegation` to CRON `enabled_toolsets` only when subagents may be used. Inc
 
 ## Delegation
 
-Parent orchestrator owns verification, commits, and status updates.
+The primary CRON run owns verification, commits, and status updates.
 
 Subagents receive repo/worktree path, branch, phase scope, expected files, forbidden files, dependencies, verification commands, commit format, and the ban on PRs, CI polling, merge automation, destructive git commands, and cleanup.
-
-Parallel subagents must use distinct worktrees and non-overlapping scopes. They must not update the canonical status table.
 
 ## Commit Protocol
 
@@ -204,4 +194,4 @@ Stop on status-table conflicts. Do not remove dirty worktrees.
 
 ## Stop Conditions
 
-Stop on failed verification without an obvious scoped fix, missing input, user authorization required, unrelated uncommitted changes, destructive git action, unauthorized merge/reconciliation, ambiguous parallel ownership, or unresolved conflict.
+Stop on failed verification without an obvious scoped fix, missing input, user authorization required, unrelated uncommitted changes, destructive git action, unauthorized merge/reconciliation, or unresolved conflict.
