@@ -164,7 +164,7 @@ If `## CRON Bootstrap` is absent or incomplete:
 4. Stop before creating CRON if the original checkout has uncommitted changes.
 5. Derive and record the base branch.
 6. Create or reuse the dedicated execution worktree for `plan/<slug>`.
-7. Determine the CRON schedule. If the user did not provide an explicit interval or cron expression, ask them for the desired CRON interval before creating the job. Offer concise examples such as `every 30m`, `every 2h`, or `0 9 * * *`; do not invent a schedule for interactive bootstrap.
+7. Determine the CRON schedule. If the user did not provide an explicit interval or cron expression, ask them for the desired CRON interval before creating the job. Offer concise examples such as `every 5m` (the default), `every 30m`, `every 2h`, or `0 9 * * *`. If the user does not choose otherwise, use `every 5m` as the default schedule.
 8. On macOS, ensure a per-user keep-awake LaunchAgent is installed and loaded before creating the CRON job.
 9. Create the CRON job, attaching this skill by name.
 10. Compare the returned CRON job fields to the intended bootstrap values, especially `job_id`, `name`, `schedule`, `deliver`, `workdir`, attached `skills`, and enabled/scheduled state.
@@ -176,7 +176,7 @@ If `## CRON Bootstrap` is absent or incomplete:
 
 Required parameters:
 
-- schedule; prompt the user during interactive bootstrap if absent
+- schedule; prompt the user during interactive bootstrap if absent, defaulting to `every 5m` when the user does not choose otherwise
 - repo root, absolute plan path, and repo-relative plan path
 - plan slug
 - base branch
