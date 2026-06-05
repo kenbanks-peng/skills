@@ -1,13 +1,14 @@
 ---
 name: git-managed-plan-execution
-description: Use to execute existing durable local-git implementation plans with phase status tables, named branches, optional worktree-isolated parallel phases, checkpoint commits, local verification, and optional cron scheduling. Requires an existing plan file; excludes PR, CI, merge automation, and cleanup unless separately requested.
+description: Use to execute existing multi-phase implementation plans in a git environment using a CRON job.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
-platforms: [linux, macos, windows]
+platforms: [linux, macos]
 metadata:
   hermes:
-    tags: [git, implementation, execution, branches, worktrees, cron, delegation]
+    tags:
+      [git, implementation, execution, branches, worktrees, cron, delegation]
     related_skills: [subagent-driven-development, github-repo-management]
 ---
 
@@ -15,18 +16,17 @@ metadata:
 
 ## Purpose
 
-Execute existing implementation plans that future sessions can resume from disk. The plan file is the durable control surface; local git provides coordination through branches, optional worktrees, checkpoint commits, and local verification.
+Execute existing multi-phase implementation plans through a mandatory CRON schedule that future runs can resume from disk. The plan file is the durable control surface; local git repo provides coordination through branches, worktrees when needed, checkpoint commits, and local verification.
 
 This skill is local-only. It does not create PRs, watch CI, merge branches, clean worktrees, or run destructive git operations unless the user explicitly asks.
 
 ## Use When
 
-- A user has an existing implementation plan that should be executed or resumed from disk.
+- A user has an existing implementation plan that should be executed or resumed from disk by scheduled CRON runs.
 - Work should proceed through named phases, branches, and checkpoint commits.
-- Independent phases need isolated worktrees for subagents or cron runs.
-- The user requests scheduled/autonomous cron execution.
+- Independent phases need isolated worktrees for subagents or CRON runs.
 
-Do not use unless an existing plan file is available. Do not use for one-off edits, PR-centered workflows, or cleanup-only tasks.
+Do not use unless an existing multi-phase plan file is available and CRON scheduling will be configured or is already configured in that plan.
 
 ## Tool Use
 
@@ -34,7 +34,7 @@ Do not use unless an existing plan file is available. Do not use for one-off edi
 - Terminal: git state, tests, lint, validation, and local smoke checks.
 - `todo`: session-local tracking only; durable phase status stays in the plan.
 - `delegate_task`: isolated implementation or review when helpful.
-- `cronjob`: only for requested cron scheduling.
+- `cronjob`: required for CRON bootstrap, job inspection, and self-stop.
 
 ## Operating Model
 
@@ -42,8 +42,9 @@ Do not use unless an existing plan file is available. Do not use for one-off edi
 2. Discover state before acting; do not assume the base branch is `main`.
 3. Follow branch, worktree, phase, verification, and stop rules already recorded in the plan.
 4. Keep the bottom `## Phase Status` table as the canonical status surface.
-5. Commit only scoped, verified work. Prefer one commit per completed phase.
-6. Stop before ambiguity, unrelated changes, destructive actions, unauthorized merges, or failed verification without an obvious in-scope fix.
+5. Run only from a self-contained CRON prompt after the interactive bootstrap has recorded concrete schedule state.
+6. Commit only scoped, verified work. Prefer one commit per completed phase.
+7. Stop before ambiguity, unrelated changes, destructive actions, unauthorized merges, or failed verification without an obvious in-scope fix.
 
 ## Existing Plan Requirements
 
@@ -62,21 +63,22 @@ Before executing, confirm the existing plan includes enough information to run s
 - Phase list with files/scope, steps, verification, and commit keyword.
 - Dependency or file-ownership metadata when phases may run in parallel.
 - Local verification commands.
+- Concrete `## CRON Bootstrap` state, including schedule, job identity, run limits, delivery target, and self-stop action.
 - Stop conditions.
 - Explicit exclusions: no PR, CI polling, merge automation, destructive cleanup, or worktree cleanup unless separately authorized.
 - Bottom `## Phase Status` table.
 
-If cron scheduling is enabled, require concrete `## CRON Bootstrap` state. Do not infer missing cron details.
+CRON scheduling is mandatory. Require concrete `## CRON Bootstrap` state before phase execution. If the section is absent or incomplete, bootstrap CRON first; there is no non-CRON execution path. Do not infer missing CRON details.
 
 ### Optional Parallel Metadata
 
 ```markdown
 ## Phase Dependencies
 
-| Phase | Depends On | Parallel Safe With | Primary Files |
-|---:|---|---|---|
-| 1 | - | 2, 3 | `src/a.py`, `tests/test_a.py` |
-| 2 | - | 1, 3 | `src/b.py`, `tests/test_b.py` |
+| Phase | Depends On | Parallel Safe With | Primary Files                 |
+| ----: | ---------- | ------------------ | ----------------------------- |
+|     1 | -          | 2, 3               | `src/a.py`, `tests/test_a.py` |
+|     2 | -          | 1, 3               | `src/b.py`, `tests/test_b.py` |
 ```
 
 ## Inputs to Confirm
@@ -89,7 +91,7 @@ If cron scheduling is enabled, require concrete `## CRON Bootstrap` state. Do no
 - Verification commands from the existing plan.
 - Branch naming mode: plan branch or phase branch from the existing plan.
 - Worktree mode and path pattern for parallel phases from the existing plan.
-- Whether cron scheduling is explicitly requested, or already represented by `## CRON Bootstrap` or a status row.
+- CRON schedule, job identity, run limit, delivery target, and self-stop action from `## CRON Bootstrap` or an explicit CRON bootstrap status row.
 - Accepted terminal statuses besides `DONE`, if any.
 
 ## Branch and Worktree Rules
@@ -117,7 +119,7 @@ Rules:
 - Parallel mode uses `plan/<slug>-phase-<NN>` plus exactly one worktree per phase branch.
 - Never run two workers in one worktree.
 - Never assign overlapping file scopes unless the plan says they are independent.
-- Pass the exact worktree path to every subagent and cron prompt.
+- Pass the exact worktree path to every subagent and CRON prompt.
 - Worktree removal is cleanup. Do not remove worktrees with uncommitted changes.
 
 Switch/create a plan branch only after preflight:
@@ -146,10 +148,10 @@ Every plan ends with:
 ```markdown
 ## Phase Status
 
-| Number | Title | Status |
-|---:|---|---|
-| 1 | Draft the skill skeleton | TODO |
-| 2 | Encode branch and status protocol | TODO |
+| Number | Title                             | Status |
+| -----: | --------------------------------- | ------ |
+|      1 | Draft the skill skeleton          | TODO   |
+|      2 | Encode branch and status protocol | TODO   |
 ```
 
 Valid statuses: `TODO`, `IN PROGRESS`, `DONE`, `DEFERRED`, `FAILED`, `BLOCKED`, `SKIPPED`.
@@ -170,7 +172,7 @@ Sequential execution may update the canonical table directly. Parallel execution
 2. Parse `## Phase Status` and dependency/file-ownership metadata.
 3. Run git preflight.
 4. Stop on unrelated uncommitted changes.
-5. Run the cron bootstrap gate before selecting implementation work.
+5. Run the mandatory CRON bootstrap gate before selecting implementation work.
 6. Select the next eligible phase:
    - sequential: first `TODO`; stop if any phase is already `IN PROGRESS`.
    - parallel: only a `TODO` phase confirmed independent by dependencies or file ownership.
@@ -245,31 +247,31 @@ git commit -m "plan:<plan-slug> phase:<N> <keyword>"
 git status --short
 ```
 
-## Cron Scheduling
+## CRON Scheduling
 
-Cron scheduling is optional. Use it only when explicitly requested for scheduled/autonomous execution, or when a plan already contains `## CRON Bootstrap` or a CRON bootstrap status row. Cron runs must be self-contained and able to proceed without questions.
+CRON scheduling is mandatory. This skill only supports scheduled/autonomous execution through a CRON job. CRON runs must be self-contained and able to proceed without questions.
 
 ### Bootstrap
 
 Before implementation selection:
 
-- If cron scheduling is not requested, proceed normally.
-- If requested and bootstrap is pending, collect/derive parameters, create the cron job, record concrete state in `## CRON Bootstrap`, update any explicit CRON bootstrap status row to `DONE`, checkpoint if appropriate, report the job, and stop.
-- If cron creation fails, mark the explicit row `BLOCKED` or `FAILED` when present, report, and stop.
+- If `## CRON Bootstrap` is absent or incomplete, collect/derive parameters, create the CRON job, record concrete state in `## CRON Bootstrap`, update any explicit CRON bootstrap status row to `DONE`, checkpoint if appropriate, report the job, and stop.
+- If CRON creation fails, mark the explicit row `BLOCKED` or `FAILED` when present, report, and stop.
+- If concrete bootstrap state already exists, verify the CRON job identity/schedule when possible before selecting implementation work.
 
-Required cron parameters:
+Required CRON parameters:
 
 - schedule
 - repository path and plan path
 - execution mode
 - branch strategy and worktree path pattern
-- max phases/tasks per run; sequential cron defaults to `1`
+- max phases/tasks per run; sequential CRON defaults to `1`
 - verification commands
 - delivery target, if not current chat
 - self-stop identity: job id or unique name
 - self-stop action: default `pause`; use `remove` only if requested
 
-Plan section when enabled:
+Required plan section:
 
 ```markdown
 ## CRON Bootstrap
@@ -281,14 +283,14 @@ Schedule: every 2h
 Max phases per run: 1
 Self-stop action: pause
 Delivery target: origin/current chat
-Bootstrap rule: the interactive setup run creates the cron job, records this section, updates any CRON bootstrap status row, reports the job id/name/schedule, and stops.
+Bootstrap rule: the interactive setup run creates the CRON job, records this section, updates any CRON bootstrap status row, reports the job id/name/schedule, and stops.
 ```
 
-### Cron Prompt Requirements
+### CRON Prompt Requirements
 
 Create the job from the interactive bootstrap session. The prompt must include repository path, plan path, execution mode, branch/worktree strategy, max phases per run, verification commands, commit format, valid statuses, terminal statuses, self-stop identity/action, and these rules:
 
-1. Cron runs cannot ask questions; stop and report missing/ambiguous parameters.
+1. CRON runs cannot ask questions; stop and report missing/ambiguous parameters.
 2. Re-read the plan before selecting work.
 3. Run git preflight and stop on unrelated uncommitted changes.
 4. Require recorded CRON bootstrap state and any explicit status row to be complete.
@@ -297,7 +299,7 @@ Create the job from the interactive bootstrap session. The prompt must include r
 7. Local verification only: no PRs, CI, merge automation, destructive git operations, or cleanup unless authorized.
 8. Do not auto-resolve branch, worktree, merge, or status-table conflicts.
 9. Completion verifier is shallow and read-only except self-stop; it must not implement work, start phases, reconcile branches, rewrite code, or make speculative fixes.
-10. If complete and verification passes, list cron jobs, identify only this cron job, then pause by default or remove only if configured.
+10. If complete and verification passes, list CRON jobs, identify only this CRON job, then pause by default or remove only if configured.
 
 End-of-run report:
 
@@ -306,18 +308,18 @@ End-of-run report:
 - Verification result
 - Commit hash/message or none
 - Completion verifier result
-- Cron action
+- CRON action
 - Next expected action
 
-Add `delegation` to cron `enabled_toolsets` only if the cron prompt may use subagents. Include `cronjob` only when self-stop is expected.
+Add `delegation` to CRON `enabled_toolsets` only if the CRON prompt may use subagents. Include `cronjob` because self-stop is required.
 
-### Cron Stop Rules
+### CRON Stop Rules
 
-Cron runs stop and report on missing parameters, ambiguous phase ownership, existing sequential `IN PROGRESS`, another runner on the phase, branch/worktree/status-table conflicts, verification failure without an obvious scoped fix, or required user authorization.
+CRON runs stop and report on missing parameters, ambiguous phase ownership, existing sequential `IN PROGRESS`, another runner on the phase, branch/worktree/status-table conflicts, verification failure without an obvious scoped fix, or required user authorization.
 
 ## Completion / Signoff Verifier
 
-Run at normal checkpoints and every cron tick. It is read-only except narrow cron self-stop after completion.
+Run at normal checkpoints and every CRON tick. It is read-only except narrow CRON self-stop after completion.
 
 Steps:
 
@@ -328,11 +330,11 @@ Steps:
 5. Check `git status --short`.
 6. Decide complete, incomplete, or ambiguous.
 
-The verifier must not implement work, start another phase, perform broad review, rewrite code, reconcile branches, make speculative fixes, or create cron jobs. In cron, if complete and verified, list jobs and pause/remove only this cron job. Otherwise leave cron active and report why.
+The verifier must not implement work, start another phase, perform broad review, rewrite code, reconcile branches, make speculative fixes, or create CRON jobs. In CRON, if complete and verified, list jobs and pause/remove only this CRON job. Otherwise leave CRON active and report why.
 
 ## Reconciliation and Cleanup
 
-This skill does not include PR creation, CI polling, merge automation, automatic branch reconciliation, or cleanup. Merging phase branches or removing worktrees requires explicit user authorization.
+This skill does not include PR creation, CI polling, merge automation, automatic branch reconciliation, or cleanup. Merging phase branches or removing worktrees requires explicit user authorization. CRON self-stop is the only supported automation outside phase execution.
 
 Before authorized reconciliation, report:
 
@@ -374,7 +376,7 @@ Stop on failed verification without an obvious in-scope fix, required user input
 2. Treating a worktree as a branch replacement.
 3. Letting parallel workers edit the canonical status table.
 4. Creating PR/CI automation for a local-git plan.
-5. Using cron without a self-contained prompt and self-stop identity.
+5. Using CRON without a self-contained prompt and self-stop identity.
 6. Continuing implementation after CRON bootstrap; bootstrap records state, reports, and stops.
 
 ## Execution Readiness Checklist
@@ -383,7 +385,7 @@ Stop on failed verification without an obvious in-scope fix, required user input
 - [ ] Branch and worktree strategies are explicit.
 - [ ] Phase scopes and verification commands are concrete.
 - [ ] Parallel dependencies/file ownership are explicit when needed.
-- [ ] Cron, if enabled, records concrete `## CRON Bootstrap` state only.
+- [ ] CRON records concrete `## CRON Bootstrap` state and self-stop identity/action.
 - [ ] Stop conditions and excluded PR/CI/merge/cleanup behaviors are documented.
 - [ ] Bottom `## Phase Status` table is present.
 
