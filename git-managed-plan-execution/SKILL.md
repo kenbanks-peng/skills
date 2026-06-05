@@ -1,6 +1,6 @@
 ---
 name: git-managed-plan-execution
-description: Execute existing multi-phase implementation plans from disk using mandatory CRON scheduling, git branches/worktrees, local verification, checkpoint commits, and durable phase status in the plan file.
+description: Execute existing multi-phase implementation plans from disk using CRON scheduling, git branches/worktrees, local verification, checkpoint commits, and durable phase status in the plan file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -17,11 +17,9 @@ metadata:
 
 Execute an existing multi-phase plan from disk through CRON. The plan file is canonical.
 
-Do not create PRs, poll CI, merge branches, clean worktrees, or run destructive git commands unless the user explicitly asks.
+Use this workflow when CRON should resume and advance plan phases across runs, with durable status recorded in the plan file.
 
-## Use When
-
-Use only when an existing multi-phase plan file exists and CRON execution is required or already configured.
+The workflow is focused on local phase execution: selecting eligible work, making scoped changes, running local verification, updating durable phase status, and committing checkpoints.
 
 ## Tools
 
@@ -30,26 +28,6 @@ Use only when an existing multi-phase plan file exists and CRON execution is req
 - `todo`: session tracking only.
 - `delegate_task`: optional isolated implementation or review.
 - `cronjob`: required.
-
-## Plan Requirements
-
-This workflow executes the plan file as the canonical work queue.
-
-The workflow resolves the repository path and plan path before doing any work. Repo-relative paths are interpreted from the repository root.
-
-The workflow derives a plan slug from the plan when present, otherwise from the plan filename or title, and uses that slug consistently for branches, CRON identity, and commits.
-
-The workflow treats each phase as the execution boundary: scope, files, steps, verification, and commit keyword constrain what may be changed and how the phase is checked.
-
-The workflow records durable progress in the bottom `## Phase Status` table and uses that table to select, claim, complete, or stop work.
-
-Local verification commands may be global or per phase.
-
-Sequential mode is the default. Parallel mode uses dependencies or file ownership boundaries, plus branch/worktree strategy when separate branches or worktrees are used.
-
-Base branch, branch strategy, worktree strategy, and stop conditions are workflow/runtime decisions unless the plan supplies project-specific values.
-
-Because this skill executes through CRON, the workflow requires complete CRON state before implementation begins: schedule, job identity, run limits, delivery target, and self-stop action. If CRON state is missing or incomplete, bootstrap CRON first and stop. There is no non-CRON path.
 
 ## Phase Status
 
