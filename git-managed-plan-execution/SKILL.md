@@ -33,20 +33,23 @@ Use only when an existing multi-phase plan file exists and CRON execution is req
 
 ## Plan Requirements
 
-The plan must include only the information needed to execute phases safely:
+This workflow executes the plan file as the canonical work queue.
 
-- Repository path or repo-relative paths.
-- Plan slug, or enough information to derive one.
-- Phase list with scope, files, steps, verification, and commit keyword.
-- Bottom `## Phase Status` table.
+The workflow resolves the repository path and plan path before doing any work. Repo-relative paths are interpreted from the repository root.
+
+The workflow derives a plan slug from the plan when present, otherwise from the plan filename or title, and uses that slug consistently for branches, CRON identity, and commits.
+
+The workflow treats each phase as the execution boundary: scope, files, steps, verification, and commit keyword constrain what may be changed and how the phase is checked.
+
+The workflow records durable progress in the bottom `## Phase Status` table and uses that table to select, claim, complete, or stop work.
 
 Local verification commands may be global or per phase.
 
-Sequential mode is the default. Parallel mode additionally requires dependencies or file ownership boundaries, plus branch/worktree strategy when separate branches or worktrees are used.
+Sequential mode is the default. Parallel mode uses dependencies or file ownership boundaries, plus branch/worktree strategy when separate branches or worktrees are used.
 
-Base branch, branch strategy, worktree strategy, and stop conditions are workflow/runtime decisions unless the plan needs project-specific values.
+Base branch, branch strategy, worktree strategy, and stop conditions are workflow/runtime decisions unless the plan supplies project-specific values.
 
-Because this skill executes through CRON, the plan must include `## CRON Bootstrap` or reference equivalent CRON state with schedule, job identity, run limits, delivery target, and self-stop action. If CRON state is missing or incomplete, bootstrap CRON first and stop. There is no non-CRON path.
+Because this skill executes through CRON, the workflow requires complete CRON state before implementation begins: schedule, job identity, run limits, delivery target, and self-stop action. If CRON state is missing or incomplete, bootstrap CRON first and stop. There is no non-CRON path.
 
 ## Phase Status
 
