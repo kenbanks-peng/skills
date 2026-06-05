@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Git-Managed Plan Execution Logic Flow</title>
+  <title>Git-Managed Plan Execution Workflow</title>
   <style>
     :root {
       color-scheme: dark;
@@ -19,412 +19,178 @@
       --red: #f38ba8;
       --mauve: #cba6f7;
       --teal: #94e2d5;
-      --peach: #fab387;
-      --radius: 18px;
-      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
-      --max: 1220px;
+      --radius: 16px;
+      --max: 1160px;
     }
-
     * { box-sizing: border-box; }
-
-    html { scroll-behavior: smooth; }
-
     body {
       margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(137, 180, 250, .14), transparent 30rem),
-        radial-gradient(circle at 80% 20%, rgba(203, 166, 247, .12), transparent 28rem),
-        var(--bg);
+      font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
       color: var(--ink);
-      line-height: 1.55;
     }
-
     header, main, footer { width: min(var(--max), calc(100% - 32px)); margin-inline: auto; }
-
-    header { padding: 56px 0 28px; }
-
-    h1, h2, h3 { margin: 0; line-height: 1.1; }
-    h1 { max-width: 900px; font-size: clamp(2.2rem, 5vw, 4.8rem); letter-spacing: -.055em; }
-    h2 { font-size: clamp(1.45rem, 2.3vw, 2.15rem); letter-spacing: -.025em; }
-    h3 { font-size: 1rem; }
-    p { margin: 0; }
-
-    .eyebrow {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 18px;
-      color: var(--teal);
-      font-size: .78rem;
-      font-weight: 800;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-    }
-
-    .subtitle { max-width: 860px; margin-top: 18px; color: var(--muted); font-size: clamp(1rem, 2vw, 1.18rem); }
-
-    .top-grid, .detail-grid, .status-grid {
-      display: grid;
-      gap: 18px;
-    }
-
-    .top-grid { grid-template-columns: 1.3fr .7fr; margin: 22px 0; }
-    .detail-grid { grid-template-columns: repeat(3, 1fr); }
-    .status-grid { grid-template-columns: repeat(2, 1fr); }
-
+    header { padding: 36px 0 18px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(28px, 5vw, 48px); line-height: 1; }
+    h2 { margin-bottom: 14px; font-size: 20px; }
+    h3 { margin-bottom: 8px; font-size: 15px; color: var(--teal); }
+    p, li { color: var(--muted); }
+    code { color: var(--yellow); }
+    .eyebrow { color: var(--mauve); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .grid { display: grid; gap: 16px; }
+    .two { grid-template-columns: minmax(0, 1.4fr) minmax(280px, .8fr); }
+    .three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .card {
-      background: linear-gradient(180deg, rgba(49, 50, 68, .96), rgba(49, 50, 68, .82));
-      border: 1px solid rgba(205, 214, 244, .12);
+      background: var(--surface);
+      border: 1px solid var(--line);
       border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: clamp(18px, 2vw, 28px);
+      padding: 18px;
     }
-
-    .card h2, .card h3 { margin-bottom: 12px; }
-    .card p, .card li { color: var(--muted); }
-
-    .summary-list { display: grid; gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; }
-    .summary-list li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
-
-    .dot {
-      display: inline-grid;
-      place-items: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      color: #11111b;
-      font-weight: 900;
-      font-size: .8rem;
-    }
-
-    .blue { background: var(--blue); }
-    .green { background: var(--green); }
-    .yellow { background: var(--yellow); }
-    .red { background: var(--red); }
-    .mauve { background: var(--mauve); }
-    .teal { background: var(--teal); }
-    .peach { background: var(--peach); }
-
-    .flow-wrap { margin: 22px 0; overflow: auto; }
-    svg { display: block; width: 100%; min-width: 960px; height: auto; }
-    .node rect, .decision path { filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .22)); }
-    .node-title { fill: var(--ink); font-size: 16px; font-weight: 800; }
-    .node-body { fill: var(--muted); font-size: 12px; }
-    .small-label { fill: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .edge { stroke: var(--line); stroke-width: 3; fill: none; marker-end: url(#arrow); }
-    .edge.good { stroke: var(--green); }
-    .edge.warn { stroke: var(--yellow); }
-    .edge.stop { stroke: var(--red); }
-    .edge.dash { stroke-dasharray: 8 8; }
-
-    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 38px;
-      padding: 7px 12px;
-      border: 1px solid rgba(205, 214, 244, .14);
-      border-radius: 999px;
-      color: var(--muted);
-      background: rgba(69, 71, 90, .48);
-      font-size: .9rem;
-    }
-
-    .swatch { width: 12px; height: 12px; border-radius: 999px; }
-    .line-swatch { width: 24px; height: 0; border-top: 3px solid var(--line); }
-    .line-swatch.good { border-color: var(--green); }
-    .line-swatch.warn { border-color: var(--yellow); }
-    .line-swatch.stop { border-color: var(--red); }
-    .line-swatch.dash { border-style: dashed; }
-
-    .pipeline { display: grid; gap: 12px; margin-top: 14px; }
-    .step {
-      display: grid;
-      grid-template-columns: 42px 1fr;
-      gap: 12px;
-      align-items: start;
-      padding: 14px;
-      border: 1px solid rgba(205, 214, 244, .11);
-      border-radius: 14px;
-      background: rgba(30, 30, 46, .35);
-    }
-
-    .num {
-      display: inline-grid;
-      place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      background: rgba(137, 180, 250, .18);
-      color: var(--blue);
-      font-weight: 900;
-    }
-
-    code {
-      color: var(--teal);
-      background: rgba(148, 226, 213, .08);
-      border: 1px solid rgba(148, 226, 213, .14);
-      border-radius: 7px;
-      padding: 1px 6px;
-    }
-
-    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 14px; }
-    th, td { padding: 10px 12px; border-bottom: 1px solid rgba(205, 214, 244, .1); text-align: left; }
-    th { color: var(--ink); background: rgba(69, 71, 90, .7); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; }
-    td { color: var(--muted); }
-
-    .source-note { margin-top: 22px; color: var(--muted); font-size: .92rem; }
-    footer { padding: 26px 0 44px; color: var(--muted); font-size: .9rem; }
-
-    :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
-
-    @media (max-width: 900px) {
-      .top-grid, .detail-grid, .status-grid { grid-template-columns: 1fr; }
-      header { padding-top: 34px; }
-    }
-
+    .rule { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .rule li { padding-left: 16px; border-left: 3px solid var(--blue); }
+    .compact { margin: 0; padding-left: 18px; }
+    .status { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--ink); background: var(--surface-2); font-size: 12px; }
+    .ok { border-color: color-mix(in srgb, var(--green), var(--line)); }
+    .warn { border-color: color-mix(in srgb, var(--yellow), var(--line)); }
+    .bad { border-color: color-mix(in srgb, var(--red), var(--line)); }
+    .flow { overflow-x: auto; }
+    svg { display: block; min-width: 900px; width: 100%; height: auto; }
+    .node rect { fill: #313244; stroke: #89b4fa; stroke-width: 2; rx: 14; }
+    .node text { fill: #cdd6f4; font-size: 14px; font-weight: 650; text-anchor: middle; }
+    .node .sub { fill: #a6adc8; font-size: 12px; font-weight: 500; }
+    .decision rect { stroke: #f9e2af; }
+    .success rect { stroke: #a6e3a1; }
+    .stop rect { stroke: #f38ba8; }
+    .edge { stroke: #a6adc8; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    .label { fill: #f9e2af; font-size: 12px; font-weight: 700; }
+    footer { padding: 22px 0 34px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 820px) { .two, .three { grid-template-columns: 1fr; } }
     @media print {
-      body { background: #fff; color: #111; }
-      .card { box-shadow: none; break-inside: avoid; background: #fff; border-color: #bbb; }
-      .flow-wrap { overflow: visible; }
+      body { background: #fff; color: #111827; }
+      .card { break-inside: avoid; box-shadow: none; }
       svg { min-width: 0; }
-      .chip, code { border-color: #aaa; }
     }
   </style>
 </head>
 <body>
   <header>
-    <p class="eyebrow"><span class="dot teal">G</span> Skill logic map</p>
+    <p class="eyebrow">Workflow logic</p>
     <h1>Git-Managed Plan Execution</h1>
-    <p class="subtitle">A self-contained visual guide to the decision gates, durable plan surface, branch/worktree rules, phase execution loop, cron bootstrap path, and completion verifier described in <code>SKILL.md</code>.</p>
+    <p>One CRON tick claims at most one TODO phase, verifies it locally, commits a scoped checkpoint, updates the canonical plan file, then evaluates shutdown.</p>
   </header>
 
-  <main>
-    <section class="top-grid" aria-labelledby="overview-title">
+  <main class="grid">
+    <section class="grid two" aria-labelledby="core-rules">
       <article class="card">
-        <h2 id="overview-title">Operating thesis</h2>
-        <p>The existing plan file is the durable control surface. Git provides local coordination through explicit branches, optional worktrees, scoped checkpoint commits, and local verification. Chat memory and remote PR/CI automation are intentionally outside the default workflow.</p>
-        <ul class="summary-list" aria-label="Core rules">
-          <li><span class="dot blue">1</span><span>Require an existing plan file and discover repository state before execution; never assume the base branch.</span></li>
-          <li><span class="dot green">2</span><span>Drive work from the bottom <code>## Phase Status</code> table and update it according to allowed transitions.</span></li>
-          <li><span class="dot yellow">3</span><span>In parallel mode, isolate each phase by branch and worktree; do not race on the canonical status table.</span></li>
-          <li><span class="dot red">!</span><span>Stop before unrelated changes, destructive cleanup, unauthorized merges, ambiguous ownership, or failed verification.</span></li>
+        <h2 id="core-rules">Core invariants</h2>
+        <ul class="rule">
+          <li>The plan file is canonical; the <code>## Phase Status</code> table is durable state.</li>
+          <li>Each tick re-reads the plan and executes at most the first eligible <code>TODO</code> phase.</li>
+          <li>Changes must be scoped, locally verified, inspected, and checkpoint committed.</li>
+          <li>Bootstrap and shutdown state are recorded in the plan and reported.</li>
         </ul>
       </article>
-      <aside class="card" aria-labelledby="boundaries-title">
-        <h2 id="boundaries-title">Default boundaries</h2>
-        <p>Local only. Excludes PR creation, CI polling, merge automation, broad cleanup, destructive git actions, and worktree removal unless separately authorized.</p>
-        <div class="legend" aria-label="Legend">
-          <span class="chip"><span class="line-swatch good"></span> happy path</span>
-          <span class="chip"><span class="line-swatch warn"></span> gate or choice</span>
-          <span class="chip"><span class="line-swatch stop"></span> stop/report</span>
-          <span class="chip"><span class="line-swatch dash"></span> optional path</span>
+      <article class="card">
+        <h2>Allowed status paths</h2>
+        <div class="status" aria-label="Phase statuses">
+          <span class="pill">TODO</span><span class="pill warn">IN PROGRESS</span><span class="pill ok">DONE</span>
+          <span class="pill warn">DEFERRED</span><span class="pill bad">FAILED</span><span class="pill bad">BLOCKED</span><span class="pill">SKIPPED</span>
         </div>
-      </aside>
+        <ul class="compact">
+          <li><code>TODO → IN PROGRESS → DONE</code></li>
+          <li><code>TODO/IN PROGRESS → DEFERRED | BLOCKED</code></li>
+          <li><code>IN PROGRESS → FAILED</code></li>
+          <li><code>TODO → SKIPPED</code></li>
+        </ul>
+      </article>
     </section>
 
-    <section class="card" aria-labelledby="flow-title">
-      <h2 id="flow-title">End-to-end logic flow</h2>
-      <p class="source-note">Diagram grounded in the repository's <code>SKILL.md</code>: Existing Plan Requirements, Execution Workflow, Branch and Worktree Rules, Cron Scheduling, Completion / Signoff Verifier, and Stop Conditions.</p>
-      <div class="flow-wrap" role="img" aria-label="Flowchart of git-managed plan execution from request triage through existing-plan validation, execution, verification, commit, cron, completion, and stop conditions.">
-        <svg viewBox="0 0 1200 940" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <title>Git-managed plan execution logic flow</title>
+    <section class="card" aria-labelledby="tick-flow">
+      <h2 id="tick-flow">CRON tick flow</h2>
+      <div class="flow" role="img" aria-label="Flowchart from plan read to bootstrap, phase execution, verification, commit, status update, and shutdown check">
+        <svg viewBox="0 0 1120 700" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
-              <path d="M2,2 L10,6 L2,10 Z" fill="#a6adc8"></path>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#a6adc8" />
             </marker>
-            <linearGradient id="blueGrad" x1="0" x2="1"><stop stop-color="#313244"/><stop offset="1" stop-color="#3b486d"/></linearGradient>
-            <linearGradient id="greenGrad" x1="0" x2="1"><stop stop-color="#313244"/><stop offset="1" stop-color="#3f5f50"/></linearGradient>
-            <linearGradient id="yellowGrad" x1="0" x2="1"><stop stop-color="#313244"/><stop offset="1" stop-color="#64583d"/></linearGradient>
-            <linearGradient id="redGrad" x1="0" x2="1"><stop stop-color="#313244"/><stop offset="1" stop-color="#603c4b"/></linearGradient>
-            <linearGradient id="mauveGrad" x1="0" x2="1"><stop stop-color="#313244"/><stop offset="1" stop-color="#53446e"/></linearGradient>
           </defs>
+          <title>CRON tick flow</title>
 
-          <path class="edge warn" d="M222 87 C275 87 288 87 342 87"></path>
-          <path class="edge good" d="M542 87 C595 87 608 87 662 87"></path>
-          <path class="edge warn" d="M822 87 C875 87 888 87 942 87"></path>
-          <path class="edge good" d="M1060 143 C1060 182 1060 195 1060 220"></path>
+          <g class="node" transform="translate(40 40)"><rect width="180" height="70"/><text x="90" y="31">Read plan</text><text class="sub" x="90" y="51">parse status table</text></g>
+          <g class="node" transform="translate(280 40)"><rect width="180" height="70"/><text x="90" y="31">Git preflight</text><text class="sub" x="90" y="51">branch/status/worktrees</text></g>
+          <g class="node decision" transform="translate(520 40)"><rect width="180" height="70"/><text x="90" y="31">Stop condition?</text><text class="sub" x="90" y="51">dirty/conflict/missing</text></g>
+          <g class="node stop" transform="translate(760 40)"><rect width="180" height="70"/><text x="90" y="31">Stop + report</text><text class="sub" x="90" y="51">no destructive action</text></g>
 
-          <path class="edge stop" d="M940 290 C842 290 805 292 745 300"></path>
-          <path class="edge warn dash" d="M1060 360 C1060 402 1060 418 1060 450"></path>
-          <path class="edge stop" d="M980 510 C892 510 870 510 785 510"></path>
-          <path class="edge good" d="M620 360 C620 402 620 418 620 450"></path>
-          <path class="edge warn" d="M620 590 C620 630 620 648 620 680"></path>
-          <path class="edge good" d="M540 750 C445 750 418 750 335 750"></path>
-          <path class="edge good" d="M225 680 C225 612 274 595 390 566"></path>
-          <path class="edge stop" d="M700 750 C800 750 828 750 910 750"></path>
+          <g class="node decision" transform="translate(520 160)"><rect width="180" height="70"/><text x="90" y="31">Bootstrap done?</text><text class="sub" x="90" y="51">CRON state complete</text></g>
+          <g class="node" transform="translate(760 160)"><rect width="180" height="70"/><text x="90" y="31">Create/record job</text><text class="sub" x="90" y="51">commit if appropriate</text></g>
+          <g class="node stop" transform="translate(980 160)"><rect width="120" height="70"/><text x="60" y="31">End tick</text><text class="sub" x="60" y="51">report id</text></g>
 
-          <g class="node">
-            <rect x="40" y="30" width="182" height="114" rx="18" fill="url(#blueGrad)" stroke="#89b4fa" stroke-opacity=".55"></rect>
-            <text x="62" y="62" class="node-title">User request</text>
-            <text x="62" y="88" class="node-body">Need durable local-git</text>
-            <text x="62" y="106" class="node-body">execution from an</text>
-            <text x="62" y="124" class="node-body">existing plan file.</text>
-          </g>
+          <g class="node decision" transform="translate(520 280)"><rect width="180" height="70"/><text x="90" y="31">Eligible TODO?</text><text class="sub" x="90" y="51">first phase only</text></g>
+          <g class="node" transform="translate(280 280)"><rect width="180" height="70"/><text x="90" y="31">Mark claimed</text><text class="sub" x="90" y="51">TODO → IN PROGRESS</text></g>
+          <g class="node" transform="translate(40 280)"><rect width="180" height="70"/><text x="90" y="31">Execute phase</text><text class="sub" x="90" y="51">scoped work only</text></g>
 
-          <g class="decision">
-            <path d="M422 28 L542 87 L422 146 L302 87 Z" fill="url(#yellowGrad)" stroke="#f9e2af" stroke-opacity=".7"></path>
-            <text x="365" y="82" class="node-title">Use skill?</text>
-            <text x="353" y="104" class="node-body">Not one-off / PR flow</text>
-          </g>
+          <g class="node decision" transform="translate(40 410)"><rect width="180" height="70"/><text x="90" y="31">Verify local</text><text class="sub" x="90" y="51">configured commands</text></g>
+          <g class="node" transform="translate(280 410)"><rect width="180" height="70"/><text x="90" y="31">Inspect diffs</text><text class="sub" x="90" y="51">scope check</text></g>
+          <g class="node success" transform="translate(520 410)"><rect width="180" height="70"/><text x="90" y="31">Commit checkpoint</text><text class="sub" x="90" y="51">plan:&lt;slug&gt; phase:&lt;N&gt;</text></g>
+          <g class="node success" transform="translate(760 410)"><rect width="180" height="70"/><text x="90" y="31">Mark DONE</text><text class="sub" x="90" y="51">then status --short</text></g>
 
-          <g class="node">
-            <rect x="662" y="30" width="160" height="114" rx="18" fill="url(#mauveGrad)" stroke="#cba6f7" stroke-opacity=".55"></rect>
-            <text x="684" y="62" class="node-title">Confirm inputs</text>
-            <text x="684" y="88" class="node-body">Plan path, slug,</text>
-            <text x="684" y="106" class="node-body">mode, commands,</text>
-            <text x="684" y="124" class="node-body">cron intent.</text>
-          </g>
+          <g class="node stop" transform="translate(280 540)"><rect width="180" height="70"/><text x="90" y="31">Mark FAILED</text><text class="sub" x="90" y="51">or BLOCKED/DEFERRED</text></g>
+          <g class="node decision" transform="translate(760 540)"><rect width="180" height="70"/><text x="90" y="31">All DONE?</text><text class="sub" x="90" y="51">completion verifier</text></g>
+          <g class="node success" transform="translate(980 540)"><rect width="120" height="70"/><text x="60" y="31">Self-stop</text><text class="sub" x="60" y="51">pause default</text></g>
 
-          <g class="node">
-            <rect x="942" y="30" width="178" height="114" rx="18" fill="url(#blueGrad)" stroke="#89b4fa" stroke-opacity=".55"></rect>
-            <text x="964" y="62" class="node-title">Git preflight</text>
-            <text x="964" y="88" class="node-body">repo root, branch,</text>
-            <text x="964" y="106" class="node-body">status, worktrees,</text>
-            <text x="964" y="124" class="node-body">ref validation.</text>
-          </g>
-
-          <g class="decision">
-            <path d="M1060 220 L1160 290 L1060 360 L960 290 Z" fill="url(#yellowGrad)" stroke="#f9e2af" stroke-opacity=".7"></path>
-            <text x="1012" y="282" class="node-title">Plan ready?</text>
-            <text x="1004" y="304" class="node-body">Complete enough?</text>
-          </g>
-
-          <g class="node">
-            <rect x="430" y="230" width="190" height="130" rx="18" fill="url(#redGrad)" stroke="#f38ba8" stroke-opacity=".65"></rect>
-            <text x="452" y="264" class="node-title">Stop: missing data</text>
-            <text x="452" y="290" class="node-body">Missing file, branch</text>
-            <text x="452" y="308" class="node-body">strategy, phase scopes,</text>
-            <text x="452" y="326" class="node-body">verification, stop rules,</text>
-            <text x="452" y="344" class="node-body">or status table.</text>
-          </g>
-
-          <g class="node">
-            <rect x="980" y="450" width="170" height="120" rx="18" fill="url(#mauveGrad)" stroke="#cba6f7" stroke-opacity=".55"></rect>
-            <text x="1002" y="482" class="node-title">Cron gate</text>
-            <text x="1002" y="508" class="node-body">If requested or plan</text>
-            <text x="1002" y="526" class="node-body">has CRON Bootstrap:</text>
-            <text x="1002" y="544" class="node-body">create job, record, stop.</text>
-          </g>
-
-          <g class="node">
-            <rect x="390" y="450" width="230" height="140" rx="18" fill="url(#blueGrad)" stroke="#89b4fa" stroke-opacity=".55"></rect>
-            <text x="412" y="482" class="node-title">Select eligible phase</text>
-            <text x="412" y="508" class="node-body">Sequential: first TODO,</text>
-            <text x="412" y="526" class="node-body">none IN PROGRESS.</text>
-            <text x="412" y="544" class="node-body">Parallel: independent TODO,</text>
-            <text x="412" y="562" class="node-body">non-overlapping files.</text>
-          </g>
-
-          <g class="node">
-            <rect x="40" y="680" width="295" height="140" rx="18" fill="url(#greenGrad)" stroke="#a6e3a1" stroke-opacity=".55"></rect>
-            <text x="62" y="712" class="node-title">Execute scoped phase</text>
-            <text x="62" y="738" class="node-body">Switch/create branch or worktree,</text>
-            <text x="62" y="756" class="node-body">optionally mark IN PROGRESS,</text>
-            <text x="62" y="774" class="node-body">edit only scoped files, run local</text>
-            <text x="62" y="792" class="node-body">verification, inspect diffs.</text>
-          </g>
-
-          <g class="decision">
-            <path d="M620 680 L760 750 L620 820 L480 750 Z" fill="url(#yellowGrad)" stroke="#f9e2af" stroke-opacity=".7"></path>
-            <text x="558" y="743" class="node-title">Verified and</text>
-            <text x="552" y="765" class="node-title">diff scoped?</text>
-          </g>
-
-          <g class="node">
-            <rect x="910" y="690" width="160" height="120" rx="18" fill="url(#redGrad)" stroke="#f38ba8" stroke-opacity=".65"></rect>
-            <text x="932" y="724" class="node-title">Stop/report</text>
-            <text x="932" y="750" class="node-body">Failed verification,</text>
-            <text x="932" y="768" class="node-body">ambiguity, conflicts,</text>
-            <text x="932" y="786" class="node-body">unauthorized actions.</text>
-          </g>
-
-          <g class="node">
-            <rect x="160" y="860" width="250" height="92" rx="18" fill="url(#greenGrad)" stroke="#a6e3a1" stroke-opacity=".55"></rect>
-            <text x="182" y="894" class="node-title">Checkpoint commit</text>
-            <text x="182" y="920" class="node-body">Mark DONE, commit scoped diff:</text>
-            <text x="182" y="938" class="node-body">plan:&lt;slug&gt; phase:&lt;N&gt; keyword</text>
-          </g>
-
-          <g class="node">
-            <rect x="520" y="860" width="250" height="92" rx="18" fill="url(#blueGrad)" stroke="#89b4fa" stroke-opacity=".55"></rect>
-            <text x="542" y="894" class="node-title">Completion verifier</text>
-            <text x="542" y="920" class="node-body">Re-read status table, run safe</text>
-            <text x="542" y="938" class="node-body">verification, check git status.</text>
-          </g>
-
-          <path class="edge good" d="M335 906 C400 906 455 906 520 906"></path>
-          <path class="edge warn" d="M770 906 C842 906 882 850 930 806"></path>
-          <text x="812" y="890" class="small-label">incomplete / ambiguous</text>
-          <text x="788" y="746" class="small-label">no</text>
-          <text x="382" y="735" class="small-label">yes</text>
-          <text x="1068" y="402" class="small-label">cron path</text>
-          <text x="810" y="284" class="small-label">missing</text>
-          <text x="640" y="415" class="small-label">ready</text>
+          <path class="edge" d="M220 75H280"/><path class="edge" d="M460 75H520"/><path class="edge" d="M700 75H760"/><text class="label" x="714" y="66">yes</text>
+          <path class="edge" d="M610 110V160"/><text class="label" x="620" y="139">no</text>
+          <path class="edge" d="M700 195H760"/><text class="label" x="714" y="186">no</text><path class="edge" d="M940 195H980"/>
+          <path class="edge" d="M610 230V280"/><text class="label" x="620" y="258">yes</text>
+          <path class="edge" d="M520 315H460"/><text class="label" x="476" y="306">yes</text><path class="edge" d="M280 315H220"/><path class="edge" d="M130 350V410"/>
+          <path class="edge" d="M130 480 C130 520 240 520 280 575"/><text class="label" x="148" y="518">fail</text>
+          <path class="edge" d="M220 445H280"/><text class="label" x="234" y="436">pass</text><path class="edge" d="M460 445H520"/><path class="edge" d="M700 445H760"/>
+          <path class="edge" d="M850 480V540"/><path class="edge" d="M940 575H980"/><text class="label" x="950" y="566">yes</text>
+          <path class="edge" d="M700 315 C820 315 860 360 850 410"/><text class="label" x="724" y="306">no: shutdown check</text>
         </svg>
       </div>
     </section>
 
-    <section class="detail-grid" aria-label="Detailed workflow panels">
+    <section class="grid three" aria-labelledby="logic-details">
       <article class="card">
-        <h2>Existing plan intake</h2>
-        <div class="pipeline">
-          <div class="step"><span class="num">1</span><p>Confirm the plan path, repository path, execution mode, and slug from the existing file.</p></div>
-          <div class="step"><span class="num">2</span><p>Run preflight: <code>git rev-parse</code>, current branch, status, worktree list.</p></div>
-          <div class="step"><span class="num">3</span><p>Validate branch strategy, worktree strategy, phase scopes, dependencies, verification commands, exclusions, and stop conditions.</p></div>
-          <div class="step"><span class="num">4</span><p>Require the canonical <code>## Phase Status</code> table before selecting work.</p></div>
-        </div>
+        <h2 id="logic-details">Bootstrap gate</h2>
+        <ol class="compact">
+          <li>Require schedule, repo path, plan path, branch/worktree strategy.</li>
+          <li>Require verification commands, delivery target, self-stop identity/action.</li>
+          <li>Create CRON job, record <code>## CRON Bootstrap</code>, report, end run.</li>
+        </ol>
       </article>
-
       <article class="card">
-        <h2>Execution branch</h2>
-        <div class="pipeline">
-          <div class="step"><span class="num">1</span><p>Re-read the plan from disk and parse statuses plus dependency/file ownership metadata.</p></div>
-          <div class="step"><span class="num">2</span><p>Run preflight and stop on unrelated uncommitted changes.</p></div>
-          <div class="step"><span class="num">3</span><p>Select the next eligible <code>TODO</code> phase. Sequential mode stops if any phase is already <code>IN PROGRESS</code>.</p></div>
-          <div class="step"><span class="num">4</span><p>Execute only scoped work, verify locally, inspect diffs, update status, and commit only verified scoped changes.</p></div>
-        </div>
+        <h2>Commit gate</h2>
+        <ol class="compact">
+          <li>Run configured verification.</li>
+          <li>Inspect <code>git status</code> and diffs.</li>
+          <li>Commit only scoped verified changes.</li>
+          <li>Use <code>plan:&lt;slug&gt; phase:&lt;N&gt; &lt;keyword&gt;</code>.</li>
+        </ol>
       </article>
-
       <article class="card">
-        <h2>Cron branch</h2>
-        <div class="pipeline">
-          <div class="step"><span class="num">1</span><p>Only enable cron when explicitly requested or when the plan already has bootstrap state/status.</p></div>
-          <div class="step"><span class="num">2</span><p>Interactive bootstrap creates the job, records concrete <code>## CRON Bootstrap</code> state, reports job identity, then stops.</p></div>
-          <div class="step"><span class="num">3</span><p>Cron runs cannot ask questions; they re-read the plan, run preflight, execute at most allowed phases, verify, report, and exit.</p></div>
-          <div class="step"><span class="num">4</span><p>If complete and verified, cron may pause/remove only its own job according to recorded self-stop action.</p></div>
-        </div>
+        <h2>Shutdown gate</h2>
+        <ol class="compact">
+          <li>After each tick, re-check phase status.</li>
+          <li>If all <code>DONE</code>, run verification and require clean worktree.</li>
+          <li>Pause CRON by default; remove only if configured.</li>
+        </ol>
       </article>
     </section>
 
-    <section class="status-grid" aria-label="Status and stop rules">
-      <article class="card">
-        <h2>Status transitions</h2>
-        <table>
-          <thead><tr><th>From</th><th>Allowed next</th></tr></thead>
-          <tbody>
-            <tr><td><code>TODO</code></td><td><code>IN PROGRESS</code>, <code>DEFERRED</code>, <code>BLOCKED</code>, <code>SKIPPED</code></td></tr>
-            <tr><td><code>IN PROGRESS</code></td><td><code>DONE</code>, <code>DEFERRED</code>, <code>FAILED</code>, <code>BLOCKED</code></td></tr>
-            <tr><td><code>DONE</code></td><td>Terminal by default; verifier requires all phases <code>DONE</code> unless other terminal statuses are accepted.</td></tr>
-          </tbody>
-        </table>
-      </article>
-      <article class="card">
-        <h2>Stop conditions</h2>
-        <ul class="summary-list">
-          <li><span class="dot red">!</span><span>Unrelated uncommitted changes or destructive git actions.</span></li>
-          <li><span class="dot red">!</span><span>Branch, worktree, merge, ownership, or status-table conflicts.</span></li>
-          <li><span class="dot red">!</span><span>Failed verification without an obvious in-scope fix.</span></li>
-          <li><span class="dot red">!</span><span>Unauthorized PR, CI polling, merge/reconciliation, or cleanup behavior.</span></li>
-        </ul>
-      </article>
+    <section class="card" aria-labelledby="stop-conditions">
+      <h2 id="stop-conditions">Hard stops</h2>
+      <div class="grid three">
+        <ul class="compact"><li>Missing or ambiguous input.</li><li>Existing <code>IN PROGRESS</code> phase.</li><li>Status table changed unexpectedly.</li></ul>
+        <ul class="compact"><li>Unrelated uncommitted changes.</li><li>Verification failure without scoped fix.</li><li>User authorization required.</li></ul>
+        <ul class="compact"><li>Destructive git action needed.</li><li>Branch/worktree/merge conflict.</li><li>Plan status conflict.</li></ul>
+      </div>
     </section>
   </main>
 
-  <footer>
-    Generated from <code>SKILL.md</code> in this repository on 2026-06-05. Single-file HTML; embedded CSS and inline SVG only; no remote assets or copied demo code.
-  </footer>
+  <footer>Source: local <code>SKILL.md</code>. Single-file HTML; no remote assets.</footer>
 </body>
 </html>
