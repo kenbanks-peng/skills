@@ -1,6 +1,6 @@
 ---
 name: git-managed-plan-execution
-description: Sequentially execute existing multi-phase implementation plans from disk using CRON scheduling, git branches/worktrees, local verification, checkpoint commits, and durable phase status in the plan file.
+description: Use when executing existing multi-phase implementation plans from disk through scheduled Hermes cron runs, with git branches/worktrees, local verification, checkpoint commits, and durable phase status in the plan file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -8,18 +8,36 @@ platforms: [linux, macos]
 metadata:
   hermes:
     tags: [git, implementation, execution, branches, worktrees, cron]
-    related_skills: [subagent-driven-development, github-repo-management]
+    related_skills: [writing-plans, subagent-driven-development, github-repo-management]
 ---
 
 # Git-Managed Plan Execution
 
-## Purpose
+## Overview
 
 Sequentially execute an existing multi-phase plan from disk through CRON. The plan file is canonical.
 
 Use this workflow when CRON should resume and advance plan phases across runs, with durable status recorded in the plan file.
 
 The workflow is focused on local phase execution: selecting eligible work, making scoped changes, running local verification, updating durable phase status, and committing checkpoints.
+
+## When to Use
+
+Use this skill when:
+
+- The user has an existing implementation plan on disk.
+- The plan has multiple phases that should be executed sequentially.
+- CRON should resume and advance plan phases across runs.
+- Progress must survive across sessions and agent runs.
+- Git commits should checkpoint each completed phase.
+- The plan file should remain the canonical status source.
+
+Do not use this skill when:
+
+- The user only wants a one-off plan review.
+- The task has no durable plan file.
+- The user wants immediate interactive execution only, with no scheduled continuation.
+- Destructive git cleanup, branch deletion, merging, or worktree removal is required without explicit authorization.
 
 ## Tools
 
@@ -28,6 +46,17 @@ The workflow is focused on local phase execution: selecting eligible work, makin
 - `todo`: session tracking only.
 - `delegate_task`: optional isolated implementation or review.
 - `cronjob`: required.
+
+## Plan File Contract
+
+The plan file must contain:
+
+- A durable `## Phase Status` table.
+- A stable phase number and title for each executable phase.
+- Enough phase detail elsewhere in the plan to identify scoped work.
+- Optional `## CRON Bootstrap` state once scheduled execution is enabled.
+
+Phase selection is based on the `## Phase Status` table. Phase implementation scope is based on the matching numbered/title phase content in the plan.
 
 ## Phase Status
 
@@ -73,6 +102,8 @@ Rules:
 
 ## CRON Bootstrap
 
+CRON bootstrap is an initiating handoff, not an execution tick.
+
 If `## CRON Bootstrap` is absent or incomplete:
 
 1. Collect or derive required parameters.
@@ -107,6 +138,8 @@ Max phases per run: 1
 Self-stop action: pause
 Delivery target: <target>
 ```
+
+After creating or starting the CRON job, recording `## CRON Bootstrap`, updating any bootstrap status row, and reporting the job id/name/schedule, the initiating agent is done. Do not execute an implementation phase in the same run unless the user explicitly requested bootstrap plus immediate execution.
 
 ## CRON Prompt
 
@@ -194,3 +227,43 @@ Stop and report when:
 - user authorization is required
 - a destructive git action would be needed
 - a branch, worktree, merge, or plan-status conflict occurs
+
+## Common Pitfalls
+
+1. Treating the session todo list as durable state.
+   The plan file is canonical. `todo` is only for the current run.
+
+2. Running more than one phase per CRON tick.
+   Default to one eligible `TODO` phase per run unless the bootstrap state explicitly says otherwise.
+
+3. Forgetting to end after CRON bootstrap.
+   The initiating run should create/start the CRON job, record bootstrap state, commit if appropriate, report the job, and stop.
+
+4. Updating phase status without re-reading the table.
+   Before patching the plan, confirm the `## Phase Status` table has not changed unexpectedly.
+
+5. Committing unrelated changes.
+   Inspect `git status --short` and diffs before every commit. Stop if unrelated changes are present.
+
+6. Pausing or removing the wrong CRON job.
+   Use the recorded job id/name from `## CRON Bootstrap`; list jobs when identity is uncertain.
+
+7. Performing cleanup too early.
+   Do not delete branches, remove worktrees, merge, reset, or clean unless explicitly authorized.
+
+## Verification Checklist
+
+- [ ] Plan file was re-read from disk.
+- [ ] `## Phase Status` table parsed successfully.
+- [ ] Git preflight completed.
+- [ ] No unrelated uncommitted changes were present.
+- [ ] CRON bootstrap state is complete.
+- [ ] At most one eligible `TODO` phase was selected.
+- [ ] Selected phase was marked `IN PROGRESS` before work began.
+- [ ] Local verification commands were run.
+- [ ] Diffs were inspected before commit.
+- [ ] Scoped verified changes were committed.
+- [ ] Phase status was updated to `DONE`, `FAILED`, `BLOCKED`, `DEFERRED`, or `SKIPPED`.
+- [ ] Final `git status --short` was checked.
+- [ ] Completion/shutdown conditions were evaluated.
+- [ ] CRON job pause/remove action was applied only when configured and safe.
