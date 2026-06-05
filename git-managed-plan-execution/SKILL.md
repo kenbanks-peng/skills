@@ -1,6 +1,6 @@
 ---
 name: git-managed-plan-execution
-description: Execute existing multi-phase implementation plans from disk using CRON scheduling, git branches/worktrees, local verification, checkpoint commits, and durable phase status in the plan file.
+description: Sequentially execute existing multi-phase implementation plans from disk using CRON scheduling, git branches/worktrees, local verification, checkpoint commits, and durable phase status in the plan file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -15,7 +15,7 @@ metadata:
 
 ## Purpose
 
-Execute an existing multi-phase plan from disk through CRON. The plan file is canonical.
+Sequentially execute an existing multi-phase plan from disk through CRON. The plan file is canonical.
 
 Use this workflow when CRON should resume and advance plan phases across runs, with durable status recorded in the plan file.
 
@@ -51,7 +51,7 @@ Allowed transitions:
 - `TODO/IN PROGRESS -> BLOCKED`
 - `TODO -> SKIPPED`
 
-Update the table as each phase is claimed and completed. Stop on status-table conflicts.
+Update the table as each phase is claimed and completed. Before writing, confirm the table has not changed unexpectedly since it was read.
 
 ## Git Rules
 
@@ -66,7 +66,6 @@ git worktree list
 
 Rules:
 
-- Stop on unrelated uncommitted changes.
 - Validate generated branch names with `git check-ref-format --branch`.
 - Plan branch: `plan/<slug>`.
 - Phase branch: `plan/<slug>-phase-<NN>`.
@@ -82,7 +81,7 @@ If `## CRON Bootstrap` is absent or incomplete:
 4. Update any CRON bootstrap status row.
 5. Commit if appropriate.
 6. Report the job id/name/schedule.
-7. Stop.
+7. End the current run.
 
 Required parameters:
 
@@ -111,46 +110,41 @@ Delivery target: <target>
 
 ## CRON Prompt
 
-The CRON prompt must include repo path, plan path, branch/worktree strategy, max phases per run, verification commands, commit format, valid statuses, terminal statuses, self-stop identity/action, and these rules:
+The CRON prompt must include:
 
-1. Do not ask questions. Stop and report missing or ambiguous input.
-2. Re-read the plan before selecting work.
-3. Run git preflight.
-4. Stop on unrelated uncommitted changes.
-5. Require complete CRON bootstrap state.
-6. Execute at most one `TODO` phase per tick unless configured otherwise.
-7. Use local verification only.
-8. Do not create PRs, poll CI, merge, clean worktrees, or run destructive commands unless authorized.
-9. Do not auto-resolve branch, worktree, merge, or status-table conflicts.
-10. On complete verified plans, pause this CRON job by default; remove it only if configured.
+- repo path and plan path
+- CRON bootstrap state
+- verification commands
+- commit format
+- self-stop identity and action
 
-End-of-run report: phase attempted, result, verification, commit, completion result, CRON action, next action.
+Each CRON run must re-read the plan, run git preflight, execute at most one eligible `TODO` phase, run local verification, update phase status, commit verified changes, and report the result.
 
-Add `delegation` to CRON `enabled_toolsets` only when subagents may be used. Include `cronjob`.
+When all phases are complete and verified, pause the CRON job by default; remove it only if configured.
 
 ## Execution Workflow
 
+Each CRON tick executes at most one phase.
+
 1. Read the plan from disk.
-2. Parse `## Phase Status` and dependency/file metadata.
+2. Parse the `## Phase Status` table.
 3. Run git preflight.
-4. Stop on unrelated uncommitted changes.
+4. Apply stop conditions to the git preflight result.
 5. Ensure CRON bootstrap is complete.
-6. Select the next eligible phase: the first `TODO`; stop if any phase is `IN PROGRESS`.
-7. Create or switch to the required branch/worktree.
-8. Mark `IN PROGRESS` only when claiming work.
-9. Execute only scoped phase work.
-10. Run verification.
-11. Mark `DONE`, `FAILED`, `BLOCKED`, or `DEFERRED` with a short note.
-12. Inspect diffs.
-13. Commit scoped verified changes.
+6. Apply stop conditions to the phase status table.
+7. Select the first `TODO` phase.
+8. Mark the selected phase `IN PROGRESS`.
+9. Execute only that phase's scoped work.
+10. Run local verification.
+11. Inspect diffs.
+12. Commit scoped verified changes.
+13. Update phase status:
+    - `DONE` when verification passes and changes are committed
+    - `FAILED` when verification fails
+    - `BLOCKED` when required input or authorization is missing
+    - `DEFERRED` when the phase should intentionally be postponed
 14. Re-check `git status --short`.
 15. Run completion verifier.
-
-## Delegation
-
-The primary CRON run owns verification, commits, and status updates.
-
-Subagents receive repo/worktree path, branch, phase scope, expected files, forbidden files, dependencies, verification commands, commit format, and the ban on PRs, CI polling, merge automation, destructive git commands, and cleanup.
 
 ## Commit Protocol
 
@@ -169,29 +163,34 @@ Rules:
 - Commit only scoped verified changes.
 - Inspect status/diffs before commit and status after commit.
 
-## Completion Verifier
+## CRON Shutdown
 
-Run at checkpoints and every CRON tick. It is read-only except CRON self-stop.
+At the end of every CRON tick, check the `## Phase Status` table.
 
-Steps:
+If every phase is `DONE`:
 
-1. Re-read the plan.
-2. Parse the bottom `## Phase Status` table.
-3. Determine terminal statuses. Default: every phase must be `DONE`.
-4. Run configured verification commands.
-5. Check `git status --short`.
-6. Decide complete, incomplete, or ambiguous.
+1. Run configured verification commands.
+2. Check `git status --short`.
+3. If verification passes and the worktree is clean, apply the configured self-stop action.
+4. Record/report the shutdown result.
 
-Do not implement work, start phases, review broadly, rewrite code, reconcile branches, create CRON jobs, or make speculative fixes.
+Default self-stop action is `pause`. Use `remove` only when configured.
 
-## Reconciliation and Cleanup
+## Cleanup
 
-Do not reconcile branches or clean worktrees automatically.
+Do not clean worktrees, delete branches, merge branches, or run destructive git commands unless the user explicitly asks.
 
-Before user-authorized reconciliation, report branches, worktrees, commits, verification results, files changed, and likely conflicts.
-
-Stop on status-table conflicts. Do not remove dirty worktrees.
+Before any user-authorized cleanup, report the current branches, worktrees, commits, changed files, and verification status.
 
 ## Stop Conditions
 
-Stop on failed verification without an obvious scoped fix, missing input, user authorization required, unrelated uncommitted changes, destructive git action, unauthorized merge/reconciliation, or unresolved conflict.
+Stop and report when:
+
+- required input is missing or ambiguous
+- any phase is already `IN PROGRESS`
+- the phase status table changed unexpectedly since it was read
+- unrelated uncommitted changes are present
+- verification fails without an obvious scoped fix
+- user authorization is required
+- a destructive git action would be needed
+- a branch, worktree, merge, or plan-status conflict occurs
