@@ -1,5 +1,5 @@
 ---
-name: git-managed-plan-execution
+name: plan-execution
 description: Use when executing existing multi-phase implementation plans from disk through scheduled Hermes cron runs, with a dedicated git worktree, local verification, checkpoint commits, and durable phase status in the plan file.
 version: 1.0.0
 author: Hermes Agent
@@ -11,7 +11,7 @@ metadata:
     related_skills: [writing-plans, subagent-driven-development, github-repo-management]
 ---
 
-# Git-Managed Plan Execution
+# Plan Execution
 
 ## Overview
 
