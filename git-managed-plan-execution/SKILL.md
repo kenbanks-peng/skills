@@ -48,24 +48,23 @@ Do not use unless an existing multi-phase plan file is available and CRON schedu
 
 ## Existing Plan Requirements
 
-Before executing, confirm the existing plan includes enough information to run safely:
+Before executing, confirm the existing plan plus local git preflight provide enough information to run safely:
 
-- Goal and scope, including out-of-scope work.
+- Phase tasks with enough scope to identify the work to do.
 - Repository path or explicit repo-relative paths.
 - Plan slug.
-- Base branch from `git branch --show-current`, unless overridden.
-- Execution mode.
+- Base branch discovered from `git branch --show-current`, unless the plan/user overrides it.
+- Execution mode: sequential or parallel.
 - Branch strategy:
   - plan branch: `plan/<slug>`
   - phase branch: `plan/<slug>-phase-<NN>`
   - any user branch override
-- Worktree strategy; required for parallel execution.
+- Worktree strategy when execution is parallel.
 - Phase list with files/scope, steps, verification, and commit keyword.
 - Dependency or file-ownership metadata when phases may run in parallel.
 - Local verification commands.
 - Concrete `## CRON Bootstrap` state, including schedule, job identity, run limits, delivery target, and self-stop action.
 - Stop conditions.
-- Explicit exclusions: no PR, CI polling, merge automation, destructive cleanup, or worktree cleanup unless separately authorized.
 - Bottom `## Phase Status` table.
 
 CRON scheduling is mandatory. Require concrete `## CRON Bootstrap` state before phase execution. If the section is absent or incomplete, bootstrap CRON first; there is no non-CRON execution path. Do not infer missing CRON details.
@@ -386,7 +385,7 @@ Stop on failed verification without an obvious in-scope fix, required user input
 - [ ] Phase scopes and verification commands are concrete.
 - [ ] Parallel dependencies/file ownership are explicit when needed.
 - [ ] CRON records concrete `## CRON Bootstrap` state and self-stop identity/action.
-- [ ] Stop conditions and excluded PR/CI/merge/cleanup behaviors are documented.
+- [ ] Stop conditions are documented.
 - [ ] Bottom `## Phase Status` table is present.
 
 ## Skill File Checklist
