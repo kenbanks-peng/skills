@@ -109,7 +109,7 @@
 
     <section class="card" aria-labelledby="tick-flow">
       <h2 id="tick-flow">CRON tick flow</h2>
-      <div class="flow" role="img" aria-label="Flowchart from plan read to bootstrap, phase execution, verification, commit, status update, and shutdown check">
+      <div class="flow" role="img" aria-label="Flowchart from plan read to bootstrap, phase execution, verification, commit, status update, completion check, and shutdown or next tick">
         <svg viewBox="0 0 1120 700" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -134,11 +134,12 @@
           <g class="node decision" transform="translate(40 410)"><rect width="180" height="70"/><text x="90" y="31">Verify local</text><text class="sub" x="90" y="51">configured commands</text></g>
           <g class="node" transform="translate(280 410)"><rect width="180" height="70"/><text x="90" y="31">Inspect diffs</text><text class="sub" x="90" y="51">scope check</text></g>
           <g class="node success" transform="translate(520 410)"><rect width="180" height="70"/><text x="90" y="31">Commit checkpoint</text><text class="sub" x="90" y="51">plan:&lt;slug&gt; phase:&lt;N&gt;</text></g>
-          <g class="node success" transform="translate(760 410)"><rect width="180" height="70"/><text x="90" y="31">Mark DONE</text><text class="sub" x="90" y="51">then status --short</text></g>
+          <g class="node success" transform="translate(760 410)"><rect width="180" height="70"/><text x="90" y="31">Mark DONE</text><text class="sub" x="90" y="51">re-read phase table</text></g>
 
           <g class="node stop" transform="translate(280 540)"><rect width="180" height="70"/><text x="90" y="31">Mark FAILED</text><text class="sub" x="90" y="51">or BLOCKED/DEFERRED</text></g>
           <g class="node decision" transform="translate(760 540)"><rect width="180" height="70"/><text x="90" y="31">All DONE?</text><text class="sub" x="90" y="51">completion verifier</text></g>
-          <g class="node success" transform="translate(980 540)"><rect width="120" height="70"/><text x="60" y="31">Self-stop</text><text class="sub" x="60" y="51">pause default</text></g>
+          <g class="node success" transform="translate(980 500)"><rect width="120" height="70"/><text x="60" y="25">Yes</text><text x="60" y="43">self-stop</text><text class="sub" x="60" y="61">pause default</text></g>
+          <g class="node" transform="translate(980 610)"><rect width="120" height="70"/><text x="60" y="25">No</text><text x="60" y="43">report</text><text class="sub" x="60" y="61">next tick continues</text></g>
 
           <path class="edge" d="M220 75H280"/><path class="edge" d="M460 75H520"/><path class="edge" d="M700 75H760"/><text class="label" x="714" y="66">yes</text>
           <path class="edge" d="M610 110V160"/><text class="label" x="620" y="139">no</text>
@@ -147,7 +148,8 @@
           <path class="edge" d="M520 315H460"/><text class="label" x="476" y="306">yes</text><path class="edge" d="M280 315H220"/><path class="edge" d="M130 350V410"/>
           <path class="edge" d="M130 480 C130 520 240 520 280 575"/><text class="label" x="148" y="518">fail</text>
           <path class="edge" d="M220 445H280"/><text class="label" x="234" y="436">pass</text><path class="edge" d="M460 445H520"/><path class="edge" d="M700 445H760"/>
-          <path class="edge" d="M850 480V540"/><path class="edge" d="M940 575H980"/><text class="label" x="950" y="566">yes</text>
+          <path class="edge" d="M850 480V540"/><path class="edge" d="M940 575 C960 575 960 535 980 535"/><text class="label" x="950" y="550">yes</text>
+          <path class="edge" d="M850 610 C880 655 930 650 980 645"/><text class="label" x="890" y="654">no</text>
           <path class="edge" d="M700 315 C820 315 860 360 850 410"/><text class="label" x="724" y="306">no: shutdown check</text>
         </svg>
       </div>
@@ -174,9 +176,10 @@
       <article class="card">
         <h2>Shutdown gate</h2>
         <ol class="compact">
-          <li>After each tick, re-check phase status.</li>
-          <li>If all <code>DONE</code>, run verification and require clean worktree.</li>
-          <li>Pause CRON by default; remove only if configured.</li>
+          <li>After marking a phase <code>DONE</code>, re-read phase status.</li>
+          <li>If not all phases are <code>DONE</code>, report progress and wait for the next CRON tick.</li>
+          <li>If all phases are <code>DONE</code>, run final verification and require a clean worktree.</li>
+          <li>Then pause CRON by default; remove only if configured.</li>
         </ol>
       </article>
     </section>
