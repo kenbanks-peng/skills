@@ -1,36 +1,36 @@
 ---
 name: git-managed-plan-execution
-description: Use for durable local-git implementation plans with phase status tables, named branches, optional worktree-isolated parallel phases, checkpoint commits, local verification, and optional cron scheduling. Excludes PR, CI, merge automation, and cleanup unless separately requested.
+description: Use to execute existing durable local-git implementation plans with phase status tables, named branches, optional worktree-isolated parallel phases, checkpoint commits, local verification, and optional cron scheduling. Requires an existing plan file; excludes PR, CI, merge automation, and cleanup unless separately requested.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [git, planning, implementation, branches, worktrees, cron, delegation]
-    related_skills: [writing-plans, subagent-driven-development, github-repo-management, hermes-agent-skill-authoring]
+    tags: [git, implementation, execution, branches, worktrees, cron, delegation]
+    related_skills: [subagent-driven-development, github-repo-management]
 ---
 
 # Git-Managed Plan Execution
 
 ## Purpose
 
-Author and execute implementation plans that future sessions can resume from disk. The plan file is the durable control surface; local git provides coordination through branches, optional worktrees, checkpoint commits, and local verification.
+Execute existing implementation plans that future sessions can resume from disk. The plan file is the durable control surface; local git provides coordination through branches, optional worktrees, checkpoint commits, and local verification.
 
 This skill is local-only. It does not create PRs, watch CI, merge branches, clean worktrees, or run destructive git operations unless the user explicitly asks.
 
 ## Use When
 
-- A user wants an implementation plan that survives chat/session loss.
+- A user has an existing implementation plan that should be executed or resumed from disk.
 - Work should proceed through named phases, branches, and checkpoint commits.
 - Independent phases need isolated worktrees for subagents or cron runs.
 - The user requests scheduled/autonomous cron execution.
 
-Do not use for one-off edits, PR-centered workflows, or cleanup-only tasks.
+Do not use unless an existing plan file is available. Do not use for one-off edits, PR-centered workflows, or cleanup-only tasks.
 
 ## Tool Use
 
-- File tools: read, write, patch, and search plan/skill files.
+- File tools: read, patch, and search existing plan/skill files.
 - Terminal: git state, tests, lint, validation, and local smoke checks.
 - `todo`: session-local tracking only; durable phase status stays in the plan.
 - `delegate_task`: isolated implementation or review when helpful.
@@ -40,36 +40,14 @@ Do not use for one-off edits, PR-centered workflows, or cleanup-only tasks.
 
 1. The plan is self-contained. Future executors need the repository and plan file, not chat history.
 2. Discover state before acting; do not assume the base branch is `main`.
-3. Record branch, worktree, phase, verification, and stop rules in the plan.
+3. Follow branch, worktree, phase, verification, and stop rules already recorded in the plan.
 4. Keep the bottom `## Phase Status` table as the canonical status surface.
 5. Commit only scoped, verified work. Prefer one commit per completed phase.
 6. Stop before ambiguity, unrelated changes, destructive actions, unauthorized merges, or failed verification without an obvious in-scope fix.
 
-## Plan Authoring
+## Existing Plan Requirements
 
-When creating a plan:
-
-1. Discover repository context:
-
-   ```bash
-   git rev-parse --show-toplevel
-   git branch --show-current
-   git status --short
-   git worktree list
-   ```
-
-2. Choose a short lowercase git/filesystem-safe slug.
-3. Set execution mode:
-   - `sequential`: current worktree on `plan/<slug>` unless isolation is useful.
-   - `parallel`: one branch and one worktree per independent phase.
-4. Write each phase with objective, scope/files, steps, verification commands, and commit keyword.
-5. If parallelism is allowed, include dependencies or file ownership.
-6. Add exclusions and stop conditions.
-7. End with `## Phase Status`.
-
-### Required Plan Content
-
-Every plan must include:
+Before executing, confirm the existing plan includes enough information to run safely:
 
 - Goal and scope, including out-of-scope work.
 - Repository path or explicit repo-relative paths.
@@ -88,7 +66,7 @@ Every plan must include:
 - Explicit exclusions: no PR, CI polling, merge automation, destructive cleanup, or worktree cleanup unless separately authorized.
 - Bottom `## Phase Status` table.
 
-If cron scheduling is enabled, add concrete `## CRON Bootstrap` state. Do not copy the generic cron decision procedure into plans.
+If cron scheduling is enabled, require concrete `## CRON Bootstrap` state. Do not infer missing cron details.
 
 ### Optional Parallel Metadata
 
@@ -101,16 +79,16 @@ If cron scheduling is enabled, add concrete `## CRON Bootstrap` state. Do not co
 | 2 | - | 1, 3 | `src/b.py`, `tests/test_b.py` |
 ```
 
-## Inputs to Collect
+## Inputs to Confirm
 
-- Goal, scope, repository/workdir path, and plan path.
-- Plan slug, or permission to generate one.
+- Repository/workdir path and plan path.
+- Plan slug from the existing plan.
 - Base branch override, if any.
-- Sequential vs parallel mode.
-- Phase scopes, expected files, dependencies, and file ownership.
-- Verification commands.
-- Branch naming mode: plan branch or phase branch.
-- Worktree mode and path pattern for parallel phases.
+- Sequential vs parallel mode from the existing plan.
+- Phase scopes, expected files, dependencies, and file ownership from the existing plan.
+- Verification commands from the existing plan.
+- Branch naming mode: plan branch or phase branch from the existing plan.
+- Worktree mode and path pattern for parallel phases from the existing plan.
 - Whether cron scheduling is explicitly requested, or already represented by `## CRON Bootstrap` or a status row.
 - Accepted terminal statuses besides `DONE`, if any.
 
@@ -399,7 +377,7 @@ Stop on failed verification without an obvious in-scope fix, required user input
 5. Using cron without a self-contained prompt and self-stop identity.
 6. Continuing implementation after CRON bootstrap; bootstrap records state, reports, and stops.
 
-## Generated Plan Quality Checklist
+## Execution Readiness Checklist
 
 - [ ] A fresh session can resume from the plan file alone.
 - [ ] Branch and worktree strategies are explicit.

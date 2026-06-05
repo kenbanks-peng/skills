@@ -205,9 +205,9 @@
     <section class="top-grid" aria-labelledby="overview-title">
       <article class="card">
         <h2 id="overview-title">Operating thesis</h2>
-        <p>The plan file is the durable control surface. Git provides local coordination through explicit branches, optional worktrees, scoped checkpoint commits, and local verification. Chat memory and remote PR/CI automation are intentionally outside the default workflow.</p>
+        <p>The existing plan file is the durable control surface. Git provides local coordination through explicit branches, optional worktrees, scoped checkpoint commits, and local verification. Chat memory and remote PR/CI automation are intentionally outside the default workflow.</p>
         <ul class="summary-list" aria-label="Core rules">
-          <li><span class="dot blue">1</span><span>Discover repository state before writing or executing a plan; never assume the base branch.</span></li>
+          <li><span class="dot blue">1</span><span>Require an existing plan file and discover repository state before execution; never assume the base branch.</span></li>
           <li><span class="dot green">2</span><span>Drive work from the bottom <code>## Phase Status</code> table and update it according to allowed transitions.</span></li>
           <li><span class="dot yellow">3</span><span>In parallel mode, isolate each phase by branch and worktree; do not race on the canonical status table.</span></li>
           <li><span class="dot red">!</span><span>Stop before unrelated changes, destructive cleanup, unauthorized merges, ambiguous ownership, or failed verification.</span></li>
@@ -227,8 +227,8 @@
 
     <section class="card" aria-labelledby="flow-title">
       <h2 id="flow-title">End-to-end logic flow</h2>
-      <p class="source-note">Diagram grounded in the repository's <code>SKILL.md</code>: Plan Authoring, Execution Workflow, Branch and Worktree Rules, Cron Scheduling, Completion / Signoff Verifier, and Stop Conditions.</p>
-      <div class="flow-wrap" role="img" aria-label="Flowchart of git-managed plan execution from request triage through plan authoring, execution, verification, commit, cron, completion, and stop conditions.">
+      <p class="source-note">Diagram grounded in the repository's <code>SKILL.md</code>: Existing Plan Requirements, Execution Workflow, Branch and Worktree Rules, Cron Scheduling, Completion / Signoff Verifier, and Stop Conditions.</p>
+      <div class="flow-wrap" role="img" aria-label="Flowchart of git-managed plan execution from request triage through existing-plan validation, execution, verification, commit, cron, completion, and stop conditions.">
         <svg viewBox="0 0 1200 940" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <title>Git-managed plan execution logic flow</title>
           <defs>
@@ -260,8 +260,8 @@
             <rect x="40" y="30" width="182" height="114" rx="18" fill="url(#blueGrad)" stroke="#89b4fa" stroke-opacity=".55"></rect>
             <text x="62" y="62" class="node-title">User request</text>
             <text x="62" y="88" class="node-body">Need durable local-git</text>
-            <text x="62" y="106" class="node-body">implementation plan or</text>
-            <text x="62" y="124" class="node-body">execution of one.</text>
+            <text x="62" y="106" class="node-body">execution from an</text>
+            <text x="62" y="124" class="node-body">existing plan file.</text>
           </g>
 
           <g class="decision">
@@ -273,7 +273,7 @@
           <g class="node">
             <rect x="662" y="30" width="160" height="114" rx="18" fill="url(#mauveGrad)" stroke="#cba6f7" stroke-opacity=".55"></rect>
             <text x="684" y="62" class="node-title">Collect inputs</text>
-            <text x="684" y="88" class="node-body">Goal, scope, slug,</text>
+            <text x="684" y="88" class="node-body">Plan path, slug,</text>
             <text x="684" y="106" class="node-body">mode, commands,</text>
             <text x="684" y="124" class="node-body">cron intent.</text>
           </g>
@@ -288,17 +288,17 @@
 
           <g class="decision">
             <path d="M1060 220 L1160 290 L1060 360 L960 290 Z" fill="url(#yellowGrad)" stroke="#f9e2af" stroke-opacity=".7"></path>
-            <text x="1009" y="282" class="node-title">Authoring</text>
-            <text x="1010" y="304" class="node-body">or executing?</text>
+            <text x="1012" y="282" class="node-title">Plan ready?</text>
+            <text x="1004" y="304" class="node-body">Complete enough?</text>
           </g>
 
           <g class="node">
             <rect x="430" y="230" width="190" height="130" rx="18" fill="url(#greenGrad)" stroke="#a6e3a1" stroke-opacity=".55"></rect>
-            <text x="452" y="264" class="node-title">Write plan</text>
-            <text x="452" y="290" class="node-body">Self-contained file,</text>
-            <text x="452" y="308" class="node-body">branch/worktree strategy,</text>
-            <text x="452" y="326" class="node-body">phases, verification,</text>
-            <text x="452" y="344" class="node-body">stop rules, status table.</text>
+            <text x="452" y="264" class="node-title">Stop: missing data</text>
+            <text x="452" y="290" class="node-body">Missing file, branch</text>
+            <text x="452" y="308" class="node-body">strategy, phase scopes,</text>
+            <text x="452" y="326" class="node-body">verification, stop rules,</text>
+            <text x="452" y="344" class="node-body">or status table.</text>
           </g>
 
           <g class="node">
@@ -361,20 +361,20 @@
           <text x="788" y="746" class="small-label">no</text>
           <text x="382" y="735" class="small-label">yes</text>
           <text x="1068" y="402" class="small-label">cron path</text>
-          <text x="810" y="284" class="small-label">author</text>
-          <text x="640" y="415" class="small-label">execute</text>
+          <text x="810" y="284" class="small-label">missing</text>
+          <text x="640" y="415" class="small-label">ready</text>
         </svg>
       </div>
     </section>
 
     <section class="detail-grid" aria-label="Detailed workflow panels">
       <article class="card">
-        <h2>Plan authoring branch</h2>
+        <h2>Existing plan intake</h2>
         <div class="pipeline">
-          <div class="step"><span class="num">1</span><p>Run preflight: <code>git rev-parse</code>, current branch, status, worktree list.</p></div>
-          <div class="step"><span class="num">2</span><p>Choose a lowercase filesystem-safe slug and execution mode: <code>sequential</code> or <code>parallel</code>.</p></div>
-          <div class="step"><span class="num">3</span><p>Write branch strategy, worktree strategy, phase scopes, dependencies, verification commands, exclusions, and stop conditions.</p></div>
-          <div class="step"><span class="num">4</span><p>End with the canonical <code>## Phase Status</code> table.</p></div>
+          <div class="step"><span class="num">1</span><p>Confirm the plan path, repository path, execution mode, and slug from the existing file.</p></div>
+          <div class="step"><span class="num">2</span><p>Run preflight: <code>git rev-parse</code>, current branch, status, worktree list.</p></div>
+          <div class="step"><span class="num">3</span><p>Validate branch strategy, worktree strategy, phase scopes, dependencies, verification commands, exclusions, and stop conditions.</p></div>
+          <div class="step"><span class="num">4</span><p>Require the canonical <code>## Phase Status</code> table before selecting work.</p></div>
         </div>
       </article>
 
