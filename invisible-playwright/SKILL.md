@@ -1,6 +1,6 @@
 ---
 name: invisible-playwright
-description: Use when an agent needs browser automation through invisible_playwright: a Playwright-compatible patched Firefox wrapper with coherent stealth fingerprints, proxy support, reproducible seeds, and humanized mouse movement.
+description: "Use when an agent needs browser automation through invisible_playwright: a Playwright-compatible patched Firefox wrapper with coherent stealth fingerprints, proxy support, reproducible seeds, and humanized mouse movement."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
