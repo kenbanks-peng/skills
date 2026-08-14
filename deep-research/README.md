@@ -57,7 +57,7 @@ Key features:
 
 ## Output
 
-Reports saved to `~/Documents/[Topic]_Research_[Date]/`:
+Reports saved to `research/[Topic]_Research_[Date]/` in this repository:
 - Markdown (primary source of truth)
 - HTML (McKinsey-style, auto-opened in browser)
 - PDF (professional print via WeasyPrint)

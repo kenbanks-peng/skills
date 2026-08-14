@@ -131,7 +131,7 @@ class ResearchEngine:
     def __init__(self, mode: ResearchMode = ResearchMode.STANDARD):
         self.mode = mode
         self.state: Optional[ResearchState] = None
-        self.output_dir = Path.home() / ".agents" / "share" / "deep-research-skill"
+        self.output_dir = Path(__file__).resolve().parent.parent / "research" / "_state"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def initialize_research(self, query: str) -> ResearchState:

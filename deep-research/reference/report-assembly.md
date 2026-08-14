@@ -29,8 +29,8 @@
 ### Phase 8.1: Setup
 
 ```bash
-# Create folder: ~/Documents/[TopicName]_Research_[YYYYMMDD]/
-mkdir -p ~/Documents/[folder_name]
+# Create folder in this skill repository: research/[TopicName]_Research_[YYYYMMDD]/
+mkdir -p research/[folder_name]
 
 # Initialize markdown file with frontmatter
 # Path: [folder]/research_report_[YYYYMMDD]_[slug].md
@@ -107,7 +107,7 @@ Source identity is stable across edits and continuation. Display numbers are der
 ## File Organization
 
 **1. Create dedicated folder:**
-- Location: `~/Documents/[TopicName]_Research_[YYYYMMDD]/`
+- Location: `research/[TopicName]_Research_[YYYYMMDD]/` in this skill repository
 - Clean topic name (remove special chars, use underscores)
 
 **2. File naming convention:**
@@ -116,7 +116,7 @@ All files use same base name:
 - `research_report_20251104_topic_slug.html`
 - `research_report_20251104_topic_slug.pdf`
 
-**3. Keep continuation state in:** `~/.agents/share/deep-research-skill/` (internal tracking). Ensure the directory exists before writing state.
+**3. Keep continuation state in:** `research/_state/` in this skill repository (internal tracking). Ensure the directory exists before writing state.
 
 ---
 
