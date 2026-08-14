@@ -67,6 +67,15 @@ Before considering section complete:
 
 **If ANY fails:** Regenerate section before continuing.
 
+### Results List and URL Check (Apply When Relevant)
+
+When the research question asks for a set of results, verify before delivery:
+- [ ] A clearly labeled **Results at a Glance** section appears immediately after the Executive Summary.
+- [ ] The section explicitly lists every result in the requested order.
+- [ ] Each result with a public URL shows its full direct URL beside the result, not only in a citation or bibliography entry.
+- [ ] The HTML and PDF retain the visible URLs and working links.
+- [ ] Any access restriction, including login, provider, regional, or paid access, is stated beside the affected result.
+
 ### Bullet Point Policy
 
 - Use bullets SPARINGLY: Only for distinct lists (product names, company roster, enumerated steps)
@@ -82,6 +91,7 @@ Before considering section complete:
 
 **MUST:**
 - Include EVERY citation [N] used in report body
+- Keep bibliography URLs complete, but also show relevant URLs directly in the result list when the report has one
 - Format: [N] Author/Org (Year). "Title". Publication. URL (Retrieved: Date)
 - Each entry on its own line, complete
 

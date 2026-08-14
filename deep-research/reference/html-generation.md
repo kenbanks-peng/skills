@@ -40,6 +40,9 @@ python scripts/md_to_html.py [markdown_report_path]
 - Paragraphs: Text wrapped in `<p>` tags
 - Bold/italic: `**text**` -> `<strong>`, `*text*` -> `<em>`
 - Citations: [N] preserved for tooltip conversion
+- Visible direct URLs: converted to clickable links; do not remove, shorten, or hide URLs in a Results at a Glance section
+
+Before generating HTML, confirm that each report with a set of results has a Results at a Glance section immediately after the Executive Summary. Its visible direct URLs and access-limit notes must appear in the HTML and PDF, not only in the bibliography.
 
 ### Step 4: Add Citation Tooltips (Optional)
 

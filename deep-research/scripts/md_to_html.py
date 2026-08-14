@@ -87,6 +87,14 @@ def _convert_content_section(markdown: str) -> str:
     # Convert inline code `code`
     html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
 
+    # Convert visible raw URLs to clickable links. Results-at-a-glance sections
+    # intentionally use visible, direct URLs so readers can use them in every format.
+    html = re.sub(
+        r'(?<!\]\()(https?://[^\s<>()]+[^\s<>().,;:!?])',
+        r'<a href="\1" target="_blank">\1</a>',
+        html,
+    )
+
     # Convert unordered lists
     html = _convert_lists(html)
 

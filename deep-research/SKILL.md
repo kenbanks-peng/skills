@@ -77,6 +77,7 @@ Mode Selection
 
 **Required sections:**
 - Executive Summary (200-400 words)
+- Results at a Glance (required when the answer contains a set of results, such as a ranked list, options, products, tools, vendors, or recommendations)
 - Introduction (scope, methodology, assumptions)
 - Main Analysis (4-8 findings, 600-2,000 words each, cited)
 - Synthesis & Insights (patterns, implications)
@@ -93,6 +94,12 @@ Mode Selection
 - `run_manifest.json` — query, mode, assumptions, provider config
 - HTML (McKinsey style, auto-opened)
 - PDF (professional print, auto-opened)
+
+### List and URL presentation (mandatory)
+
+When a report answers with a set of results, include a clearly labeled **Results at a Glance** section immediately after the Executive Summary. List each result explicitly in the requested order. Do not make the reader reconstruct the list from prose, citations, or the bibliography.
+
+When a result has a relevant public URL, show the full, direct URL beside that result. The Markdown must show the visible URL, and the HTML and PDF must preserve it as a usable link. Do not put result URLs only in footnotes or the bibliography. State clearly when a result has no public URL or needs a login, provider, regional, or paid account.
 
 **Quality standards:**
 - 10+ sources, 3+ per major claim (cluster-independent, not just count)

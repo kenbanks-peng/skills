@@ -91,6 +91,18 @@ CITATION TRACKING (CRITICAL):
 
 ---
 
+## Results at a Glance
+
+<!-- REQUIRED when the report gives a set of results, such as ranked options, products, tools, vendors, or recommendations. -->
+<!-- List every result explicitly in the requested order. Show the full direct URL beside each result. -->
+<!-- Do not rely on citations or the bibliography to give readers the result URLs. State access limits beside the affected result. -->
+
+1. **[Result name]** — https://direct-result-url.example/ — [Access limit, if any]
+2. **[Result name]** — https://direct-result-url.example/ — [Access limit, if any]
+3. **[Result name]** — https://direct-result-url.example/ — [Access limit, if any]
+
+---
+
 ## Introduction
 
 ### Research Question

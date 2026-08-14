@@ -71,6 +71,12 @@ Source identity is stable across edits and continuation. Display numbers are der
    - Track citations.
    - Progress: "Executive Summary complete"
 
+1a. **Results at a Glance** (required for list-based answers)
+   - Put this section immediately after the Executive Summary when the report presents results such as ranked options, products, tools, vendors, or recommendations.
+   - List every result explicitly and in the requested order. Do not require the reader to infer the list from prose, citations, or the bibliography.
+   - Put the visible, full direct URL beside each result that has one. State any access limit, such as login, provider, regional, or paid access.
+   - Keep the same visible URLs and active links in the Markdown, HTML, and PDF outputs.
+
 2. **Introduction** (400-800 words)
    - Append the Introduction to the file.
    - Track citations.
@@ -96,6 +102,7 @@ Source identity is stable across edits and continuation. Display numbers are der
 7. **Bibliography** (CRITICAL)
    - Include every citation from citations_used.
    - Do not use ranges, placeholders, or truncation.
+   - Do not use the bibliography as the only place where a list-result URL appears; repeat the direct URL in Results at a Glance.
    - Append the section to the file.
 
 8. **Methodology Appendix**
