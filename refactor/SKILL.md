@@ -5,9 +5,9 @@ description: Refactor code while preserving observable behavior. Use for request
 
 Refactor the code and verify the result. Optimize for a safer structure with unchanged observable behavior.
 
-1. **Map the work.** Read the applicable repository instructions, architecture, public contracts, configuration, themes, test setup, and quality commands. Map the file and folder layout. Identify affected behavior, its checks, and debt in file size, module boundaries, folder organization, names, configuration, and themes.
+1. **Set contract policy first.** Before any other work, ask the user whether backward compatibility is required or contracts can break when needed. Apply that decision to all public APIs, schemas, configuration formats, command interfaces, and other external contracts.
 
-2. **Set contract policy.** Before edits, if the work can change a public API, schema, configuration format, command interface, or other external contract, ask the user whether backward compatibility is required. Use that decision as the contract boundary.
+2. **Map the work.** Read the applicable repository instructions, architecture, public contracts, configuration, themes, test setup, and quality commands. Map the file and folder layout. Identify affected behavior, its checks, and debt in file size, module boundaries, folder organization, names, configuration, and themes.
 
 3. **Make the design clear.** State the behavior that must remain stable and the structural problems to remove. Split oversized files into cohesive modules. Give files and folders a clear responsibility. Use precise, domain-based names for variables, functions, types, and modules. Trace callers, tests, data flow, error paths, configuration, themes, and lifecycle boundaries before you move an abstraction.
 
