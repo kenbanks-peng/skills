@@ -14,6 +14,14 @@ Trackboi is the default source of work-item status. Simple answers need no card.
 3. Keep status and scope current. Record meaningful progress, blockers, verification, and handoffs in card comments. Use separate cards or subtasks when work needs its own status, owner, or handoff. Session checklists track internal steps only; they do not replace cards.
 4. Before the final response, record the result and verification. Mark the card complete only when its completion criteria are met. Otherwise, record the blocker or next action and leave the status accurate.
 
+## Subagent work
+
+- The main agent owns the parent card and final acceptance.
+- Before subagent delegation, the main agent creates or reuses a linked card with scope and completion criteria. Retries use the same card.
+- Each subagent owns and updates only its linked card, recording progress, verification, blockers, and completion.
+- Subagents confirm Trackboi context before writes. If access fails, the main agent records their reports.
+- The main agent verifies the combined result before closing the parent card.
+
 ## Safeguards
 
 - Use MCP tools, not direct storage edits. Read existing records before changes.
