@@ -1,6 +1,6 @@
 ---
 name: trackboi
-description: Use for all work-item tracking and significant implementation, bug fixes, refactoring, research, reviews, planning, and multi-step project work, even when the user does not mention Trackboi.
+description: Use for all work-item tracking for significant implementation, bug fixes, refactoring, research, reviews, planning, and multi-step project work, even when the user does not mention Trackboi. Only use checklists for tracking work inside a Trackboi work-item. 
 ---
 
 # Trackboi
