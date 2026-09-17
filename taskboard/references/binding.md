@@ -4,7 +4,7 @@ Coordinators read this on every start/resume; workers use their supplied assignm
 
 ## Resolve the binding
 
-Use the repository root, or workspace root for non-Git projects. In multi-root workspaces, select the root containing the requested work; ask if ambiguous. Branches and worktrees share a binding.
+Use the repository root, or workspace root for non-Git projects. In multi-root workspaces, select the root containing the requested work. Branches and worktrees share a binding.
 
 - **Default:** `.taskboard/settings.md`. Validate `server`, `board_name`, `board_id`, `charter_id`, and `setup_state` together; preserve unrelated fields and notes.
 - **Effective:** the user’s explicit board reference, otherwise the default. Store temporary overrides separately, including verified IDs, name changes, charter, and setup progress. Use that identity on cards, handoffs, and pending records. A temporary override need not create a default.

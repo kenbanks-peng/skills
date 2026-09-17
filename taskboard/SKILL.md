@@ -5,14 +5,15 @@ description: Create and operate a Doska taskboard for activities surrounding the
 
 # Taskboard
 
-## Entry
+## Roles
+
+- **Coordinator:** follow [coordinator procedure](references/coordinator.md) to start, resume, or reconcile tracked work. Honor existing coordination agreements.
 
 Track work under the conditions above; a small tracked job needs one card.
 
 Choose your role. Resolve reference paths from this skill’s directory.
 
 - **Worker or reviewer:** follow [worker entry](references/worker.md) using the supplied assignment. Request missing context from the coordinator; skip project setup.
-- **Coordinator:** follow [coordinator procedure](references/coordinator.md) to start, resume, or reconcile tracked work. Honor existing coordination agreements.
 
 ## Shared rules
 
