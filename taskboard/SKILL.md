@@ -9,7 +9,7 @@ Use Doska as the durable record of **what needs doing, who owns it, and what pro
 
 ## Start or resume
 
-1. Read the server instructions and discover the relevant board. Prefer a board explicitly supplied by the user, then a board whose charter matches the repository/project. Ask when several match; never use the Welcome board as a project board.
+1. Read the server instructions and discover the relevant board. Prefer a board explicitly supplied by the user, then a board whose charter matches the repository/project. Ask when several match.
 2. Read the board and its charter. For a new board, follow [board setup](references/board-setup.md). Respect an existing workflow; propose migrations rather than silently renaming columns or moving everyone’s cards.
 3. Identify this session’s coordinator and board writer. Read active cards, dependencies, and the most recent handoff before choosing work. An inherited card is not automatically yours.
 4. Find an existing card for the requested outcome before creating one. Track meaningful deliverables, not every tool call. A small, single-owner job needs one card, not an epic.
@@ -72,6 +72,16 @@ The coordinator updates parent checkboxes only when children are accepted. Child
 Parents remain In Progress while the coordinator has actionable coordination work; otherwise use Blocked with the dependency and next trigger. Parent orchestration is exempt from the worker’s one-executable-card limit. A parent reaches Done only when all required children and overall integration/acceptance are complete; child completion alone is insufficient.
 
 ## Card writing
+
+Card bodies use GitHub-flavored Markdown: headings, lists, emphasis, code fences, tables, and ordinary `[label](url)` links. Doska adds:
+
+| Syntax | Behavior |
+| --- | --- |
+| `- [ ]` / `- [x]` | Clickable tasks with a done/total count. Use `check_task` for individual checkbox updates rather than replacing the body. |
+| `[[12]]` | Card link displaying the current title and column color. `[[12|Fixed label]]` pins the label instead of following title changes. |
+| `==highlight==` | Highlighted text. |
+| Standalone `-cut-` line | Ends the board preview; the full body remains visible in the card view. |
+| `![alt](attachment:<key>)` | Embeds an existing attachment. Preserve its key; uploads happen through the app. |
 
 Use the templates in [references/templates.md](references/templates.md) whenever creating a charter, task, parent, or handoff.
 
