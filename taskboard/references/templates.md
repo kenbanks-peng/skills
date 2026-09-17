@@ -1,29 +1,35 @@
 # Card templates
 
-Replace placeholders and omit irrelevant optional sections. Numbers below are placeholders: substitute actual card references. Use native priority/deadline fields separately. The owner and writer entries are working agreements in Markdown, not server-enforced fields.
+Fill placeholders from the request, repository, verified server state, and the skill’s Decision defaults; routine template choices are the agent’s responsibility. Omit irrelevant optional sections. Numbers below are placeholders: substitute actual card references. Use supported native priority/deadline fields separately. Owner and writer entries are working agreements in Markdown, not server-enforced fields. For offline records, use explicit local-only identifiers until reconciliation provides real card references.
 
 ## Board charter
 
 ```markdown
 Tracking agreement for <project>.
-Coordinator: <identity> · Board writer: <identity>
+Coordination: parent owns lifecycle and acceptance; workers report execution on child cards.
 -cut-
+
 ## Scope
+
 - Repository/project: <canonical URL or identity>
 - Tracks: <outcomes included>
 - Specs/plans: <links or repo-relative paths>
 
 ## Working agreement
-- Workflow: <column mapping, or “Doska skill defaults”>
-- Ownership: <coordinator and writer scope; worker naming convention>
-- Claims/handoffs: <coordination channel; how release is confirmed>
+
+- Workflow: <actual column-to-lifecycle mapping; Done is sole native done column for new boards>
+- Ownership: one coordinator/card-body writer per work group; one executor per task; session-qualified identities
+- Execution reporting: <verified append-only comments or coordinator-recorded checkpoints; reporting channel and check-in points>
+- Shared structure writer: <bootstrap coordinator identity or existing authorized identity>
+- Claims/handoffs: reread, confirm unassigned or explicitly released, write claim, reread to verify; card checkpoints carry releases and handoffs
 - WIP: one executable card per worker
-- Review: <self-review allowed for which work; required reviewer otherwise>
-- Integration target: <branch/environment/deliverable location>
-- Verification: <authoritative instructions or project commands>
-- Priority/deadlines: <project-specific policy, if any>
+- Review: <concrete policy initialized from project requirements and the skill’s Decision defaults>
+- Integration target: <current working tree/requested artifact unless project or user specifies another target>
+- Verification: <authoritative instructions or discovered project commands; explicit check plan if none exists>
+- Priority/deadlines: high urgent/critical-path unblocking, medium requested, low optional; deadlines only for established constraints
 
 ## Decisions
+
 - <timestamp with timezone> — <policy decision and reason>
 ```
 
@@ -38,28 +44,34 @@ Next: <one concrete action>
 <Bounded deliverable; important exclusions.>
 
 ## Relationships
+
 - Parent: <[[number]], or omit>
 - Depends on: <[[number]] — required result, or “none”>
 - Spec: <link/path, or omit>
 
 ## Acceptance
+
 - [ ] <Observable outcome>
 - [ ] <Required verification/review/integration outcome>
 
 ## Execution
-- Coordinator / board writer: <identity>
+
+- Coordinator / card-body writer: <identity>
+- Checkpoint channel: <direct comments or coordinator-recorded reports; messaging/file channel and check-in points>
 - Reviewer: <identity or agreed self-review policy>
 - Run/worktree/branch: <when applicable>
 - File boundary: <when delegated>
 
 ## Evidence
+
 <Fill as work proceeds: artifact/commit; check performed; actual result.>
 
 ## Checkpoints
+
 - <timestamp with timezone> — <material result/decision; next action>
 ```
 
-For a tiny standalone task, omit Relationships and optional execution fields. Keep the outcome, owner, next action, acceptance, and evidence. Checklists are acceptance gates or same-owner subtasks—not a second status system.
+For a tiny standalone task, omit Relationships and optional execution fields. Keep the outcome, owner, next action, acceptance, and evidence. Checklists are acceptance gates or same-owner subtasks—not a second status system. Before entering Review, replace any reviewer policy placeholder with a named reviewer (the owner for permitted self-review), the required decision, and a next check.
 
 ## Parent outcome
 
@@ -72,31 +84,50 @@ Next: <coordination or integration action>
 <Included outcomes and explicit boundaries.>
 
 ## Acceptance
+
 - [ ] <End-to-end outcome>
 - [ ] <Overall integration and required review verified>
 
 ## Children
+
 - [ ] [[12]] — <accepted deliverable>
 - [ ] [[13]] — <accepted deliverable>
 
 ## Dependencies
+
 <Execution order and external prerequisites; use card links where available.>
 
 ## Integration
+
 - Target: <branch/environment/artifact>
 - Reviewer: <identity>
 - Evidence: <end-to-end checks and final artifacts>
 
 ## Decisions and handoffs
+
 - <timestamp with timezone> — <decision or handoff>
+```
+
+## Execution checkpoint
+
+Workers publish through the channel recorded on the card; the coordinator records relayed reports with their original attribution. Use comments only when the live API supports append-only writes. Otherwise the coordinator appends to the card’s Checkpoints section and summarizes current evidence and Next in the body.
+
+```markdown
+### <timestamp with timezone> — <worker identity> — <finding / decision / verification / blocker / completion>
+
+- Changed: <significant result or decision and rationale>
+- Evidence: <artifact/path; check and actual outcome, including failures or not-run reasons>
+- Next: <concrete action and responsible identity>
+- Parent action: <requested decision or transition, or none>
 ```
 
 ## Blocker section
 
-Add to the existing card, set its preview’s Next action, and move to Blocked:
+The worker reports the blocker immediately through its checkpoint channel. The coordinator adds this section to the existing card, sets its preview’s Next action, and moves it to Blocked:
 
 ```markdown
 ## Blocker
+
 - Since: <timestamp with timezone>
 - Waiting for: <specific input, decision, failure resolution, or [[card]] result>
 - Unblock owner: <identity responsible for resolving it>
@@ -109,10 +140,11 @@ When resolved, fold the resolution into a checkpoint and remove the obsolete blo
 
 ## Session handoff / worker return
 
-Append a concise checkpoint to the card; also send it to the coordinator when the worker is not the board writer.
+Publish through the card’s checkpoint channel and notify the coordinator of the return. The coordinator records relayed handoffs and applies ownership/status changes; the worker’s report alone does not change the card lifecycle. During a Doska outage, save it in the pending record specified by [board setup and recovery](board-setup.md), with known remote IDs and unsynchronized changes.
 
 ```markdown
 ### <timestamp with timezone> — handoff
+
 - From → to: <identity> → <identity or unassigned>
 - State: <what actually finished; what remains>
 - Artifacts: <paths, branch/worktree, commit/PR/build links>
@@ -127,6 +159,7 @@ Append a concise checkpoint to the card; also send it to the coordinator when th
 
 ```markdown
 ### <timestamp with timezone> — accepted
+
 - Delivered: <outcome and artifact reference>
 - Verified: <acceptance evidence and check results>
 - Review: <reviewer and decision, or explicit permitted self-review>
