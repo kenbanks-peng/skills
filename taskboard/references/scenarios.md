@@ -16,7 +16,7 @@ For each scenario, record the observed action trace, pass/fail, and any divergen
 
 **Given:** the parent supplies board/card IDs, scope, identity, dependencies, file boundary, acceptance criteria, and a reporting channel; the worktree has no `.taskboard/settings.md`.
 
-- **Expected:** confirm the assignment, use supplied card context or read the assigned card, execute within scope, and report checkpoints/return. Repeat with a reviewer assignment.
+- **Expected:** load `worker.md` and `reporting.md`, confirm the assignment, use supplied card context or read the assigned card, execute within scope, and report checkpoints/return. Repeat with a reviewer assignment. Neither role needs coordinator, setup, workflow, or card-authoring references when supplied criteria are complete.
 - **Forbidden:** bootstrap settings or a board, edit the charter, replace the card body, or transition the card as a worker/reviewer.
 - **Stop:** return evidence to the parent; if essential assignment context is missing, pause affected execution and request it.
 
@@ -70,7 +70,7 @@ For each scenario, record the observed action trace, pass/fail, and any divergen
 
 - **Expected:** load charter/current work group and dependency closure for resume; exhaust relevant duplicate-search pages across statuses and archives where supported before creating a card. Load candidate bodies only as needed.
 - **Forbidden:** infer absence from the first page, create a duplicate after an incomplete lookup, or read/reconcile every unrelated card on routine resume.
-- **Stop:** reuse/reopen/link the matching outcome under the main skill’s rules, create only after a complete lookup, or leave a local pending record while lookup remains blocked.
+- **Stop:** reuse/reopen/link the matching outcome under `coordinator.md` rules, create only after a complete lookup, or follow `recovery.md` to leave a local pending record while lookup remains blocked.
 
 ## 9. Final-response-only worker
 
@@ -79,3 +79,36 @@ For each scenario, record the observed action trace, pass/fail, and any divergen
 - **Expected:** establish readable per-worker checkpoint files with concrete check-in points, or dispatch bounded stages that return checkpoints. Parent reconciles evidence and performs acceptance.
 - **Forbidden:** promise live reporting without a transport, simulate append-only comments using concurrent body replacement, or mark Done on dispatch/worker success alone.
 - **Stop:** the worker returns actual results and execution-safety state; the parent applies verification, review, and integration gates before Done.
+
+## 10. Routine coordinator resume without setup
+
+**Given:** complete version-1 default settings, readable board and charter, explicit lifecycle mapping, one standalone card, no pending records, and no binding changes needed.
+
+- **Expected:** load `coordinator.md`, `binding.md`, and `workflow.md`; read only the work group, dependency closure, and relevant handoffs. Load `card-writing.md` for body edits and `reporting.md` for checkpoints/handoffs.
+- **Forbidden:** load board construction, recovery, delegation, decomposition, or authoring scenarios merely because the skill was invoked; rewrite unchanged binding fields or reinitialize the board.
+- **Stop:** the existing card has verified ownership, acceptance, and a next action without setup mutations.
+
+## 11. Conditional setup and recovery routing
+
+**Given:** a coordinator starts with missing checkout settings, an incomplete setup state, missing charter/mapping, or a required persistent binding update. Exercise each separately.
+
+- **Expected:** route from `binding.md` to `board-setup.md` before affected mutations. Missing checkout settings trigger main-checkout/shared-journal checks; all persistent binding writes use the shared claim/journal protocol. Charter initialization loads `workflow.md` and `card-writing.md`; a binding-only update does not need charter-authoring instructions.
+- **Forbidden:** infer that missing settings authorize creation, update binding fields without the writer protocol, or treat an existing empty board as authorized initialization.
+- **Stop:** setup verifies the effective binding/agreement or records an explicit blocked/degraded outcome.
+- **Variants:** an access/persistence failure, uncertain write, incomplete duplicate lookup, or unreconciled pending record routes to `recovery.md`; uncertain board creation also loads `board-setup.md`. Pending records for other bindings remain untouched.
+
+## 12. Single-card versus multi-card authoring
+
+**Given:** a small single-owner task, then a separate request requiring parallel children or independently blocked deliverables.
+
+- **Expected:** the small task uses the executable template in `card-writing.md` without loading parent/charter templates. The multi-card request loads `decomposition.md` before creating or coordinating parent/child cards, including on resume. Dispatch additionally loads `delegation.md` and supplies the worker entry path.
+- **Forbidden:** create an epic for the small task, load all templates unconditionally, infer dependency order from hierarchy, or tick parent acceptance solely on a worker’s success report.
+- **Stop:** card structure matches ownership/lifecycle boundaries and required acceptance remains explicit.
+
+## 13. Reference integrity after authoring changes
+
+**Given:** a proposed revision of the skill and references.
+
+- **Expected:** check local Markdown links outside code fences; every target exists. Walk role/state routes and verify that moved rules/templates have an authoritative destination and pointers with explicit triggers. Check that references do not require loading removed root sections or the former all-purpose `templates.md`.
+- **Forbidden:** orphan a required safety rule, rely on a heading link to prevent loading the rest of a file, or instruct every role to read every reference.
+- **Stop:** static checks and scenario walkthrough results are recorded as such. Do not label a document walkthrough an executed agent regression test.
