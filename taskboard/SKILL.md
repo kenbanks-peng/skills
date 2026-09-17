@@ -1,6 +1,6 @@
 ---
 name: taskboard
-description: Set up and operate an agent-owned Doska taskboard for significant implementation, bug fixes, refactoring, research, reviews, planning, and multi-step project work. Use when initializing project tracking, decomposing work, delegating ownership, resuming a session, or reconciling progress and handoffs.
+description: Set up and operate an agent-owned Doska taskboard when tracking is requested, required by project policy, or project work needs delegation, multiple independently verifiable deliverables, or a cross-session handoff. Use to initialize tracking, decompose tracked work, resume ownership, or reconcile progress. Excludes quick questions, trivial edits, and reviewing or editing the skill itself unless tracking is required.
 ---
 
 # Taskboard
@@ -9,12 +9,20 @@ Use Doska as the durable record of **what needs doing, who owns it, and what pro
 
 Keep implementation detail in the repository; link it from cards. `.taskboard/settings.md` binds the project to its board; the board charter owns shared workflow policy; cards own live task state. Tool parameters and capabilities come from the live MCP server, not this skill.
 
+## Entry gate
+
+Use tracking when the user or project requires it, or when work needs delegation, multiple independently verifiable deliverables, or a cross-session handoff. Quick questions, trivial edits, and reviewing or editing this skill do not create a board or card unless the user or project requires tracking. A small job explicitly selected for tracking still needs only one card.
+
+**Delegated worker or reviewer:** use the supplied board/card identity and scope. Read [delegation](references/delegation.md) before starting; confirm the assignment and checkpoint channel, then execute or review within those bounds. Request missing context from the coordinator. Skip project setup, charter changes, and coordinator reconciliation.
+
+**Coordinator:** follow Start or resume below for tracked work. An existing coordination agreement takes precedence over assuming the role.
+
 ## Start or resume
 
-1. **Bind the project.** On every invocation, follow [board setup and recovery](references/board-setup.md): locate the project root, read or create `.taskboard/settings.md`, read live server capabilities, and use the specified board directly. If no board is specified, choose and persist its name, then create it. Board selection never involves searching or discovering candidates. Finish partial setup without asking the user to choose routine defaults. This step ends with a verified binding or an explicit degraded tracking outcome under the recovery rules.
-2. **Load the working agreement.** Read the board, charter, active cards, dependencies, and latest handoffs. Initialize a missing charter and map an existing workflow as specified in board setup. Reconcile pending local records before selecting work.
-3. **Establish roles.** Act as coordinator for the requested outcome unless delegated or an existing agreement assigns that role elsewhere. Execute work yourself or assign child cards to workers. Record session-qualified identities and the checkpoint channel on each delegated card: the parent owns coordination and transitions; the worker owns execution reporting. Confirm existing ownership before taking over inherited work.
-4. **Make the request executable.** Search for the outcome across all statuses before creating a card. Reuse an unfinished match; reopen accepted work only if its acceptance no longer holds, otherwise link a new follow-up. Infer bounded scope, observable acceptance, verification, and dependencies from the request and repository. Use [card templates](references/templates.md). A small, single-owner job needs one card, not an epic.
+1. **Bind the project.** On each coordinator start/resume, follow [board setup and recovery](references/board-setup.md): locate the project root, resolve the default or temporary binding, read live server capabilities, and use the specified board directly. If no board is specified, choose and persist its name, then create it. Board selection never involves searching or discovering candidates. Finish partial setup without asking the user to choose routine defaults. This step ends with a verified binding or an explicit degraded tracking outcome under the recovery rules.
+2. **Load the working agreement.** Read the board metadata and charter, then this work group’s cards, dependency closure, and latest relevant handoffs. Initialize a missing charter and map an existing workflow as specified in board setup. Reconcile pending records for the effective binding before selecting work; leave records for other boards untouched. Reserve board-wide reconciliation for an explicit board status/audit request.
+3. **Establish roles.** Execute work yourself or assign child cards to workers. Record session-qualified identities and the checkpoint channel on each delegated card: the parent owns coordination and transitions; the worker owns execution reporting. Confirm existing ownership before taking over inherited work.
+4. **Make the request executable.** Search for the outcome across all statuses before creating a card. Exhaust relevant result pages, including archived work if supported; use summaries/search results before loading bodies. If the API lacks adequate search, page through card summaries. An incomplete lookup is not evidence of absence: resolve it or record a local pending task rather than create a likely duplicate. Reuse an unfinished match; reopen accepted work only if its acceptance no longer holds, otherwise link a new follow-up. Infer bounded scope, observable acceptance, verification, and dependencies from the request and repository. Use [card templates](references/templates.md). A small, single-owner job needs one card, not an epic.
 5. **Start the work.** Set normal requested work to medium priority, order prerequisites first, promote scoped and unblocked work to Ready, then claim it. Choose the next Ready card within the authorized outcome; ask only when a material scope decision cannot be inferred. Track meaningful deliverables, not every tool call.
 
 **Ready to proceed:** the work has a durable card, clear ownership, acceptance criteria, and a next action—or a durable local record under the outage rules. Remote-only tracking may proceed when local settings cannot be saved. If neither store is writable, leave a conversation-only blocked handoff and pause tracked execution until durable tracking is available. Report setup choices briefly and continue; routine defaults do not need an approval round.
@@ -50,30 +58,15 @@ Apply the charter’s review policy, initialized from Decision defaults. The coo
 
 - **Coordinator / parent:** owns the overall outcome, card creation, scope, acceptance criteria, dependencies, assignments, column transitions, integration, and final acceptance. Maintains parent and child card bodies and acceptance checkboxes; delegation transfers execution, not acceptance authority.
 - **Owner:** exactly one accountable executor per executable card. Use a recognizable identity with a session/run discriminator, e.g. `agent:api/run-42`, `human:Ken`, or `unassigned`; use real runtime identifiers when available, otherwise record a locally chosen label as such.
-- **Worker:** executes its assigned card and reports significant findings, decisions, artifacts, verification results, blockers, and next actions during the work. May append execution comments as specified below; requests transitions or scope changes from the parent rather than applying them.
+- **Worker:** executes its assigned card and reports significant findings, decisions, artifacts, verification results, blockers, and next actions during the work. May append execution comments through the verified delegation channel; requests transitions or scope changes from the parent rather than applying them.
 - **Reviewer:** performs the acceptance check and records the decision and remaining work through the same checkpoint channel. Distinct from the executor when independent review is required; the coordinator applies the resulting transition.
 - **Card-body writer:** the coordinator serializes body replacements and lifecycle updates for its work group. This does not reserve authorship of execution evidence. Native assignment/locking is not assumed; these are coordination conventions.
 
 The coordinator claims or assigns work by rereading the card, confirming it is unassigned or explicitly released, recording the executor and next action, and moving it to In Progress. Reread to verify the result. This is a coordination protocol, not an atomic lock: if another session is active or ownership is disputed, agree a writer and assignment before proceeding. Never claim solely because a timestamp looks old.
 
-Before dispatching a subagent:
+Before dispatching a worker or reviewer, read [delegation](references/delegation.md) for assignment, checkpoint transport, and return handling. A dispatched job is not completed work; acceptance remains with the coordinator. Delegation failure or lost contact requires an explicit handoff before reassignment.
 
-1. Create/link its child card and assign a locally chosen worker label. Record the returned runtime ID after dispatch so the label maps to the actual run.
-2. Supply board/card opaque IDs, parent reference, bounded scope, acceptance criteria, dependencies, allowed files/worktree, and verification expectations.
-3. Establish the checkpoint channel below using verified live capabilities and worker access. Supply the relevant card content if the worker cannot read Doska. Require material checkpoints during execution, not just a final report.
-4. Require a return report: result, artifacts/commit, checks and outcomes, blockers, and remaining work. The coordinator reconciles checkpoints, records the return, and routes the card through acceptance.
-
-A dispatched job is not completed work. On failure, cancellation, or lost contact, record the actual state, preserve partial artifacts, and explicitly release or reassign ownership. Reassignment requires a handoff; do not infer that an old worker has stopped writing files.
-
-### Execution checkpoints
-
-Choose the channel before dispatch:
-
-- **Append-only comments supported and accessible:** workers may append checkpoints directly to their assigned child card. Verify this operation in the live API; do not assume comments exist or simulate appending by replacing the body. Reviewers may append their decisions to the card under review. Notify the coordinator of blockers, scope decisions, and readiness for review through the agreed reporting channel; do not assume comments generate notifications.
-- **Only whole-body updates available, or worker lacks board access:** workers send checkpoints to the coordinator, which promptly records them on the child card with the worker’s identity and original timestamp. Keep one body writer; separate Markdown sections do not make concurrent body replacements safe.
-- **No intermediate messaging available:** arrange coordinator-readable per-worker checkpoint files and a concrete polling/check-in point before dispatch, or split delegation into bounded stages that return checkpoints. Record this channel on the card. Do not promise live reporting from a final-response-only worker.
-
-Use the execution checkpoint template in [references/templates.md](references/templates.md) at material findings, approach-changing decisions, verification milestones, blockers, and completion—not after every tool call. Each checkpoint states what changed, supporting evidence, and the next action. The coordinator reads new checkpoints at check-ins, updates the body’s current evidence and Next summary, and applies justified lifecycle changes. Significant execution history stays on the child card, not solely in a final parent summary.
+Use the execution checkpoint template in [references/templates.md](references/templates.md) for material findings, decisions, verification, blockers, and completion. The coordinator keeps current evidence and Next visible; significant delegated execution history belongs on the child card.
 
 Before any body replacement, reread and preserve human edits, task states, and attachment references. Keep shared board structure with its authorized writer. If competing writes are detected, stop and reconcile; reread/write is not compare-and-swap.
 
@@ -98,8 +91,8 @@ Card bodies use GitHub-flavored Markdown: headings, lists, emphasis, code fences
 
 | Syntax                     | Behavior                                                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `- [ ]` / `- [x]`          | Clickable tasks with a done/total count. Use `check_task` for individual checkbox updates rather than replacing the body. |
-| `[[12]]`                   | Card link displaying the current title and column color. `[[12                                                            | Fixed label]]` pins the label instead of following title changes. |
+| `- [ ]` / `- [x]`          | Clickable tasks with a done/total count. Use a verified individual-checkbox operation when available; otherwise use the serialized body-update protocol. |
+| `[[12]]`                   | Card link displaying the current title and column color. `[[12\|Fixed label]]` pins the label instead of following title changes. |
 | `==highlight==`            | Highlighted text.                                                                                                         |
 | Standalone `-cut-` line    | Ends the board preview; the full body remains visible in the card view.                                                   |
 | `![alt](attachment:<key>)` | Embeds an existing attachment. Preserve its key; uploads happen through the app.                                          |
@@ -129,4 +122,8 @@ Before Done, verify every acceptance item, required review, and integration into
 
 At session end or context handoff, use the handoff template. Release unfinished work to Ready only when it is safe for another worker to claim; otherwise retain ownership or mark Blocked with the specific constraint. Report the board/card references, delivered work, blockers, and next action to the user.
 
-When resuming or asked for status, reconcile stale ownership, unresolved dependencies, review queues, parent/child mismatches, and upcoming deadlines. Repair evidence-backed bookkeeping for this work group, arrange outstanding reviews, and record the next check for anything still blocked. Confirm release before reassigning old ownership. Report observed state, not inferred progress percentages. Destructive cleanup or board restructuring requires explicit agreement; a tracking session does not authorize implementing unrelated backlog items.
+When resuming or asked for status, reconcile stale ownership, unresolved dependencies, review queues, parent/child mismatches, and upcoming deadlines within the requested work group and its dependency closure. Expand to the entire board only for an explicit board-wide status/audit request. Repair evidence-backed bookkeeping for this work group, arrange outstanding reviews, and record the next check for anything still blocked. Confirm release before reassigning old ownership. Report observed state, not inferred progress percentages. Destructive cleanup or board restructuring requires explicit agreement; a tracking session does not authorize implementing unrelated backlog items.
+
+## Maintaining this skill
+
+After changing these procedures, use the [behavioral regression scenarios](references/scenarios.md) to check entry paths, binding isolation, concurrency, and recovery. These are authoring checks, not steps for ordinary taskboard sessions.

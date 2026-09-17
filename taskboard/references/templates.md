@@ -1,6 +1,24 @@
 # Card templates
 
-Fill placeholders from the request, repository, verified server state, and the skill’s Decision defaults; routine template choices are the agent’s responsibility. Omit irrelevant optional sections. Numbers below are placeholders: substitute actual card references. Use supported native priority/deadline fields separately. Owner and writer entries are working agreements in Markdown, not server-enforced fields. For offline records, use explicit local-only identifiers until reconciliation provides real card references.
+Fill placeholders from the request, repository, verified server state, and the skill’s Decision defaults; routine template choices are the agent’s responsibility. Omit irrelevant optional sections. Numbers below are placeholders: substitute actual card references. Use supported native priority/deadline fields separately. Owner and writer entries are working agreements in Markdown, not server-enforced fields. For offline records, use explicit local-only identifiers until reconciliation provides real card references. Record the effective project/server/board identity in every recovery record; temporary overrides must remain separate from the project default.
+
+## Binding record for temporary overrides and recovery
+
+Keep this header in the session handoff or durable pending record, not in unrelated default settings. Include it before task/handoff content for degraded tracking. An in-memory or conversation record alone does not count as durable persistence.
+
+```markdown
+## Tracking identity
+
+- Binding: <project default / temporary override>
+- Project: <canonical repository identity>
+- Server: <verified connection identity, no secrets>
+- Board: <name; opaque ID, or explicitly unknown>
+- Charter: <opaque ID, or unknown>
+- Setup state: <if initialization is authorized; otherwise not applicable>
+- Initialization authority: <creation provenance or explicit authorization, if applicable>
+- Local record: <session-qualified local-only ID, if applicable>
+- Unsynchronized changes: <intended writes and uncertain operation results, or none>
+```
 
 ## Board charter
 
