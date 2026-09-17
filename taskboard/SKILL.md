@@ -1,6 +1,6 @@
 ---
 name: taskboard
-description: Operate a Doska taskboard when tracking is requested or required, or work needs delegation, independently verifiable deliverables, or cross-session handoff. Covers setup, decomposition, resumption, and status reconciliation. Excludes quick questions, trivial edits, and skill maintenance unless tracking is required.
+description: Operate a Doska taskboard when significant project tracking is required. Covers setup, decomposition, resumption, and status reconciliation.
 ---
 
 # Taskboard
