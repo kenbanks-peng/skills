@@ -1,6 +1,6 @@
 ---
 name: taskboard
-description: Operate a Doska taskboard when significant project tracking is required. Covers setup, decomposition, resumption, and status reconciliation.
+description: Create and operate a Doska taskboard for activities surrounding the creation, enhancement and maintenance of software code bases. Use Doska as the durable record of tasks, ownership, and status.
 ---
 
 # Taskboard
