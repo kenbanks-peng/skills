@@ -31,4 +31,4 @@ For skill maintenance only. Walk these cases against `SKILL.md` and the supporti
 ## Document integrity
 
 18. Validate frontmatter, local Markdown links and anchors, and the presence of the board-binding rule and inline card template. Ordinary execution with valid settings must require only `SKILL.md`, not these maintainer scenarios or conditional references.
-19. **Conditional routing:** missing or unusable settings route to `project-board.md` before setup or recovery. Completed matches, incomplete lookup, optional discoveries, ownership conflicts, shared writes, blockers, delegation, outages, pending review, unmet acceptance, cancellation, unfinished sessions, and resume each route to the applicable section of `alternate-paths.md` before handling that branch. Delegated workers bypass project setup.
+19. **Conditional routing:** missing or unusable settings route to `project-board.md` before setup or recovery.
