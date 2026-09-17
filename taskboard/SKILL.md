@@ -11,7 +11,7 @@ Supporting links resolve relative to this skill. Read the linked instructions wh
 
 ## 1. Establish the project board
 
-Read `.taskboard/settings.md` at the project root, retrieve `board_id` (and `server` if present), and open that board directly. Reuse it across sessions, leave unchanged settings alone, and follow the board's existing conventions.
+Read `.taskboard/settings.md` at the project root, retrieve `board_id`, and open that board directly. Reuse it across sessions, leave unchanged settings alone, and follow the board's existing conventions.
 
 If the file is missing or its reference cannot be used, read [project-board setup and recovery](references/project-board.md) before proceeding.
 
