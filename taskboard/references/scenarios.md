@@ -1,114 +1,115 @@
-# Behavioral regression scenarios
+# Regression scenarios
 
-Use when maintaining this skill, not during ordinary taskboard work. Exercise each scenario with stubbed MCP/filesystem responses or a disposable test workspace; never create or mutate a real project board just to validate the document.
+Use for skill maintenance only, with stubbed MCP/filesystem responses or a disposable workspace—not real project boards.
 
-For each scenario, record the observed action trace, pass/fail, and any divergence. A document walkthrough checks consistency only; it is not an executed agent regression test. Pass requires all expected actions, no forbidden mutations, and the stated stopping condition.
+Record traces, pass/fail, and divergences. Passing requires every expected action, no forbidden mutations, and the stopping condition. Label document walkthroughs as static checks, not executed agent tests.
 
-## 1. Quick request without tracking
+## 1. Untracked request
 
-**Given:** no settings exist; the user asks a quick question, requests a trivial edit, or asks to review/update this skill. Tracking is not required by project policy or user instruction.
+**Given:** no settings; a quick question, trivial edit, or skill-maintenance request without required tracking.
 
-- **Expected:** answer or perform the requested work without board setup.
-- **Forbidden:** create settings, a board, or task cards merely because the subject is the taskboard skill.
-- **Stop:** the original request is satisfied. If tracking is explicitly requested, follow the coordinator path instead.
+- **Expected:** complete the request without setup.
+- **Forbidden:** create settings, boards, or cards.
+- **Stop:** request satisfied.
+- **Variant:** explicitly requested tracking enters the coordinator path.
 
-## 2. Delegated worker without local settings
+## 2. Delegated worker without settings
 
-**Given:** the parent supplies board/card IDs, scope, identity, dependencies, file boundary, acceptance criteria, and a reporting channel; the worktree has no `.taskboard/settings.md`.
+**Given:** a complete assignment and reporting channel; no worktree settings. Repeat for a reviewer.
 
-- **Expected:** load `worker.md` and `reporting.md`, confirm the assignment, use supplied card context or read the assigned card, execute within scope, and report checkpoints/return. Repeat with a reviewer assignment. Neither role needs coordinator, setup, workflow, or card-authoring references when supplied criteria are complete.
-- **Forbidden:** bootstrap settings or a board, edit the charter, replace the card body, or transition the card as a worker/reviewer.
-- **Stop:** return evidence to the parent; if essential assignment context is missing, pause affected execution and request it.
+- **Expected:** load worker/reporting references, confirm the assignment, read supplied/card context, execute within scope, and report checkpoints/return.
+- **Forbidden:** load coordinator/setup/workflow/authoring references unnecessarily; bootstrap settings, alter charter/body, or transition cards.
+- **Stop:** return evidence, or request missing context and pause affected execution.
 
-## 3. Two worktrees initialize simultaneously
+## 3. Concurrent worktree initialization
 
-**Given:** linked worktrees A and B have no settings or explicit board reference; both attempt initialization.
+**Given:** linked worktrees A/B lack settings and board references; both initialize.
 
-- **Expected:** both resolve the same common Git directory; exactly one atomic bootstrap claim succeeds. The other coordinates/waits. The writer journals intent and returned IDs; the later writer rereads the journal and reuses that binding even if A’s checkout is unavailable.
-- **Forbidden:** two create-board calls, takeover based only on age, or treating an existing empty claim directory as unowned.
-- **Stop:** one verified binding is copied to the participating worktrees, or the non-writer records a blocker pending confirmed release.
-- **Variant:** separate clones do not share this lock; require an explicit binding/initializer agreement when concurrent initialization is known.
+- **Expected:** resolve the same common Git directory; one atomic claim succeeds. The other waits/coordinates, then reuses journaled identity even if A’s checkout is unavailable.
+- **Forbidden:** duplicate creation, age-based takeover, or treating a metadata-free claim directory as unowned.
+- **Stop:** one binding reaches participating worktrees, or the non-writer records a release blocker.
+- **Variant:** separate clones require an explicit initializer agreement; local locks cannot coordinate them.
 
-## 4. Board creation succeeds but its response is lost
+## 4. Lost creation response
 
-**Given:** the durable setup journal says `creating`; the server created the board, but no confirmed ID was received.
+**Given:** journal state `creating`; the board was created but its ID response was lost.
 
-- **Expected:** seek the exact result from a saved tool response, supported operation-status endpoint, or supported idempotent retry. Otherwise ask for the ID/link or confirmation that creation failed.
-- **Forbidden:** board discovery, blind create retry, reset to `planned`, or reporting successful binding without evidence.
-- **Stop:** resume by the recovered ID, or record the uncertainty and block further creation.
-- **Variant:** crash after journaling the returned ID but before updating checkout settings; recover that binding from the journal without another create call.
+- **Expected:** recover the exact response, operation status, or supported idempotent result; otherwise request ID/link or confirmation of failure.
+- **Forbidden:** board discovery, blind recreation, resetting to `planned`, or claiming unverified success.
+- **Stop:** resume by recovered ID, or record uncertainty and block creation.
+- **Variant:** an ID journaled before a settings-copy crash is recovered without another create call.
 
-## 5. Temporary board override
+## 5. Temporary override
 
-**Given:** default settings bind board A and charter A; the user selects existing board B for this request only.
+**Given:** default board/charter A; user selects B for this request.
 
-- **Expected:** use B directly, verify B’s charter, and record the effective identity separately. Reconcile only B’s pending records; leave A’s records untouched. If B requires authorized initialization, keep its provenance and progress in B’s record.
-- **Forbidden:** change A’s server/name/ID/charter/setup state, initialize B using A’s setup authority, or replay A’s pending changes into B.
-- **Stop:** work is durably tracked on B and A’s default binding fields remain unchanged; the next ordinary session selects A.
+- **Expected:** open B directly, verify its charter, record identity separately, and reconcile only B’s pending records. Authorized initialization retains B-specific provenance.
+- **Forbidden:** change A’s binding fields, transfer A’s setup authority, or replay A’s records into B.
+- **Stop:** durable tracking on B; A unchanged and selected next ordinary session.
 
-## 6. Human edits during an agent update
+## 6. Concurrent human edits
 
-**Given:** the coordinator is preparing a whole-body update and a human has changed acceptance text or attachment references.
+**Given:** a human changes acceptance text or attachments before coordinator body replacement.
 
-- **Expected:** reread before replacement, preserve the human changes, and reconcile conflicting edits. Use the verified checkbox operation where supported; otherwise serialize the body update. If competing writes are detected, stop mutations and agree a writer.
-- **Forbidden:** overwrite human decisions, discard attachment keys, let a worker replace the body, or claim reread/write guarantees atomicity.
-- **Stop:** the reconciled update is verified, or the conflict is recorded with a responsible next action.
-- **Limit:** a race after the final read may be undetectable without server-side conditional writes; passing this scenario does not establish compare-and-swap safety.
+- **Expected:** reread, preserve changes, and reconcile conflicts. Use verified checkbox operations or serialized replacements. Stop competing writes and agree a writer.
+- **Forbidden:** overwrite decisions/attachment keys, permit worker body replacement, or claim read/write atomicity.
+- **Stop:** verified update or recorded conflict with a responsible next actor.
+- **Limit:** undetected races remain possible without server-side conditional writes.
 
-## 7. Neither remote nor local persistence is writable
+## 7. No writable persistence
 
-**Given:** Doska writes fail and local settings/pending records cannot be saved.
+**Given:** Doska and local settings/pending writes fail.
 
-- **Expected:** report the actual failures, retain a conversation-only blocked handoff, and pause tracked execution until durable tracking is available.
-- **Forbidden:** claim a durable save, fabricate card IDs, or continue tracked execution as though persistence succeeded.
-- **Stop:** the handoff identifies blocked work, missing access, responsible actor, and next action.
-- **Variants:** writable Doska permits remote-only tracking on an existing explicit board; writable local storage permits safe independent work with known ownership, not a remote claim or transition.
+- **Expected:** report failures, leave a conversation-only blocked handoff, and pause tracked execution.
+- **Forbidden:** claim durable saves, fabricate IDs, or continue as though persistence succeeded.
+- **Stop:** handoff names blocked work, missing access, responsible actor, and next action.
+- **Variants:** writable Doska permits remote-only tracking on an existing specified board; writable local storage permits safe independent work, not remote claims/transitions.
 
-## 8. Large board and paginated duplicate lookup
+## 8. Paginated duplicate lookup
 
-**Given:** the requested outcome already exists on a later result page or among archived cards; unrelated work dominates the board.
+**Given:** the matching outcome is on a later page or archived; unrelated work dominates the board.
 
-- **Expected:** load charter/current work group and dependency closure for resume; exhaust relevant duplicate-search pages across statuses and archives where supported before creating a card. Load candidate bodies only as needed.
-- **Forbidden:** infer absence from the first page, create a duplicate after an incomplete lookup, or read/reconcile every unrelated card on routine resume.
-- **Stop:** reuse/reopen/link the matching outcome under `coordinator.md` rules, create only after a complete lookup, or follow `recovery.md` to leave a local pending record while lookup remains blocked.
+- **Expected:** load the work group, dependencies, and charter; exhaust relevant duplicate-search pages/statuses/archives. Load candidate bodies as needed.
+- **Forbidden:** infer absence from partial results, create after incomplete lookup, or reconcile unrelated cards during routine resume.
+- **Stop:** reuse/reopen/link the match, create after complete lookup, or retain a pending task through recovery.
 
 ## 9. Final-response-only worker
 
-**Given:** the worker cannot append comments or send intermediate messages.
+**Given:** worker cannot append comments or send intermediate messages.
 
-- **Expected:** establish readable per-worker checkpoint files with concrete check-in points, or dispatch bounded stages that return checkpoints. Parent reconciles evidence and performs acceptance.
-- **Forbidden:** promise live reporting without a transport, simulate append-only comments using concurrent body replacement, or mark Done on dispatch/worker success alone.
-- **Stop:** the worker returns actual results and execution-safety state; the parent applies verification, review, and integration gates before Done.
+- **Expected:** arrange checkpoint files/check-ins or bounded dispatch stages; coordinator reconciles and accepts results.
+- **Forbidden:** promise unavailable live reporting, simulate append-only writes with body replacements, or accept on dispatch/worker success alone.
+- **Stop:** worker returns results and execution safety; coordinator applies verification, review, and integration gates.
 
-## 10. Routine coordinator resume without setup
+## 10. Routine resume
 
-**Given:** complete version-1 default settings, readable board and charter, explicit lifecycle mapping, one standalone card, no pending records, and no binding changes needed.
+**Given:** complete version-1 settings, readable charter/board, explicit lifecycle, one task, no pending records or binding changes.
 
-- **Expected:** load `coordinator.md`, `binding.md`, and `workflow.md`; read only the work group, dependency closure, and relevant handoffs. Load `card-writing.md` for body edits and `reporting.md` for checkpoints/handoffs.
-- **Forbidden:** load board construction, recovery, delegation, decomposition, or authoring scenarios merely because the skill was invoked; rewrite unchanged binding fields or reinitialize the board.
-- **Stop:** the existing card has verified ownership, acceptance, and a next action without setup mutations.
+- **Expected:** load coordinator/binding/workflow; inspect only the work group, dependencies, and handoffs. Load card-writing for body edits and reporting for checkpoints.
+- **Forbidden:** load setup/recovery/delegation/decomposition/scenarios unnecessarily, rewrite unchanged settings, or reinitialize.
+- **Stop:** verified ownership, acceptance, and next action without setup mutations.
 
-## 11. Conditional setup and recovery routing
+## 11. Conditional setup/recovery
 
-**Given:** a coordinator starts with missing checkout settings, an incomplete setup state, missing charter/mapping, or a required persistent binding update. Exercise each separately.
+**Given:** separately test missing settings, incomplete setup, missing charter/mapping, and a persistent binding update.
 
-- **Expected:** route from `binding.md` to `board-setup.md` before affected mutations. Missing checkout settings trigger main-checkout/shared-journal checks; all persistent binding writes use the shared claim/journal protocol. Charter initialization loads `workflow.md` and `card-writing.md`; a binding-only update does not need charter-authoring instructions.
-- **Forbidden:** infer that missing settings authorize creation, update binding fields without the writer protocol, or treat an existing empty board as authorized initialization.
-- **Stop:** setup verifies the effective binding/agreement or records an explicit blocked/degraded outcome.
-- **Variants:** an access/persistence failure, uncertain write, incomplete duplicate lookup, or unreconciled pending record routes to `recovery.md`; uncertain board creation also loads `board-setup.md`. Pending records for other bindings remain untouched.
+- **Expected:** route through binding to setup before mutations. Check main checkout/journal for missing settings; require claim/journal for binding writes. Charter setup loads workflow/card-writing; binding-only updates do not.
+- **Forbidden:** create solely because settings are missing, bypass the writer protocol, or infer initialization authority from an empty board.
+- **Stop:** verified binding/agreement or explicit blocked/degraded outcome.
+- **Variants:** access/persistence failure, uncertain writes, incomplete duplicate lookup, and pending records route to recovery; uncertain board creation also loads setup. Other bindings’ pending records remain untouched.
 
-## 12. Single-card versus multi-card authoring
+## 12. Card granularity
 
-**Given:** a small single-owner task, then a separate request requiring parallel children or independently blocked deliverables.
+**Given:** a small single-owner task, then parallel or independently blocked deliverables.
 
-- **Expected:** the small task uses the executable template in `card-writing.md` without loading parent/charter templates. The multi-card request loads `decomposition.md` before creating or coordinating parent/child cards, including on resume. Dispatch additionally loads `delegation.md` and supplies the worker entry path.
-- **Forbidden:** create an epic for the small task, load all templates unconditionally, infer dependency order from hierarchy, or tick parent acceptance solely on a worker’s success report.
-- **Stop:** card structure matches ownership/lifecycle boundaries and required acceptance remains explicit.
+- **Expected:** use the task template for the former; load decomposition for multi-card creation/resumption. Dispatch additionally loads delegation and supplies worker entry.
+- **Forbidden:** small-task epics, unconditional template loading, hierarchy-implied dependencies, or parent acceptance on worker success alone.
+- **Stop:** structure matches ownership/lifecycle boundaries with explicit acceptance.
 
-## 13. Reference integrity after authoring changes
+## 13. Reference integrity
 
-**Given:** a proposed revision of the skill and references.
+**Given:** revised skill documents.
 
-- **Expected:** check local Markdown links outside code fences; every target exists. Walk role/state routes and verify that moved rules/templates have an authoritative destination and pointers with explicit triggers. Check that references do not require loading removed root sections or the former all-purpose `templates.md`.
-- **Forbidden:** orphan a required safety rule, rely on a heading link to prevent loading the rest of a file, or instruct every role to read every reference.
-- **Stop:** static checks and scenario walkthrough results are recorded as such. Do not label a document walkthrough an executed agent regression test.
+- **Expected:** verify local Markdown targets outside code fences; walk role/state routes; confirm required rules have authoritative locations and conditional pointers.
+- **Forbidden:** orphan rules, retain references to removed sections/templates, treat heading links as partial file loading, or require every role to read everything.
+- **Stop:** static checks and walkthrough results recorded without claiming executed agent regression coverage.

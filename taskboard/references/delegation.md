@@ -1,28 +1,26 @@
 # Coordinator delegation
 
-Coordinators read this before dispatching a worker or reviewer, and when handling failed or lost delegated work. Recipients follow [worker entry](worker.md), not this dispatch procedure. The coordinator owns card bodies, lifecycle, and final acceptance; workers and reviewers supply execution evidence.
+Read before dispatch or when handling failed/lost delegated work. Recipients follow [worker entry](worker.md).
 
 ## Dispatch
 
-1. For a worker, create/link its child card under [decomposition](decomposition.md) and assign a locally chosen worker label. Record the returned runtime ID after dispatch so the label maps to the actual run. For a reviewer, record the reviewer assignment on the card under review. Record session-qualified identities; follow the coordinator’s ownership protocol before assignment.
-2. Supply server/board/card opaque IDs, parent reference, bounded scope, acceptance/review criteria, dependencies, allowed files/worktree, and verification expectations. Make the delegated role explicit and direct the recipient to [worker entry](worker.md) rather than project setup. Supply relevant card content if the recipient cannot read Doska.
-3. Establish the checkpoint channel below using verified live capabilities and worker access. Record it on the card and supply it in the assignment. Require material checkpoints during execution, not just a final report.
-4. Require a return report using [reporting](reporting.md). Reconcile checkpoints, record the return, and route the card through the review and acceptance gates in [workflow](workflow.md).
+1. Create/link a worker’s child card under [decomposition](decomposition.md), then assign a session-qualified label using the coordinator’s ownership protocol. Map it to the runtime ID after dispatch. Assign reviewers on the card under review.
+2. Supply server/board/card opaque IDs, parent reference, scope, acceptance/review criteria, dependencies, allowed files/worktree, and verification expectations. State the role and link worker entry. Supply card contents if the recipient lacks Doska access.
+3. Establish and record a checkpoint channel below; include it and check-in points in the assignment.
+4. Require a [return report](reporting.md). Reconcile checkpoints and returns through [workflow review and acceptance](workflow.md).
 
-**Ready to dispatch when:** ownership and scope are recorded, the recipient has the needed context, and there is a concrete checkpoint delivery/check-in mechanism.
+Dispatch only with recorded ownership, sufficient task context, and a working checkpoint channel.
 
-## Checkpoint transport
+## Checkpoint channel
 
-Choose and record the channel before dispatch:
+- **Verified append-only comments and recipient access:** workers append to their child card; reviewers append to the reviewed card. Require separate notifications for blockers, scope decisions, and review readiness unless comment notifications are verified.
+- **Whole-body updates only, or no recipient board access:** recipients report to the coordinator, who records checkpoints promptly with original identity and timestamp. Separate Markdown sections do not make concurrent replacements safe.
+- **No intermediate messaging:** provide coordinator-readable per-worker checkpoint files with polling/check-in points, or dispatch bounded stages that return checkpoints. Do not promise live reports from a final-response-only worker.
 
-- **Append-only comments supported and accessible:** workers may append checkpoints directly to their assigned child card; reviewers may append decisions to the card under review. Verify this operation in the live API. Require notification of blockers, scope decisions, and readiness for review through the agreed reporting channel; comments do not imply notifications.
-- **Only whole-body updates available, or recipient lacks board access:** recipients send checkpoints to the coordinator, which promptly records them on the card with the original identity and timestamp. Keep one body writer; separate Markdown sections do not make concurrent replacements safe.
-- **No intermediate messaging available:** arrange coordinator-readable per-worker checkpoint files and a concrete polling/check-in point, or split delegation into bounded stages that return checkpoints. A final-response-only worker cannot promise live reporting.
-
-Read new checkpoints at check-ins, update the body’s current evidence and Next summary, and apply justified lifecycle changes. Significant execution history stays on the child card, not solely in a final parent summary.
+At check-ins, read checkpoints, refresh evidence and Next, and apply justified transitions. Keep delegated execution history on the child card.
 
 ## Failure and return
 
-A dispatched job is not completed work. On failure, cancellation, or lost contact, record actual state and preserve partial artifacts. Release or reassign ownership only after an explicit handoff establishes execution safety; silence or an old timestamp does not prove the prior worker stopped writing files.
+On failure, cancellation, or lost contact, record state and preserve partial artifacts. Reassign only after an explicit handoff establishes that prior execution cannot conflict; silence or age does not prove file writes stopped.
 
-Apply the workflow review and acceptance gates to successful returns. Record reviewer decisions and apply resulting transitions; workers and reviewers do not grant themselves final acceptance authority.
+Record reviewer decisions and apply workflow gates before acceptance. Dispatch and worker success alone do not complete a card.

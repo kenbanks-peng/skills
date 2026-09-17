@@ -1,26 +1,26 @@
 # Multi-card outcomes and dependencies
 
-Coordinators read this before creating or coordinating a multi-card outcome, including resuming existing parent/child work. Use a checklist for steps sharing one owner, lifecycle, and acceptance decision; use a child card for separate ownership, parallel execution, independent review/deadlines, or independent blocking. Split outcomes that cannot be verified in a bounded work session; avoid activity-only cards such as “think about approach.”
+Read before creating or resuming multi-card work. Split by ownership, parallel execution, independent review/deadlines, or blocking. Split outcomes too large to verify in one bounded session; name deliverables, not activities.
 
-A multi-card outcome gets a parent card with scope, overall acceptance, and a child index. Each child links back to the parent. State dependencies separately from hierarchy: belonging to the same parent does not imply an execution order.
+Give each multi-card outcome a parent with scope, overall acceptance, and a child index; children link back. Record dependencies separately: hierarchy does not imply order.
 
 - Parent index: `- [ ] [[12]] — API contract accepted`.
 - Child relationship: `Parent: [[8]]`.
 - Dependency: `Depends on: [[12]] — contract must be accepted before implementation`.
-- Link cards by their board-local number in Markdown; retain opaque IDs in execution handoffs. Across boards, use a supported URL or explicit board/card identity rather than assuming `[[12]]` resolves globally.
+- Use board-local numbers in Markdown and opaque IDs in handoffs. Cross-board links require URLs or explicit board/card identities.
 
-Update parent checkboxes only when children are accepted. Children in Review, or merely reporting success, remain unchecked. A cancelled child requires an explicit parent scope decision.
+Tick parent checkboxes only for accepted children, not Review or reported success. Cancelling a child requires an explicit parent scope decision.
 
-Parents remain In Progress while the coordinator has actionable coordination work; otherwise use Blocked with the dependency and next trigger. Parent orchestration is exempt from the worker’s one-executable-card limit. A parent reaches Done only when all required children and overall integration/acceptance are complete; child completion alone is insufficient.
+Keep parents In Progress while coordination is actionable; otherwise mark Blocked with dependency and next trigger. Parents are exempt from worker WIP limits. Done requires all required children plus overall integration and acceptance.
 
 At accepted results, refresh affected parent indexes and dependent cards. Reread dependencies, clear resolved blockers, and return cards to their recorded columns; promote unassigned work to Ready when all entry gates hold.
 
 ## Parent template
 
-Before creating or editing bodies, apply [card writing](card-writing.md), which also supplies the executable child template. Substitute actual references for the placeholder numbers below.
+Apply [card writing](card-writing.md) for body edits and child templates; replace example card numbers.
 
 ```markdown
-<Overall outcome and value.>
+<Overall outcome.>
 Owner: <coordinator identity>
 Next: <coordination or integration action>
 -cut-

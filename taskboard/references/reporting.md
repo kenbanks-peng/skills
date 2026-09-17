@@ -1,8 +1,8 @@
 # Checkpoints, blockers, and handoffs
 
-Read when a worker/reviewer starts an assignment, or when a coordinator records a checkpoint, blocker, or handoff. Publish through the assigned channel. Coordinators record relayed reports with original identity and timestamp and maintain current evidence and Next in the card body. Use direct comments only when append-only writes are verified and assigned.
+Read at worker/reviewer entry or when recording checkpoints, blockers, or handoffs. Use the assigned channel; direct comments require verified append-only access. Coordinators preserve relayed identities/timestamps and refresh body evidence and Next.
 
-Record dated, concise checkpoints with an explicit timezone at material findings, approach-changing decisions, verification milestones, blockers, completion, and session end—not after every tool call. Retain consequential decisions and handoffs rather than a tool transcript. Report passed, failed, and not-run checks with reasons for gaps; research/review evidence is sources, findings, or disposition rather than fictional test runs.
+Checkpoint material findings, decisions, verification, blockers, completion, and session end. Include timezone; omit tool transcripts. Record passed, failed, and not-run checks with gap reasons. Research/review evidence consists of sources, findings, and decisions.
 
 ## Execution checkpoint
 
@@ -17,7 +17,7 @@ Record dated, concise checkpoints with an explicit timezone at material findings
 
 ## Blocker
 
-The worker reports the blocker immediately through its checkpoint channel. The coordinator adds this section to the existing card, sets its preview’s Next action, and moves it to Blocked:
+Report blockers immediately. The coordinator adds this section, updates Next, and moves the card to Blocked:
 
 ```markdown
 ## Blocker
@@ -30,11 +30,11 @@ The worker reports the blocker immediately through its checkpoint channel. The c
 - Return to: <Ready / In Progress / Review>
 ```
 
-When resolved, the coordinator folds the resolution into a checkpoint and removes the obsolete blocker section. If a date represents a follow-up reminder rather than the task’s actual deadline, keep it here instead of overwriting the native deadline.
+On resolution, record a checkpoint and remove this section. Keep reminder dates here; native deadlines represent actual commitments.
 
 ## Session handoff / worker return
 
-Publish through the card’s checkpoint channel and notify the coordinator of the return. The coordinator records relayed handoffs and applies ownership/status changes; the worker’s report alone does not change the card lifecycle. During a Doska outage, coordinators follow [recovery](recovery.md) to save pending records with known remote IDs and unsynchronized changes; workers use their assigned fallback and report to the coordinator.
+Publish through the checkpoint channel and notify the coordinator, who records the handoff and applies ownership/status changes. During outages, coordinators use [recovery](recovery.md); workers use their assigned fallback.
 
 ```markdown
 ### <timestamp with timezone> — handoff

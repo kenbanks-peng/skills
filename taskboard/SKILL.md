@@ -1,29 +1,23 @@
 ---
 name: taskboard
-description: Set up and operate an agent-owned Doska taskboard when tracking is requested, required by project policy, or project work needs delegation, multiple independently verifiable deliverables, or a cross-session handoff. Use to initialize tracking, decompose tracked work, resume ownership, or reconcile progress. Excludes quick questions, trivial edits, and reviewing or editing the skill itself unless tracking is required.
+description: Operate a Doska taskboard when tracking is requested or required, or work needs delegation, independently verifiable deliverables, or cross-session handoff. Covers setup, decomposition, resumption, and status reconciliation. Excludes quick questions, trivial edits, and skill maintenance unless tracking is required.
 ---
 
 # Taskboard
 
-Use Doska as the durable record of **what needs doing, who owns it, and what proves it is finished**. The user supplies intent, not routine taskboard administration. Keep implementation detail in the repository and link it from cards.
+## Entry
 
-## Entry gate
+Track work under the conditions above; a small tracked job needs one card.
 
-Use tracking when the user or project requires it, or when work needs delegation, multiple independently verifiable deliverables, or a cross-session handoff. Quick questions, trivial edits, and reviewing or editing this skill do not create a board or card unless tracking is required. A small job explicitly selected for tracking needs only one card.
+Choose your role. Resolve reference paths from this skill’s directory.
 
-Choose one entry path; read additional references only when their stated conditions apply. Resolve relative reference paths from this skill’s directory, not the project being tracked.
+- **Worker or reviewer:** follow [worker entry](references/worker.md) using the supplied assignment. Request missing context from the coordinator; skip project setup.
+- **Coordinator:** follow [coordinator procedure](references/coordinator.md) to start, resume, or reconcile tracked work. Honor existing coordination agreements.
 
-- **Delegated worker or reviewer:** read [worker entry](references/worker.md) and follow that path instead of coordinator startup. Use the supplied board/card identity and bounded assignment; request missing context from the coordinator. Local settings and board construction are not prerequisites for a fully specified assignment.
-- **Coordinator:** read [coordinator procedure](references/coordinator.md) when starting/resuming tracked work or reconciling status. It routes routine binding checks separately from setup, recovery, and delegation. An existing coordination agreement takes precedence over assuming this role.
+## Shared rules
 
-## Shared guardrails
-
-- **Sources of truth:** `.taskboard/settings.md` binds the project to its default board; the board charter owns shared workflow policy; cards own live task state. Resolve tool names, parameters, pagination, and capabilities from the live MCP server.
-- **Board identity:** use the specified board directly. If none is specified, the coordinator follows setup to specify and create one. Board selection never involves searching for candidates. Temporary overrides leave the default binding unchanged.
-- **Authority:** delegation transfers execution, not acceptance authority. The coordinator owns card bodies and lifecycle; workers/reviewers report through their assigned checkpoint channel. Respect established ownership and preserve human edits and attachment references.
-- **Evidence:** report actual outcomes, including failures and checks not run. Completion requires acceptance, required review, and integration into the agreed target—not merely dispatch or a worker’s success report.
-- **Scope:** tracking does not authorize commits, merges, deployment, publishing, destructive/shared-workflow changes, or implementation of unrelated backlog items.
-
-## Maintaining this skill
-
-After changing these procedures, use the [behavioral regression scenarios](references/scenarios.md) to check entry paths, binding isolation, concurrency, and recovery. These are authoring checks, not steps for ordinary taskboard sessions.
+- **Authority:** `.taskboard/settings.md` binds the project to its default board; the charter defines workflow; cards record task state. Discover tool schemas and capabilities from the live MCP server.
+- **Board selection:** open the specified board directly. If none is specified, the coordinator specifies and creates one. Never search for candidate boards. Temporary overrides leave the default binding unchanged.
+- **Ownership:** the coordinator owns card bodies, lifecycle, and final acceptance. Workers and reviewers report through assigned channels. Preserve human edits and attachment references.
+- **Completion:** require acceptance evidence, required review, and integration into the agreed target. Report failures and checks not run.
+- **Authorization:** tracking grants no permission to commit, merge, deploy, publish, alter shared workflow destructively, or implement unrelated backlog items.

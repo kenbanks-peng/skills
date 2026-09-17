@@ -1,10 +1,10 @@
 # Card writing
 
-Coordinators read this before creating or editing card bodies, including recording completion. Workers/reviewers use [reporting](reporting.md) through their assigned channel instead of replacing bodies. Follow the coordinator’s serialized read-preserve-write protocol for every replacement.
+Coordinators read before body edits and completion records; use the [serialized write protocol](coordinator.md). Workers/reviewers use [reporting](reporting.md) instead.
 
 ## Format and fields
 
-Card bodies use GitHub-flavored Markdown: headings, lists, emphasis, code fences, tables, and ordinary `[label](url)` links. Doska adds:
+Bodies support GitHub-flavored Markdown plus Doska syntax:
 
 | Syntax | Behavior |
 | --- | --- |
@@ -14,21 +14,21 @@ Card bodies use GitHub-flavored Markdown: headings, lists, emphasis, code fences
 | Standalone `-cut-` line | Ends the board preview; the full body remains visible in the card view. |
 | `![alt](attachment:<key>)` | Embeds an existing attachment. Preserve its key; uploads happen through the app. |
 
-- **Title:** a short verb + outcome, e.g. `Reject expired invitation tokens`. Prefix only special cards: `[Board]`, `[Epic]`. Status and owner belong outside the title.
+- **Title:** verb + outcome, e.g. `Reject expired invitation tokens`. Reserve prefixes for `[Board]` and `[Epic]`; omit status and owner.
 - **Preview:** outcome, owner, and next action above a standalone `-cut-`; detailed context below it.
-- **Acceptance:** observable outcomes expressed as GFM task-list items. Tick only with evidence; task counts are not a measure of effort or proof of completion.
+- **Acceptance:** observable outcomes as checkboxes; tick only with evidence. Counts measure neither effort nor completion.
 - **Relationships:** prefer `[[12]]` so titles stay current; use ordinary Markdown links for specs, PRs, builds, and other artifacts. Card numbers are board-local; across boards use a supported URL or explicit board/card identity.
-- **Evidence and updates:** record what ran, its actual outcome, and an artifact/commit reference. Use [reporting](reporting.md) for dated checkpoints, blockers, and handoffs; keep the latest next action visible.
+- **Evidence:** checks, actual results, and artifact/commit references. Use [reporting](reporting.md) for checkpoints, blockers, and handoffs.
 - **Priority and deadline:** use supported native fields, not duplicated body metadata. Assign high to urgent/critical-path unblocking work, medium to normal requested work, and low to optional follow-up; reserve unset for untriaged captures. Leave deadlines empty unless the user or project establishes a real commitment or constraint.
 
-Fill templates from the request, repository, verified server state, and [workflow defaults](workflow.md); routine choices are the agent’s responsibility. Omit irrelevant optional sections. Owner/writer entries are working agreements in Markdown, not server-enforced fields. Use explicit local-only identifiers for offline records until reconciliation provides real references.
+Fill templates from the request, repository, verified server state, and [workflow defaults](workflow.md). Omit irrelevant sections. Owner/writer fields are conventions, not server enforcement. Label offline identifiers as local-only until reconciled.
 
-For parent cards, use [decomposition](decomposition.md). For charter creation or changes, follow [board setup](board-setup.md). These templates are conditional, not prerequisites for an ordinary task card.
+For parents, read [decomposition](decomposition.md); for charters, read [board setup](board-setup.md).
 
 ## Executable task or child
 
 ```markdown
-<One-sentence outcome and why it matters.>
+<Outcome.>
 Owner: unassigned
 Next: <one concrete action>
 -cut-
@@ -63,7 +63,7 @@ Next: <one concrete action>
 - <timestamp with timezone> — <material result/decision; next action>
 ```
 
-For a tiny standalone task, omit Relationships and optional execution fields. Keep outcome, owner, next action, acceptance, and evidence. Checklists are acceptance gates or same-owner subtasks—not a second status system. Before entering Review, replace any reviewer policy placeholder with a named reviewer (the owner for permitted self-review), the required decision, and a next check.
+Tiny tasks need only outcome, owner, Next, acceptance, and evidence. Checklists contain acceptance gates or same-owner subtasks, not duplicate statuses. Before Review, name the reviewer (owner for permitted self-review), required decision, and next check.
 
 ## Completion record
 
