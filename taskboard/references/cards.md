@@ -21,15 +21,10 @@ Fill Outcome, Acceptance, and Ownership and next action before execution:
 
 ## References
 
-<Specifications, code, and related cards. Omit when unnecessary.>
+<Specifications, code, urls, etc. Omit when unnecessary.>
+<Child card links. Omit when unnecessary.>
 
-## Evidence
+## Evidence of done
 
 <Checks, results, and delivered artifacts.>
 ```
-
-## Related work
-
-- **Completed match:** link new follow-ups; reopen when the original acceptance no longer holds.
-- **Shared outcome and owner:** use a `## Steps` checklist for implementation steps.
-- **Independent ownership, blocking, or acceptance:** use linked cards identifying each prerequisite result. Confirm prerequisites before starting.

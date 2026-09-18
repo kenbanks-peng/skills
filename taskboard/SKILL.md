@@ -11,11 +11,13 @@ Read `board_id` from `.taskboard/settings.md` at the project root and open that 
 
 If settings are missing or unusable, read [project-board setup and recovery](references/project-board.md).
 
-## 2. Capture the requested outcomes
+## 2. Find or create cards for the requested work
 
-Search the board, including completed cards, for matching work. Reuse unfinished cards; create missing outcomes using the [card format](references/cards.md). Move scoped, unblocked cards to Ready.
+Search the board for work matching the user’s request. Reuse matching unfinished cards. For work not already tracked, create cards using the [card format](references/cards.md).
 
-For completed matches or dependent outcomes, read [related work](references/cards.md#related-work).
+Move cards to Ready when the work is clearly defined, falls within the user’s request, and has no unresolved blockers.
+
+If a matching card is already completed, or one card depends on another, follow [related work](references/cards.md#related-work).
 
 ## 3. Execute and update
 
