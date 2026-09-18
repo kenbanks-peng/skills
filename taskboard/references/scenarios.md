@@ -34,3 +34,12 @@ Walk these cases against the skill and its linked references. For behavioral tes
 
 19. Validate frontmatter, local links, board binding, and the linked card template.
 20. Confirm missing or unusable settings route to setup/recovery and instructions sit under their matching section topics.
+
+## Roles and readiness
+
+21. **Role routing:** delegated workers load worker instructions only; a solo agent loads orchestrator instructions and executes directly. Delegation points directly to worker instructions and supplies the assignment context.
+22. **Board migration:** new boards include Ready between Backlog and WIP; the orchestrator adds Ready to an existing board when missing.
+23. **Dependency satisfied:** after a prerequisite change or completion, the orchestrator verifies evidence, ticks affected dependency items, and promotes eligible Backlog or Blocked cards to Ready. Partially satisfied, underspecified, or out-of-scope work stays outside Ready.
+24. **Dependency invalidated:** the orchestrator unticks invalidated dependencies and moves affected Ready cards to Blocked with a prerequisite, resolver, and next check.
+25. **Worker boundary:** workers return evidence, blockers, and remaining work without editing the board. The orchestrator evaluates the report, updates cards, and reconciles dependent work.
+26. **Resume reconciliation:** the orchestrator checks dependencies against actual work on resume, including changes made outside the previous session.

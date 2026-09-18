@@ -8,4 +8,4 @@ board_id: "<board ID>"
 ---
 ```
 
-2. Create the following columns: Backlog, WIP, Review, Done, Blocked.
+2. Establish these columns in order, reusing suitable defaults: Backlog, Ready, WIP, Review, Done, Blocked. Mark Done as the board's done column. The orchestrator manages Ready using the [readiness and dependency rules](orchestrator.md#2-find-or-create-cards).
