@@ -32,5 +32,5 @@ Walk these cases against the skill and its linked references. For behavioral tes
 
 ## Document integrity
 
-19. Validate frontmatter, local links, board binding, and the inline card template.
+19. Validate frontmatter, local links, board binding, and the linked card template.
 20. Confirm missing or unusable settings route to setup/recovery and instructions sit under their matching section topics.

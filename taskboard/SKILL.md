@@ -13,70 +13,22 @@ If settings are missing or unusable, read [project-board setup and recovery](ref
 
 ## 2. Capture the requested outcomes
 
-Search the board, including completed cards, for matching work. Reuse unfinished cards. Link new follow-ups to completed work; reopen a card when its original acceptance no longer holds.
+Search the board, including completed cards, for matching work. Reuse unfinished cards; create missing outcomes using the [card format](references/cards.md). Move scoped, unblocked cards to Ready.
 
-- Use one card per independently finishable outcome.
-- Use a `## Steps` checklist for implementation steps sharing an outcome and owner.
-- Use linked cards for independent ownership, blocking, or acceptance. Identify each prerequisite result.
-
-Store priority and deadlines in native fields. Move scoped, unblocked cards to Ready.
-
-### Card template
-
-**Title:** verb + observable outcome, such as `Reject expired invitation tokens`.
-
-```markdown
-## Outcome
-
-<What must change and why; scope boundaries.>
-
-## Acceptance
-
-- [ ] <Observable result>
-- [ ] <Required verification>
-
-## Ownership and next action
-
-- Owner: <agent/person, or unassigned>
-- Next: <concrete action>
-
-## References
-
-<Specifications, code, and related cards. Omit when unnecessary.>
-
-## Evidence
-
-<Checks, results, and delivered artifacts.>
-```
-
-Fill Outcome, Acceptance, and Ownership and next action before execution.
+For completed matches or dependent outcomes, read [related work](references/cards.md#related-work).
 
 ## 3. Execute and update
 
-Choose an unblocked card within scope. Confirm prerequisites, resolve the current owner's handoff, record ownership and next action, and move to In Progress. Prefer one active card per executor.
+Choose an unblocked card within scope, record ownership and next action, and move to In Progress. Keep evidence and next action current; prefer one active card per executor.
 
-Update cards at meaningful changes:
-
-- **Progress:** record evidence, decisions, and the current next action.
-- **Shared edits:** reread before replacing content and merge concurrent changes.
-- **Blockers:** record the prerequisite, resolver, and next check. Move to Blocked until resolved.
-
-### Delegation
-
-Provide board/card IDs, scope, acceptance, file boundaries, and verification. Workers return evidence and remaining work; the delegating agent updates the card and evaluates completion.
-
-### Interruptions and handoff
-
-If Doska is unavailable, report unsaved updates, leave a conversation handoff, and reconcile when access returns.
-
-At session end, record unfinished work, blockers, and the next actor/action. On resume, reconcile relevant cards with actual work.
+For shared work, delegation, blockers, or session interruptions, read [coordination and recovery](references/execution.md).
 
 ## 4. Verify and finish
 
-Record verification against every acceptance criterion, including failed or unrun checks. Tick acceptance items when verified. Complete required review and integration before marking Done; use Review while awaiting approval.
+Record verification against every acceptance criterion and tick verified items. After required review and integration, set `Next: None — complete` and move to Done, retaining owner and evidence.
 
-For completed cards, set `Next: None — complete` and retain owner and evidence. For cancellations, prefix the title with `Cancelled:`, record the reason and any replacement card, set `Next: None — cancelled`, and move to Done. Leave unmet acceptance items unchecked.
+For failed or unrun checks, pending approval, or cancellation, read [unfinished and cancelled work](references/execution.md#unfinished-and-cancelled-work).
 
 ## 5. Report the result
 
-Report board/card references, delivered outcomes, verification, remaining work, and unsaved updates.
+Report board/card references, delivered outcomes, and verification. Include remaining work or unsaved updates when present.
