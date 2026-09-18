@@ -18,7 +18,7 @@ Any cards dependent on the new card should have their Dependencies checklist upd
 
 ## 3. Execute and update
 
-Before selecting work, reconcile dependencies as described below, including on session resume. Choose a Ready card, read any Handoff action, record ownership, and move it to WIP. Keep evidence current; prefer one active card per executor. When blocking or handing off work, record the Handoff action using the [card format](cards.md).
+Before selecting or delegating work, reconcile dependencies as described below, including on session resume. Choose a Ready card, read any Handoff action, record ownership, and move it to WIP. Keep evidence current; prefer one active card per executor. When blocking or handing off work, record the Handoff action using the [card format](cards.md).
 
 For delegation, provide the worker a direct pointer to [worker instructions](worker.md), board/card IDs, scope, acceptance criteria, dependencies, file boundaries, and required verification. Evaluate the returned evidence, update the card, and reconcile affected dependencies before selecting more work.
 
