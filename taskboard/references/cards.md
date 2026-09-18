@@ -14,6 +14,11 @@ Fill Outcome, Acceptance, and Ownership and next action before execution:
 - [ ] <Observable result>
 - [ ] <Required verification>
 
+## Dependencies
+
+- [ ] <dependency 1>
+- [ ] <dependency 2>
+
 ## Ownership and next action
 
 - Owner: <agent/person, or unassigned>

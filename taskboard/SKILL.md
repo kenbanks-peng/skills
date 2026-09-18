@@ -21,7 +21,7 @@ If a matching card is already completed, or one card depends on another, follow 
 
 ## 3. Execute and update
 
-Choose an unblocked card within scope, record ownership and next action, and move to In Progress. Keep evidence and next action current; prefer one active card per executor.
+Choose an unblocked card within scope, record ownership and next action, and move to WIP. Keep evidence and next action current; prefer one active card per executor.
 
 For shared work, delegation, blockers, or session interruptions, read [coordination and recovery](references/execution.md).
 
