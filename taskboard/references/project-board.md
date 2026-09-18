@@ -1,20 +1,16 @@
 # Establish or recover the project board
 
-Use when `.taskboard/settings.md` at the project root is missing or unusable.
-
 ## Missing settings
 
-1. Designate one initializer to create a project-named board.
-2. Save the returned ID in `.taskboard/settings.md`:
+Create a project-named board and save the returned ID in `.taskboard/settings.md`:
 
-   ```yaml
-   ---
-   board_id: "<board ID>"
-   ---
-   ```
+```yaml
+---
+board_id: "<board ID>"
+---
+```
 
-3. Share this file across checkouts.
-4. Establish **Backlog → Ready → In Progress → Review → Done**, plus **Blocked**. Reuse suitable default columns and designate Done as the completion column.
+Establish **Backlog → Ready → In Progress → Review → Done**, plus **Blocked**. Reuse suitable default columns and designate Done as the completion column.
 
 ## Recovery
 
