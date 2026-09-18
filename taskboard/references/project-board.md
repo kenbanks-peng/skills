@@ -17,7 +17,7 @@ Read this when `.taskboard/settings.md` is missing, incomplete, contradictory, o
    No Markdown body is required. Keep the file shareable through version control, but do not commit it without authorization.
 
 4. Confirm the write succeeded before continuing. Other checkouts need this same reference before using the workflow; missing copies are not a reason to create another board.
-5. For a newly created board, establish **Backlog → Ready → In Progress → Review → Done**, with **Blocked** for work waiting on an external dependency. Reuse suitable default columns and use Doska's native completion semantics for Done. For a shared existing board, follow its conventions rather than restructuring it.
+5. For a newly created board, establish **Backlog → Ready → In Progress → Review → Done**, with **Blocked** for work waiting on an external dependency. Reuse suitable default columns and designate Done as the completion column. For a shared existing board, follow its conventions rather than restructuring it.
 
 Return to the main workflow once the reference is saved and the board is accessible with its workflow established.
 

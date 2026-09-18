@@ -15,7 +15,7 @@ For skill maintenance only. Walk these cases against `SKILL.md` and the supporti
 
 7. **Small task:** use one card with outcome, observable acceptance, owner, and next action. Add evidence as work proceeds; omit irrelevant sections.
 8. **Independent work:** split independently owned, blocked, or accepted outcomes into linked cards with explicit dependencies. Keep same-outcome implementation steps in a Steps checklist rather than confusing them with acceptance.
-9. **Existing work:** reuse matching unfinished cards, including matches on later result pages. Link a distinct follow-up to completed work; reopen only if original acceptance no longer holds. Incomplete lookup is not proof of absence.
+9. **Existing work:** look for relevant work on the bound board, including completed cards, and resolve incomplete lookups. Reuse matching unfinished cards. Link a distinct follow-up to completed work; reopen only if original acceptance no longer holds. Incomplete lookup is not proof of absence.
 10. **Ownership and human edits:** resolve an existing owner's handoff before taking over. Reread before body replacement and preserve human decisions, checkbox state, and attachment references. Coordinate competing writes without claiming atomicity.
 11. **Blocker:** record what is blocking, who or what unblocks it, and when to check. Move to Blocked; return to the appropriate active state after resolution.
 12. **Delegation:** supply board/card reference, scope, acceptance, file boundaries, and verification. The worker reports evidence and remaining work; the delegating agent updates the card and evaluates completion.
@@ -32,3 +32,5 @@ For skill maintenance only. Walk these cases against `SKILL.md` and the supporti
 
 18. Validate frontmatter, local Markdown links and anchors, and the presence of the board-binding rule and inline card template. Ordinary execution with valid settings must require only `SKILL.md`, not these maintainer scenarios or conditional references.
 19. **Conditional routing:** missing or unusable settings route to `project-board.md` before setup or recovery.
+
+20. **Workflow boundary:** instructions establish scope, ownership, state transitions, evidence, and handoff policy. Tool capabilities, argument formats, and operation mechanics remain in the live MCP interface rather than being duplicated here.
