@@ -33,13 +33,12 @@ Dispatch only the identified work, and only when Ready; otherwise record what pr
 
 The executor needs the board/card IDs, scope, acceptance criteria, dependencies, file boundaries, and required verification. For delegated work, also provide [worker instructions](worker.md).
 
-## 4. Track progress and handle interruptions
+## 4. Track progress and handle handoffs
 
 Throughout execution, keep evidence and decisions current. Reread shared cards before replacing content and merge concurrent changes. Evaluate worker reports, update the cards, and apply the [reconciliation rules](#3-start-or-delegate-the-identified-work) to affected work before starting more work.
 
 - **Blockers:** record the prerequisite and resolver, set the Handoff action to the concrete check or action needed to proceed using the [card format](cards.md), and move to Blocked until resolved.
-- **Session interruptions:** record unfinished work and blockers, and set the Handoff action for the next agent or session. Resume with the reconciliation in step 3.
-- **Doska unavailable:** report unsaved updates, leave a conversation handoff, and reconcile when access returns.
+- **Handoffs:** when a worker hands work back to the orchestrator, record unfinished work and blockers from the worker's report, and set the Handoff action to the next concrete check or action. Reconcile using step 3 before resuming or redispatching work.
 
 ## 5. Verify and finish
 
