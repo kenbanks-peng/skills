@@ -13,9 +13,9 @@ If settings are missing or unusable, read [project-board setup and recovery](pro
 If the user requests you to perform work:
 
 - by pulling, choose a Ready card within the authorized scope.
-- by describing work, search the board for any existing tracked work (not in progress) tha aligns with the user's request and reuse the unfinished card, adjusting fields and column state as needed.
+- by describing work, search the board for any existing tracked work (not in progress) that aligns with the user's request and reuse the unfinished card, adjusting fields and column state as needed.
 
-If the requested work is found to be untracked, create a new card using the [card format](cards.md). Set its initial column using the [reconciliation rules](#3-start-or-delegate-the-identified-work).
+If the requested work is found to be untracked, create a new card using the [card format](cards.md). Set its initial column to **Backlog** if awaiting a known dependency, clarification, or scope authorization; otherwise use **Ready**. Reserve **Blocked** for work that has already started and encountered a blockage.
 
 Update the Dependencies checklists of cards dependent on the new card.
 
@@ -25,8 +25,8 @@ On session resume, reconcile relevant cards with actual work, including changes 
 
 Reconcile cards when created, before dispatch, and after results or prerequisite changes: verify current evidence, update dependency checkboxes, and assign the appropriate column:
 
-- **Backlog:** needs clarification or scope authorization.
-- **Blocked:** awaits a prerequisite or blocker resolution; follow step 4.
+- **Backlog:** work has not started and awaits a known dependency, clarification, or scope authorization.
+- **Blocked:** work has started and encountered a blockage that prevents further progress; follow step 4.
 - **Ready:** outcome and acceptance criteria are clear, scope is authorized, dependencies are satisfied, and no blockers remain.
 
 Dispatch only the identified work, and only when Ready; otherwise record what prevents it from starting. Resolve any existing ownership handoff, record the executor as owner, and move to WIP. Prefer one active card per executor.
@@ -37,7 +37,7 @@ The executor needs the board/card IDs, scope, acceptance criteria, dependencies,
 
 Throughout execution, keep evidence and decisions current. Reread shared cards before replacing content and merge concurrent changes. Evaluate worker reports, update the cards, and apply the [reconciliation rules](#3-start-or-delegate-the-identified-work) to affected work before starting more work.
 
-- **Blockers:** record the prerequisite and resolver, set the Handoff action to the concrete check or action needed to proceed using the [card format](cards.md), and move to Blocked until resolved.
+- **Blockers encountered during execution:** record the prerequisite and resolver, set the Handoff action to the concrete check or action needed to proceed using the [card format](cards.md), and move to Blocked until resolved.
 - **Handoffs:** when a worker hands work back to the orchestrator, record unfinished work and blockers from the worker's report, and set the Handoff action to the next concrete check or action. Reconcile using step 3 before resuming or redispatching work.
 
 ## 5. Verify and finish
