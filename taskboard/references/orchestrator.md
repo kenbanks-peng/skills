@@ -10,17 +10,15 @@ If settings are missing or unusable, read [project-board setup and recovery](pro
 
 ## 2. Find or create cards
 
-Search the board for work matching the user's request. Reuse matching unfinished cards in Backlog, Ready, WIP, Review, or Blocked. Create untracked work in Backlog using the [card format](cards.md). For completed work, reopen the card if its original acceptance fails; otherwise create a linked follow-up.
+Search the board for any tracked work matching the user's request. Reuse matching unfinished cards in Backlog, Ready, Review, or Blocked, adjusting column state as needed.
 
-Link prerequisites in each dependent card's Dependencies checklist. Reconcile dependencies before selecting work, after prerequisite changes or completion, and on session resume:
+Create untracked work in Backlog using the [card format](cards.md).
 
-- Inspect affected dependent cards and verify each dependency against current evidence. Tick satisfied dependencies; untick any that are no longer satisfied.
-- Move Backlog or Blocked cards to Ready only when all dependencies are satisfied, the work is clearly defined, falls within the user's request, and has no unresolved blockers.
-- Reassess Ready cards when prerequisites change: return underspecified or out-of-scope work to Backlog; move blocked work to Blocked and record the prerequisite, resolver, and next check.
+Any cards dependent on the new card should have their Dependencies checklist updated.
 
 ## 3. Execute and update
 
-Choose a Ready card, record ownership and next action, and move it to WIP. Keep evidence and next action current; prefer one active card per executor.
+Before selecting work, reconcile dependencies as described below, including on session resume. Choose a Ready card, read any Handoff action, record ownership, and move it to WIP. Keep evidence current; prefer one active card per executor. When blocking or handing off work, record the Handoff action using the [card format](cards.md).
 
 For delegation, provide the worker a direct pointer to [worker instructions](worker.md), board/card IDs, scope, acceptance criteria, dependencies, file boundaries, and required verification. Evaluate the returned evidence, update the card, and reconcile affected dependencies before selecting more work.
 
@@ -28,7 +26,9 @@ For shared work, blockers, or session interruptions, read [coordination and reco
 
 ## 4. Verify and finish
 
-Record verification against every acceptance criterion and tick verified items. After required review and integration, set `Next: None — complete` and move to Done, retaining owner and evidence. Reconcile affected dependent cards.
+Record verification against every acceptance criterion and tick verified items. After required review and integration, set `Handoff action: None — complete` and move to Done, retaining owner and evidence.
+
+After results or prerequisite changes, align affected cards' dependency checklists and columns with current evidence. Only clearly defined, in-scope work with satisfied dependencies and no blockers belongs in Ready; otherwise use Backlog or Blocked and record what needs resolving.
 
 For failed or unrun checks, pending approval, or cancellation, read [unfinished and cancelled work](execution.md#unfinished-and-cancelled-work).
 
