@@ -9,7 +9,7 @@ Track outcomes, ownership, next actions, and evidence in Doska.
 
 ## 1. Establish the project board
 
-Read `board_id` from `.taskboard/settings.md` at the project root and open that board directly. Follow its column conventions.
+Read `board_id` from `.taskboard/settings.md` at the project root and open that board directly.
 
 If settings are missing or unusable, read [project-board setup and recovery](references/project-board.md). Delegated workers use their assigned board/card references.
 
@@ -72,7 +72,7 @@ At session end, record unfinished work, blockers, and the next actor/action. On 
 
 Record verification against every acceptance criterion, including failed or unrun checks. Complete required review and integration before marking Done; use Review while awaiting approval.
 
-For completed cards, set `Next: None — complete` and retain owner and evidence. For cancellations, record the reason and any replacement card using the board's cancellation convention.
+For completed cards, set `Next: None — complete` and retain owner and evidence. For cancellations, prefix the title with `Cancelled:`, record the reason and any replacement card, set `Next: None — cancelled`, and move to Done. Leave unmet acceptance items unchecked; cancellation is not verified delivery.
 
 ## 5. Report the result
 

@@ -4,9 +4,9 @@ Walk these cases against the skill and its linked references. For behavioral tes
 
 ## Board binding
 
-1. **First use:** create a project-named board, save its returned ID, and establish the default workflow.
-2. **Later session:** open the saved board directly and follow its column conventions.
-3. **Malformed reference:** resolve from available evidence or ask the user.
+1. **First use:** with settings missing, create a project-named board even if another shared board reference is available, save its returned ID, and establish the skill-defined workflow.
+2. **Later session:** open the saved board directly; column setup is already complete.
+3. **Malformed reference:** recover the board ID from this workflow's prior initialization or ask the user.
 4. **Unavailable board:** report the problem and request approval for replacement.
 5. **Uncertain creation:** recover the ID or confirm failure before retrying.
 6. **Failed settings save:** report the ID and error; resume by saving the ID.
@@ -26,7 +26,7 @@ Walk these cases against the skill and its linked references. For behavioral tes
 
 15. **Delivery:** record verification for every acceptance criterion and complete required review/integration before Done. Retain owner and evidence; set Next to complete.
 16. **Incomplete delivery:** record failed or unrun checks and the next action; keep the card unfinished.
-17. **Cancellation:** record the reason and replacement using the board's convention.
+17. **Cancellation:** prefix the title with `Cancelled:`, record the reason and any replacement, set Next to cancelled, and move to Done without checking unmet acceptance items.
 18. **Session end/resume:** record unfinished work, blockers, and next actor/action; reconcile relevant cards with actual work on resume.
 
 ## Document integrity
