@@ -10,13 +10,14 @@ If settings are missing or unusable, read [project-board setup and recovery](pro
 
 ## 2. Identify the work
 
-If the user specifies a card, open it directly. Otherwise, search the board for tracked work matching the user's request. Reuse matching unfinished cards, adjusting column state as needed.
+If the user requests you to perform work:
 
-Failing reuse, create new untracked work using the [card format](cards.md). Set its initial column using the [readiness and dependency rules](#readiness-and-dependencies).
+- by pulling, choose a Ready card within the authorized scope.
+- by describing work, search the board for any existing tracked work (not in progress) tha aligns with the user's request and reuse the unfinished card, adjusting fields and column state as needed.
+
+If the requested work is found to be untracked, create a new card using the [card format](cards.md). Set its initial column using the [readiness and dependency rules](#readiness-and-dependencies).
 
 Update the Dependencies checklists of cards dependent on the new card.
-
-When the user asks you to pick up available work instead, choose a Ready card within the authorized scope.
 
 ## 3. Start or delegate the identified work
 
