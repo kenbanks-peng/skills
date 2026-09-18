@@ -1,6 +1,6 @@
 ---
 name: taskboard
-description: Use when asked to perform work tasks associated with a project.
+description: Use this skill if the user asks for a taskboard, for kanban, or for Doska, or mentions thing such as creating cards, picking up a Ready task, or updating task status.
 ---
 
 # Taskboard
