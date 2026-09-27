@@ -24,8 +24,8 @@ Load **aven** and **coordinator**. Use **aven** for tasks and **coordinator** fo
    - Ensure Workmux status hooks are installed for `pi`.
 
 2. **Assign ready tasks.**
-   - Record prerequisite relationships in Aven for planned and discovered tasks before scheduling them. Use those dependencies to determine readiness.
-   - Run `aven list --ready` and inspect candidates with `aven context <task-ref>`.
+   - If not already specified, record prerequisite relationships in Aven for planned and discovered tasks before scheduling them. Use those dependencies to determine readiness.
+   - Use `aven list` with appropriate filtering options. Inspect candidate tasks with `aven context <task-ref>`.
    - Run independent tasks together. Start dependents only after prerequisites are marked `done` under step 5.
    - Record the handle, branch, base branch, and session ID in the task's Aven context.
    - Assign all planned and discovered session tasks with `aven agent assign <task-ref> --session <session-id>`.
