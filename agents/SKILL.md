@@ -7,10 +7,10 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 ## Operating rules
 
-Load **aven** and **coordinator**. Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reuse, and merging. Read **workmux**, **worktree**, and **merge** before using their commands. Run `aven agent --help`.
+Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, review, session reuse, and merging. Apply the Aven integration and Pi overrides below. Read **workmux**, **worktree**, and **merge** before using their commands. Run `aven agent --help`.
 
 - Include `--agent pi` in every `workmux add` call, including session reuse.
-- Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request (rather than substituting `$ARGUMENTS`). Use `/skill:merge` in place of coordinator's Claude-specific `/merge` examples.
+- Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request (rather than substituting `$ARGUMENTS`). Replace coordinator's `/merge` command with `/skill:merge --into <recorded-base> --keep`, using the task's recorded base branch. This retains the worktree until verification passes.
 - Only the orchestrator changes task status and ownership.
 - Give each task one worktree and a session ID: `workmux:<handle>`. Keep that ID when reusing the session.
 - Keep one active task per worktree.
@@ -26,33 +26,27 @@ Load **aven** and **coordinator**. Use **aven** for tasks and **coordinator** fo
 2. **Assign ready tasks.**
    - If not already specified, record prerequisite relationships in Aven for planned and discovered tasks before scheduling them. Use those dependencies to determine readiness.
    - Use `aven list` with appropriate filtering options. Inspect candidate tasks with `aven context <task-ref>`.
-   - Run independent tasks together. Start dependents only after prerequisites are marked `done` under step 5.
+   - Start dependents only after prerequisites are marked `done` under step 4.
    - Record the handle, branch, base branch, and session ID in the task's Aven context.
    - Assign all planned and discovered session tasks with `aven agent assign <task-ref> --session <session-id>`.
    - Mark tasks `active` when work starts.
 
-3. **Dispatch through coordinator.**
+3. **Supply task context and review evidence.**
    - Start from the recorded base branch, including merged prerequisites.
    - Before reusing a worktree, preserve unrelated changes separately and update to the base. The merge skill stages all changes.
    - Give each worker the task reference, session ID, base branch, and these instructions:
      1. Run `aven context <task-ref>`.
      2. Implement the task, verify acceptance criteria, and commit.
      3. Report check results, commit IDs, blockers, and discovered work. Leave task status and ownership to the orchestrator.
-     4. Wait for review before merging. On approval, follow `/skill:merge --into <recorded-base> --keep`, treating the trailing flags as the merge skill's arguments.
+   - During coordinator's review, check worker reports against Git state and `aven show <task-ref>`. Workmux `done` is not Aven task completion.
 
-4. **Monitor and review.**
-   - Follow coordinator's monitoring loop through merging and verification.
-   - Check worker reports against Git state and `aven show <task-ref>`. Workmux `done` means the worker finished its turn, not the task.
-   - For corrections, reuse the session with a focused prompt.
-
-5. **Merge, verify, and complete each task.**
-   - Have workers merge accepted work one at a time: `workmux send <handle> "/skill:merge --into <recorded-base> --keep"`. Replace placeholders with the recorded handle and base branch. This retains the worktree for verification.
+4. **Verify merged work and complete each task.**
    - Confirm the merge reached the base branch and run required checks on the merged revision.
    - If checks fail or cannot run, keep the task `active` and retain its worktree. Record that it was merged, the check results, and the next action in Aven.
    - Once acceptance criteria and checks pass, record the merged revision, results, and `cleanup pending` in Aven. Then mark the task `done` and release dependents.
    - Clean up the completed task's worktree and branch; record `cleanup complete` in Aven.
 
-6. **Complete the run.**
+5. **Complete the run.**
    - Confirm all selected tasks are verified and merged, run-wide checks pass on the final base revision, and cleanup is finished.
    - If any condition remains unmet, leave an Aven handoff for unfinished work using the guidance below.
 
