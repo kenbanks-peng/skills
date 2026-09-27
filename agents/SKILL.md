@@ -5,28 +5,33 @@ description: Orchestrate multiple coding agents with Aven tasks and Workmux work
 
 # Multi-agent orchestration
 
-Use two authoritative skills:
+## Document variables
 
-- **Aven skill:** read [`../aven/SKILL.md`](../aven/SKILL.md), then run `aven skill`. Aven owns task scope, dependencies, assignment, state, and durable handoff context.
-- **Workmux skill:** read [`../workmux/SKILL.md`](../workmux/SKILL.md). Workmux owns isolated branches, worktrees, agent processes, monitoring, and merge cleanup.
+{{AGENT}} = pi
+
+## Related Skills
+
+- **aven** owns task scope, dependencies, assignment, state, and durable handoff context. Use the Aven skill if available; otherwise, consult `aven skill`.
+- **workmux** owns isolated branches, worktrees, agent processes, monitoring, and merge cleanup. Use the Workmux skill if available; otherwise, consult `workmux --help`. Workmux will reference **merge**, **rebase**, **worktree**, **coordinator**, **open-pr** skills.
 
 ## Workflow
 
 1. **Prime the tools.**
-   - Run **`aven agent --help`** before assignment. This command is the source of truth for session assignment and release commands.
-   - Confirm that the repository has a base commit.
-   - Check the effective Workmux configuration. Use its configured `agent` and a pane with `command: <agent>`. Pass `--agent` only when an explicit override is required.
-   - If agent status tracking is required, confirm that Workmux hooks are installed.
+   - Run `aven agent --help` before assignment.
+   - Confirm that project is part of a git repository. Use `git init` if it doesn't.
+   - Using `aven project`, ensure that an appropriately mapped project is available. Create one if neccessary.
+   - For agent status tracking, ensure that Workmux hooks are installed.
 
 2. **Build execution waves.**
    - Run `aven list --ready` and inspect each candidate with `aven context <task-ref>`.
    - Map task dependencies. Put independent tasks in the same wave. Put each dependent task in a later wave.
+   - Ensure Workmux command includes option --agent {{AGENT}}
    - Give each task one Workmux handle and one stable, exact session ID, such as `workmux:<handle>`.
-   - Assign ownership with `aven agent assign <task-ref> --session <session-id>` and mark the task `active` when work starts.
+   - Assign ownership of all planned and discovered session tasks with `aven agent assign <task-ref> --session <session-id>`.
+   - As the agent orchestrator, you should maintain task state. Do not delegate state maintenance.
 
 3. **Dispatch one task per worktree.**
    - Create each worktree from the correct base branch with `workmux add`.
-   - Let Workmux use its configured agent unless the plan requires a different agent.
    - Give the agent the Aven task reference, its ownership boundary, and these completion requirements:
      1. Run `aven context <task-ref>`.
      2. Make only the requested change.
