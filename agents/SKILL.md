@@ -15,7 +15,7 @@ Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reu
    - Confirm the project is in a Git repository. If not, run `git init` and create an initial commit. Choose the base branch for merging completed work.
    - Use `aven project` to find or create a project mapped to the repository.
    - Ensure Workmux status hooks are installed for `pi`. Include `--agent pi` in every `workmux add` call, including session reuse.
-   - Check how `pi` invokes the merge skill; use that in worker prompts instead of coordinator's Claude-specific `/merge` examples.
+   - Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request (rather than substituting `$ARGUMENTS`). Use `/skill:merge` in place of coordinator's Claude-specific `/merge` examples.
 
 2. **Assign ready tasks.**
    - Run `aven list --ready` and inspect candidates with `aven context <task-ref>`.
@@ -33,7 +33,7 @@ Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reu
      1. Run `aven context <task-ref>`.
      2. Implement the task, verify acceptance criteria, and commit.
      3. Report check results, commit IDs, blockers, and discovered work. Leave task status and ownership to the orchestrator.
-     4. Wait for review before merging.
+     4. Wait for review before merging. On approval, follow `/skill:merge --into <recorded-base> --keep`, treating the trailing flags as the merge skill's arguments.
 
 4. **Monitor and review.**
    - Follow coordinator's monitoring loop through merging and verification.
@@ -41,7 +41,7 @@ Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reu
    - For corrections, reuse the session with a focused prompt.
 
 5. **Merge, verify, and complete.**
-   - Have workers merge accepted work one at a time through coordinator. Invoke the merge skill with `--into <recorded-base> --keep` to retain the worktree for verification.
+   - Have workers merge accepted work one at a time: `workmux send <handle> "/skill:merge --into <recorded-base> --keep"`. Replace placeholders with the recorded handle and base branch. This retains the worktree for verification.
    - Confirm the merge reached the base branch and run required checks on the merged revision.
    - If checks fail or cannot run, keep the task `active` and retain its worktree. Record that it was merged, the check results, and the next action in Aven.
    - Once acceptance criteria and checks pass, record the merged revision, results, and `cleanup pending` in Aven. Then mark the task `done` and release dependents.
