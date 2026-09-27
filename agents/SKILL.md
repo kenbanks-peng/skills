@@ -5,13 +5,19 @@ description: Coordinate Aven tasks through Workmux agents. Use for parallel or d
 
 # Aven + Workmux
 
-Load **aven** (including its `aven skill` instructions) and **coordinator** before execution. Read **workmux**, **worktree**, and **merge** before using their mechanics. Delegate task operations to aven and the execution lifecycle to coordinator, including its session-selection rules and monitoring through integration—not worktree's dispatch-only endpoint.
+Delegate task operations to **aven** and the execution lifecycle to **coordinator**, including its session-selection rules and monitoring through integration—not worktree's dispatch-only endpoint. Read **workmux**, **worktree**, and **merge** before using their mechanics.
 
 This skill adds the task/session binding and completion gate below; these constrain the supporting skills' lifecycle and cleanup.
 
 ## Workflow
 
-1. **Establish the run.** Confirm the Aven project maps to the target repository and choose the integration base. Use `pi` for new and resumed workers; verify its Workmux status hooks and supported merge-skill invocation rather than copying coordinator's Claude-specific examples. Report unsupported integration as a blocker before dispatch.
+1. **Prime the tools.**
+   - Load **aven** (including its `aven skill` instructions) and **coordinator**.
+   - Run `aven agent` before assignment.
+   - Confirm the target folder is part of the intended Git repository. If it isn't, run `git init` in the target folder. Choose the integration base branch.
+   - Using `aven project`, ensure an appropriately mapped project exists for the target repository. Create one if necessary and verify its folder mapping before dispatch.
+   - Ensure Workmux status hooks are installed for `pi`. Include `--agent pi` in every `workmux add` call, including session reuse.
+   - Before dispatch, confirm `pi` can invoke the merge skill and record its supported invocation in worker prompts. Use that invocation wherever coordinator's Claude-specific examples specify `/merge`; if unavailable, report the blocker.
 
 2. **Bind ready tasks.** Use Aven's readiness and context procedures, but require prerequisites to pass step 4 before dispatching dependents. Keep one active task per worktree. Record this binding in each task's durable Aven context:
    - Workmux handle, branch, and integration base.
