@@ -5,58 +5,47 @@ description: Orchestrate multiple coding agents with Aven tasks and Workmux work
 
 # Multi-agent orchestration
 
-## Document variables
+## Variables
 
-{{AGENT}} = pi
+- `{{AGENT}}` = `pi`
+- `{{SESSION_PREFIX}}` = `workmux`
 
-## Related Skills
+Treat these as document substitutions, not shell variables. Resolve them before constructing commands or worker prompts.
 
-- **aven** owns task scope, dependencies, assignment, state, and durable handoff context. Use the Aven skill if available; otherwise, consult `aven skill`.
-- **coordinator** owns Workmux spawning, prompt construction, monitoring, session reuse, serialized merging, and cleanup. Load it alongside this skill. This skill adds Aven ownership, task-state transitions, dependency scheduling, and acceptance gates.
+## Skill boundaries
+
+This skill connects Aven's task records to the coordinator's Workmux lifecycle. Use the loaded skills as the source of truth:
+
+- **aven**: task operations, dependencies, assignment commands, and durable notes.
+- **coordinator**: dispatch, monitoring, session reuse, serialized worker-executed merging, and cleanup.
+- **workmux**, **worktree**, and **merge**: CLI, worktree setup, and integration mechanics.
+
+Use the coordinator's full lifecycle, rather than the worktree skill's dispatch-only completion rule. The rules below govern the connection between task state and that lifecycle.
 
 ## Workflow
 
-1. **Prime the tools.**
-   - Run `aven agent --help` before assignment.
-   - Confirm the intended Git repository and integration base branch. Initialize a repository only when creating one is part of the requested work.
-   - Using `aven project`, ensure that an appropriately mapped project is available. Create one if necessary.
-   - Ensure that Workmux status hooks are installed for {{AGENT}}. Include `--agent {{AGENT}}` in every `workmux add` call, including session reuse.
-   - The coordinator's examples assume Claude Code and `/merge`. Before dispatch, confirm that {{AGENT}} can invoke the merge skill and record its supported invocation in worker prompts. Use that invocation wherever the coordinator specifies `/merge`; if unavailable, report the blocker rather than assuming compatibility.
+1. **Establish the integration context.**
+   - Confirm the Aven project maps to the intended repository and choose the integration base branch.
+   - Use `{{AGENT}}` as the worker agent, including for session reuse. Apply that selection through the related skills' agent-selection procedures; verify status hooks and a supported merge-skill invocation before dispatch. Adapt the coordinator's Claude Code examples to that invocation. If unavailable, report the blocker.
 
-2. **Build execution waves.**
-   - Run `aven list --ready` and inspect each candidate with `aven context <task-ref>`.
-   - Map task dependencies. Waves govern dispatch eligibility, not merge timing: independent tasks can run together; dependent tasks become eligible only after their prerequisites are merged.
-   - Give each task one Workmux handle and one stable, exact session ID, such as `workmux:<handle>`.
-   - Assign ownership of all planned and discovered session tasks with `aven agent assign <task-ref> --session <session-id>`.
-   - The orchestrator alone maintains Aven task state. Mark a task `done` only after its acceptance criteria are verified and its branch is confirmed merged into the integration base.
-   - If assignment reports a server compatibility error, report degraded ownership tracking. Continue only when task status and durable notes provide unambiguous ownership; do not claim that session assignment succeeded.
+2. **Bind tasks to sessions.**
+   - Select ready Aven tasks and inspect their context using the Aven skill. Dispatch independent tasks together; a dependent task is eligible only once its prerequisites are confirmed merged into the integration base, even if Aven already lists it as ready.
+   - Keep one active task per worktree. Record each task's Workmux handle, branch, integration base, and stable Aven session ID (`{{SESSION_PREFIX}}:<handle>`) in its durable context. Reused sessions retain that ID.
+   - Assign each dispatched task to that session through Aven. If assignment is unsupported, report degraded ownership tracking and continue only with unambiguous ownership in task state and notes.
+   - The orchestrator alone changes Aven task state: mark work `active` when it starts, retain that state through review and merge, and apply the completion gate below before marking it `done`. Workers report progress and discovered work to the orchestrator.
 
-3. **Dispatch one active task per worktree.**
-   - Follow the coordinator's dispatch and session-reuse procedures. Create new worktrees from the integration base; before dependent work starts in a reused worktree, require it to incorporate all merged prerequisites while preserving existing changes.
-   - Give the agent the Aven task reference, its ownership boundary, the integration base, and these completion requirements:
-     1. Run `aven context <task-ref>`.
-     2. Make only the requested change.
-     3. Verify the acceptance criteria.
-     4. Commit the complete change.
-     5. Report verification evidence, commit IDs, and any blockers to the orchestrator; leave Aven state changes to the orchestrator.
+3. **Dispatch through the coordinator.**
+   - Add the Aven task reference, session ID, ownership boundary, and integration base to the coordinator's worker prompt. Require the worker to read its Aven context and return acceptance evidence, commit IDs, and blockers, leaving task-state changes to the orchestrator.
+   - Create worktrees from the integration base. Before dependent work starts in a reused worktree, require it to incorporate the merged prerequisites while preserving existing changes.
+   - Workers return results for review; the coordinator triggers merging after acceptance rather than having workers merge automatically on implementation completion.
 
-4. **Monitor evidence, not only process state.**
-   - Follow the coordinator's monitoring loop. Reconcile worker reports with Git state and `aven show <task-ref>`; a Workmux `done` status is not an Aven completion decision.
-   - `No agent running` can mean that the agent exited. Inspect its branch and Aven task before you restart it.
-   - For partial work, follow the coordinator's follow-up procedure, preserving changes and reconciling the Aven assignment and task state.
+4. **Reconcile results and unlock work.**
+   - At each coordinator review, reconcile the worker report and Git state with the Aven task. Workmux `done` means the agent finished its turn, not that the task is complete. An exited agent likewise requires reconciliation before restart or reassignment.
+   - For accepted work, use the coordinator's merge procedure. Mark the Aven task `done` only after acceptance criteria are verified and the merge is confirmed in the intended integration base. Record verification and integration evidence in Aven, then re-evaluate ready tasks against their merged prerequisites.
+   - For corrections, use the coordinator's session-reuse procedure and keep Aven ownership aligned. Release stale assignments when abandoning or reassigning work.
 
-5. **Merge and unlock dependent work.**
-   - Merge only a clean, committed branch whose task meets its acceptance criteria. Use the coordinator's serialized, worker-executed merge procedure as accepted results arrive; do not wait for the entire wave.
-   - Confirm the merge landed in the intended integration base before marking the task `done`. Then run `aven list --ready` again and check newly eligible tasks against their merged prerequisites.
-   - Release stale Aven assignments when work is abandoned or reassigned.
+## Completion and handoff
 
-## Completion gate
+Finish when every selected task is either complete under the gate above or has a durable blocker, integration-branch tests and exact-output checks pass, and the coordinator's cleanup is complete for accepted work.
 
-The orchestration is complete only when:
-
-- every selected Aven task is `done` or has a documented blocker;
-- every accepted branch is merged;
-- dependent outputs were built from merged prerequisite work;
-- tests and exact-output checks pass on the integration branch;
-- all orchestration changes are committed, with pre-existing user changes preserved; and
-- worktrees and branches created for completed work are cleaned up. For blocked work, retain changes and record the task, assignment, handle, branch, blocker, and next action in a durable handoff. This explicit blocked handoff is an exception to the coordinator's merge-or-remove lifecycle; it does not permit silently dropping a running agent from monitoring.
+For blocked or interrupted work, retain changes and leave an Aven handoff with the task, assignment, handle, branch, integration base, progress, verification evidence, blocker, and next action. Retaining blocked work is an explicit exception to the coordinator's merge-or-remove lifecycle, not permission to drop a running agent from monitoring.
