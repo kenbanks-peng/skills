@@ -7,7 +7,7 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 ## Tools and invocation
 
-Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reuse, and merging. Read **workmux**, **worktree**, and **merge** before using their commands.
+Load **aven** and **coordinator**. Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reuse, and merging. Read **workmux**, **worktree**, and **merge** before using their commands. Run `aven agent --help`.
 
 - Include `--agent pi` in every `workmux add` call, including session reuse.
 - Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request (rather than substituting `$ARGUMENTS`). Use `/skill:merge` in place of coordinator's Claude-specific `/merge` examples.
@@ -22,8 +22,6 @@ Use **aven** for tasks and **coordinator** for dispatch, monitoring, session reu
 ## Workflow
 
 1. **Prime the tools.**
-   - Load **aven** and **coordinator**.
-   - Run `aven agent --help`.
    - Confirm the project is in a Git repository. If not, run `git init` and create an initial commit. Choose the base branch for merging completed work.
    - Use `aven project` to find or create a project mapped to the repository.
    - Ensure Workmux status hooks are installed for `pi`.
