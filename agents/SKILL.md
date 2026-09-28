@@ -28,7 +28,7 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
    - Use `aven list` with appropriate filtering options. Inspect candidate tasks with `aven context <task-ref>`.
    - Start dependents only after prerequisites are marked `done` under step 4.
    - Record the handle, branch, base branch, and session ID in the task's Aven context.
-   - Assign all planned and discovered session tasks with `aven agent assign <task-ref> --session <session-id>`.
+   - Assign all planned and discovered session tasks with `aven agent set <task-ref> --session <session-id>`. Record the coding agent separately with `aven agent set <task-ref> --agent pi`.
    - Mark tasks `active` when work starts.
 
 3. **Supply task context and review evidence.**
@@ -52,7 +52,7 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
 
 ## Recovery and handoff
 
-- After context loss or worker exit, read Aven notes and check Workmux and Git before restarting work. Resolve conflicting ownership or merge records first.
+- After context loss or worker exit, find recorded sessions with `aven agent sessions` and inspect their unfinished tasks with `aven agent list --session <session-id> --open`. Session IDs match exactly. Read Aven notes and check Workmux and Git before restarting work. Resolve conflicting ownership or merge records first.
 - Finish pending cleanup for `done` tasks without merging again.
-- Before reassigning work, stop the previous worker, preserve its changes, and check whether it merged. Record the handoff and release stale assignments.
+- Before reassigning work, stop the previous worker, preserve its changes, and check whether it merged. Record the handoff and release the stale session with `aven agent clear <task-ref> --session`; clear the coding-agent assignment with `aven agent clear <task-ref> --agent` if it no longer applies.
 - For unfinished tasks, record progress, check results, blockers, and next actions in Aven. Retain their worktrees, even if coordinator would normally remove them.
