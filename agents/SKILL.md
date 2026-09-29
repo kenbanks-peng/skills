@@ -113,7 +113,7 @@ Give each worker these instructions:
 
 ### Interrupted work
 
-After context loss or worker exit, find unfinished tasks with `aven list --open` and inspect each with `aven context <task-ref>`. Before restarting, check Workmux and Git using the handle and branches in Aven notes. Resolve conflicting ownership or merge records first.
+After context loss or worker exit, run `aven list --open` and inspect each task with `aven context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
 
 ### Pending cleanup
 
@@ -121,8 +121,8 @@ Finish pending cleanup for `done` tasks without merging again.
 
 ### Reassignment
 
-Before reassigning work, stop the previous worker, preserve its changes, check whether it merged, and record the handoff. Follow the status/agent rule in [Operating invariants](#operating-invariants) for reassignment or any move out of `active`.
+Before reassignment, stop the previous worker, preserve its changes, check whether it merged, and record the handoff.
 
 ### Unfinished tasks
 
-For unfinished tasks, record progress, check results, blockers, and next actions in Aven. Retain their worktrees, even if the coordinator would normally remove them.
+Record progress, check results, blockers, and next actions in Aven. Retain unfinished worktrees, overriding coordinator cleanup.
