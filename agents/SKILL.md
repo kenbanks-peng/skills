@@ -37,9 +37,9 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 
 ### Pi merge command
 
-Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request instead of substituting `$ARGUMENTS`. The merge skill gets its target from the branch's `workmux-base` Git configuration.
+Pi uses `/skill:<name>`; trailing arguments become a user request, not `$ARGUMENTS` substitutions. The merge target comes from the branch's `workmux-base` Git config.
 
-Before merging, confirm that the configured base equals the base branch recorded in the task:
+Before merging, check it against the task's recorded base:
 
 ```sh
 branch=$(git branch --show-current)
@@ -47,7 +47,7 @@ configured_base=$(git config --local --get "branch.$branch.workmux-base")
 test "$configured_base" = "<recorded-base>"
 ```
 
-Stop if the base is missing or does not match. When it matches, replace the coordinator's `/merge` command with `/skill:merge --keep`. The `--keep` option retains the worktree until verification passes.
+Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with `/skill:merge --keep` to retain the worktree until verification passes.
 
 ## Operating invariants
 
