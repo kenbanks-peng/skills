@@ -2,15 +2,12 @@
 # Worker launch policy owned by the agents workflow.
 agent: pi
 panes:
-  - command: |
-      PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-      EXT="$PI_AGENT_DIR/extensions"
-      NPM="$PI_AGENT_DIR/npm/node_modules"
-      exec <agent> --no-extensions \
-        --extension "$EXT/workmux-status.ts" \
-        --extension "$NPM/@npm-ken/pi-tool-discovery/src/index.ts" \
-        --extension "$NPM/context-mode/build/adapters/pi/extension.js" \
-        --extension "$NPM/@ff-labs/pi-fff/src/index.ts" \
-        --extension "$NPM/@upstash/context7-pi/extensions/context7.ts" \
-        --extension "$NPM/pi-web-access/dist"
+  - command: >-
+      pi --no-extensions
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/workmux-status.ts"
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/@npm-ken/pi-tool-discovery/src/index.ts"
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/context-mode/build/adapters/pi/extension.js"
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/@ff-labs/pi-fff/src/index.ts"
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/@upstash/context7-pi/extensions/context7.ts"
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/pi-web-access/dist"
     focus: true
