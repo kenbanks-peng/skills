@@ -31,13 +31,9 @@ On a lock error, pause dispatch. Inspect owning processes, `workmux list`, and `
 
 ### Multiplexer context
 
-Inspect the inherited multiplexer context before dispatch. For same-project launches:
+This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
 
-- When `HERDR_ENV=1`, preserve the inherited Herdr context, including `HERDR_SESSION`; omit the tmux-specific `--parent-session` override.
-- Otherwise, when using tmux and explicit placement is needed, resolve the intended session from the coordinator's known pane (`TMUX_PANE`) or explicit task context. Avoid a targetless tmux query.
-- If placement is required but the destination is unknown, ask the user. Never derive a session name from the repository name or use Herdr metadata as a tmux target.
-
-A pane's existence is not proof that the agent received its prompt. If the coordinator's startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Retain unfinished work under [Recovery and handoff](#recovery-and-handoff).
+If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
 ### Pi merge command
 
