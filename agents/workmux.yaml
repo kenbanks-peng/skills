@@ -11,6 +11,6 @@ panes:
         --extension "$NPM/@npm-ken/pi-tool-discovery/src/index.ts" \
         --extension "$NPM/context-mode/build/adapters/pi/extension.js" \
         --extension "$NPM/@ff-labs/pi-fff/src/index.ts" \
-        --extension "$NPM/@upstash/context7-pi/extensions" \
+        --extension "$NPM/@upstash/context7-pi/extensions/context7.ts" \
         --extension "$NPM/pi-web-access/dist"
     focus: true
