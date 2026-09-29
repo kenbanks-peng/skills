@@ -7,17 +7,17 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 ## Required skills
 
-Load and follow each skill before the corresponding operation:
+Load and follow each skill before its operation:
 
-- **aven** — task management with the `aven` CLI.
-- **coordinator** — worker dispatch, monitoring, review, session reuse, and merge orchestration.
-- **workmux** — worktree and agent management with the `workmux` CLI.
-- **worktree** — task delegation to worktree agents.
-- **merge** — worker-side commit, rebase, and merge workflow.
-
-The integration overrides below take precedence over those skills.
+- **aven** — task management.
+- **coordinator** — agent dispatch, monitoring, review, and merging.
+- **workmux** — worktree and agent management.
+- **worktree** — worktree task delegation.
+- **merge** — worker-side commit, rebase, and merge.
 
 ## Integration overrides
+
+Integration overrides below take precedence.
 
 ### Workmux configuration
 
