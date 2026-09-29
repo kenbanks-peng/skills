@@ -51,10 +51,10 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ## Operating invariants
 
-- Only the orchestrator changes Aven task status, ownership, comments, and notes. Workers use Aven as read-only context.
-- Every `aven edit` that sets status must include `--agent <agent>` for `active` (`pi` for Pi), or `--clear-agent` for any other status.
+- Only the orchestrator updates Aven task status, ownership, comments, and notes; workers treat Aven as read-only.
+- When setting status with `aven edit`, include `--agent <agent>` (for example, `--agent pi`) while in`active` state, otherwise include `--clear-agent`.
 - Use one worktree per task, with at most one active task per worktree.
-- Create tasks for discovered work. Give each task a scope and acceptance criteria. Keep deferred work outside the current run.
+- Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
 
 ## Workflow
 
