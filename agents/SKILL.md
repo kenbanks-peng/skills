@@ -7,15 +7,21 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 ## Required skills
 
-- Load and use **aven** for task management.
-- Follow **coordinator** for dispatch, monitoring, review, session reuse, and merging.
-- Before you use Workmux or merge commands, read the coordinator guidance for **workmux**, **worktree**, and **merge**.
+Read and follow these skills before performing the corresponding operation:
+
+- **aven** — task management with the `aven` CLI.
+- **coordinator** — worker dispatch, monitoring, review, session reuse, and merge orchestration.
+- **workmux** — worktree and agent management with the `workmux` CLI.
+- **worktree** — task delegation to worktree agents.
+- **merge** — worker-side commit, rebase, and merge workflow.
+
+Apply the integration overrides below when following these skills.
 
 ## Integration overrides
 
 ### Workmux configuration
 
-Resolve the sibling `workmux.yaml` relative to this skill. Pass its absolute path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker pane command. Do not pass `--agent` or edit user or project Workmux configuration.
+Resolve the sibling `workmux.yaml` relative to this skill to an absolute path and confirm that it exists. Pass that path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker pane command. Do not pass `--agent` or edit user or project Workmux configuration.
 
 ### Pi merge command
 
@@ -24,6 +30,7 @@ Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user 
 ## Operating invariants
 
 - Only the orchestrator changes Aven task status, ownership, comments, and notes. Workers use Aven as read-only context.
+- Couple coding-agent assignment to task status in the same `aven edit` call: use `--status active --agent <agent>` (`pi` for Pi), and `--status <state> --clear-agent` for every non-`active` state.
 - Give each task one worktree. Keep one active task per worktree.
 - Create tasks for discovered work. Give each task a scope and acceptance criteria. Keep deferred work outside the current run.
 
@@ -31,17 +38,15 @@ Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user 
 
 ### 1. Prepare the tools and repository
 
-1. Resolve the sibling `workmux.yaml` to an absolute path and confirm that it exists.
-2. Confirm that the project is in a Git repository. If it is not, run `git init` and create an initial commit.
-3. Choose the base branch for merging completed work.
-4. Use `aven project` to find or create a project that maps to the repository.
+1. Ensure the project is in a Git repository. If needed, run `git init` and create an initial commit.
+2. Choose the base branch for merging completed work.
+3. Ensure an Aven project maps to the repository. If needed, use `aven project` to find or create it.
 
 ### 2. Select ready tasks
 
 1. If prerequisite relationships are not specified, record them in Aven for planned and discovered tasks before scheduling the tasks.
 2. Select candidates with `aven list --ready` and the applicable filters, then inspect each with `aven context <task-ref>`. Let Aven determine dependency readiness; mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
-3. For all planned and discovered tasks assigned to Pi, identify the coding agent with `aven edit <task-ref> --agent pi`.
-4. Mark a task `active` when work starts.
+3. When Pi starts work on a planned or discovered task, run `aven edit <task-ref> --status active --agent pi`.
 
 ### 3. Prepare and dispatch a worker
 
@@ -63,7 +68,7 @@ Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user 
 1. Confirm that the merge reached the base branch. Run the required checks on the merged revision.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Record the merge, check results, and next action in Aven.
 3. When the acceptance criteria and checks pass, add a durable Aven completion comment. Include the validated implementation summary, notable decisions, affected components, merged revision, check results, and `cleanup pending`.
-4. Mark the task `done`, then query `aven list --ready` with the current run's filters for newly eligible tasks.
+4. Run `aven edit <task-ref> --status done --clear-agent`, then query `aven list --ready` with the current run's filters for newly eligible tasks.
 5. Clean up the completed task's worktree and branch. Record `cleanup complete` in Aven.
 
 ### 6. Complete the run
@@ -95,7 +100,7 @@ Finish pending cleanup for `done` tasks without merging again.
 
 ### Reassignment
 
-Before you reassign work, stop the previous worker, preserve its changes, and check whether it merged. Record the handoff. Update the coding agent with `aven edit <task-ref> --agent <agent>`, or remove it with `aven edit <task-ref> --clear-agent` if it no longer applies.
+Before you reassign work, stop the previous worker, preserve its changes, and check whether it merged. Record the handoff. Apply the status and coding-agent rule in [Operating invariants](#operating-invariants) when assigning the task to the replacement agent or moving it to a non-`active` state.
 
 ### Unfinished tasks
 
