@@ -25,9 +25,9 @@ Pass the absolute path of this skill's sibling `workmux.yaml` as `--config` to e
 
 ### Workmux setup
 
-Run `workmux add` and `workmux open` sequentially within each repository, replacing the coordinator's parallel launch step. This avoids shared Git/Workmux metadata contention; workers still execute in parallel. Preserve prompt-file preparation and startup confirmation checks.
+Even for parallel workers, serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention. Preserve prompt-file preparation and startup checks.
 
-If setup reports a lock error, pause dispatch and inspect the owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work and reconcile partial resources; remove only resources confirmed safe to discard. Never delete a lock that may still have a live owner.
+On a lock error, pause dispatch. Inspect owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work, reconcile partial resources, and remove only resources confirmed safe to discard. Never delete a potentially live lock.
 
 ### Multiplexer context
 
