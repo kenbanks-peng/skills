@@ -72,11 +72,11 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ### 3. Prepare and dispatch a worker
 
-1. Start from the chosen base branch, including merged prerequisites.
-2. Before reusing a worktree, preserve unrelated changes separately and ensure its task branch includes the latest base revision. The merge skill stages all changes.
-3. Create or reuse the task's worktree through the coordinator workflow.
-4. Record the Workmux handle, branch, and base branch in the task's Aven notes.
-5. Give the worker the task reference, the base branch, and the instructions in [Worker brief](#worker-brief).
+1. Start from the chosen base branch with merged prerequisites.
+2. Before worktree reuse, preserve unrelated changes separately and update the task branch with the latest base. The merge skill stages all changes.
+3. Use the coordinator workflow to create or reuse the task's worktree.
+4. Record the Workmux handle, task branch, and base branch in Aven notes.
+5. Give the worker the task reference, base branch, and [Worker brief](#worker-brief).
 
 ### 4. Review and merge the result
 
