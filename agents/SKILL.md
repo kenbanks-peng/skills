@@ -30,7 +30,7 @@ Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user 
 ## Operating invariants
 
 - Only the orchestrator changes Aven task status, ownership, comments, and notes. Workers use Aven as read-only context.
-- Couple coding-agent assignment to task status in the same `aven edit` call: use `--status active --agent <agent>` (`pi` for Pi), and `--status <state> --clear-agent` for every non-`active` state.
+- Every `aven edit` that sets status must include `--agent <agent>` for `active` (`pi` for Pi), or `--clear-agent` for any other status.
 - Give each task one worktree. Keep one active task per worktree.
 - Create tasks for discovered work. Give each task a scope and acceptance criteria. Keep deferred work outside the current run.
 
