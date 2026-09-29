@@ -95,9 +95,9 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ### 6. Complete the run
 
-1. Confirm that all selected tasks are verified and merged.
-2. Run the run-wide checks on the final base revision and confirm that they pass.
-3. Confirm that cleanup is complete.
+1. Confirm all selected tasks are verified and merged.
+2. Run run-wide checks on the final base revision; require passing results.
+3. Confirm cleanup is complete.
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff).
 
 ## Worker brief
