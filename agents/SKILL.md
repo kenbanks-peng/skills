@@ -11,7 +11,7 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
 
 - Resolve `workmux.yaml` relative to this skill and pass its absolute path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker pane command; do not pass `--agent` or edit user or project Workmux configuration.
 - Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request (rather than substituting `$ARGUMENTS`). Replace coordinator's `/merge` command with `/skill:merge --into <recorded-base> --keep`, using the task's recorded base branch. This retains the worktree until verification passes.
-- Only the orchestrator changes task status and ownership.
+- Only the orchestrator changes Aven task status, ownership, comments, and notes. Workers use Aven as read-only context.
 - Give each task one worktree. Keep one active task per worktree.
 - Create tasks for discovered work with scope and acceptance criteria. Keep deferred work outside the current run.
 
@@ -37,13 +37,13 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
      1. Act as a delegated worker and report completion only to the orchestrator.
      2. Run `aven context <task-ref>`.
      3. Implement the task, verify acceptance criteria, and commit.
-     4. Report check results, commit IDs, blockers, and discovered work. Leave task status, ownership, and user notification to the orchestrator.
-   - During coordinator's review, check worker reports against Git state and `aven show <task-ref>`. Workmux `done` is not Aven task completion.
+     4. Report a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work. Leave Aven updates and user notification to the orchestrator.
+   - During coordinator's review, validate the worker's implementation summary and other report details against Git state and `aven show <task-ref>`. Treat the summary as a draft until merged work passes verification. Workmux `done` is not Aven task completion.
 
 4. **Verify merged work and complete each task.**
    - Confirm the merge reached the base branch and run required checks on the merged revision.
    - If checks fail or cannot run, keep the task `active` and retain its worktree. Record that it was merged, the check results, and the next action in Aven.
-   - Once acceptance criteria and checks pass, record the merged revision, results, and `cleanup pending` in Aven. Then mark the task `done` and release dependents.
+   - Once acceptance criteria and checks pass, add a durable Aven completion comment with the validated implementation summary, notable decisions, affected components, merged revision, check results, and `cleanup pending`. Then mark the task `done` and release dependents.
    - Clean up the completed task's worktree and branch; record `cleanup complete` in Aven.
 
 5. **Complete the run.**
