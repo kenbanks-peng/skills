@@ -104,11 +104,10 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 Give each worker these instructions:
 
-1. Act as a delegated worker and report completion only to the orchestrator.
+1. Treat Aven as read-only; leave updates and user notification to the orchestrator.
 2. Run `aven context <task-ref>`.
-3. Implement the task, verify the acceptance criteria, and commit.
-4. Report a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
-5. Treat Aven as read-only. Leave Aven updates and user notification to the orchestrator.
+3. Implement the task, verify acceptance criteria, and commit.
+4. Report only to the orchestrator: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 
 ## Recovery and handoff
 
