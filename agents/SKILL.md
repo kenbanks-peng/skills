@@ -60,9 +60,9 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ### 1. Prepare the tools and repository
 
-1. Ensure the project is in a Git repository. If needed, run `git init` and create an initial commit.
-2. Choose the base branch for merging completed work.
-3. Ensure an Aven project maps to the repository. If needed, use `aven project` to find or create it.
+1. If needed, initialize the Git repository with `git init` and an initial commit.
+2. Use the base branch for merges.
+3. Use `aven project` to find (or if needed, to create) an Aven project mapped to the repository.
 
 ### 2. Select ready tasks
 
