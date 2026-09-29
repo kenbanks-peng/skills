@@ -68,7 +68,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 1. Ensure any missing prerequisites are recorded in Aven before scheduling any task.
 2. Select tasks with `aven list --ready` and applicable filters; inspect each with `aven context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
-3. When starting a task, run `aven edit <task-ref> --status active --agent pi`.
+3. Mark the task `active` when starting it.
 
 ### 3. Prepare and dispatch a worker
 
