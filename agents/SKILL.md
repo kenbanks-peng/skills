@@ -21,7 +21,6 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
    - Resolve the sibling `workmux.yaml` to an absolute path and confirm it exists before dispatch.
    - Confirm the project is in a Git repository. If not, run `git init` and create an initial commit. Choose the base branch for merging completed work.
    - Use `aven project` to find or create a project mapped to the repository.
-   - Verify `${PI_CODING_AGENT_DIR}/extensions/workmux-status.ts` exists and contains both `register-agent` and `set-window-status`. If it does not, stop with `workmux setup --hooks` as an interactive prerequisite. Do not run setup through a pseudo-terminal.
 
 2. **Assign ready tasks.**
    - If not already specified, record prerequisite relationships in Aven for planned and discovered tasks before scheduling them. Use those dependencies to determine readiness.
