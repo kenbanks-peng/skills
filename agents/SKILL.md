@@ -9,7 +9,7 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, review, session reuse, and merging. Apply the Aven integration and Pi overrides below. Read **workmux**, **worktree**, and **merge** before using their commands.
 
-- Include `--agent pi` in every `workmux add` call, including session reuse.
+- Resolve `workmux.yaml` relative to this skill and pass its absolute path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker pane command; do not pass `--agent` or edit user or project Workmux configuration.
 - Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request (rather than substituting `$ARGUMENTS`). Replace coordinator's `/merge` command with `/skill:merge --into <recorded-base> --keep`, using the task's recorded base branch. This retains the worktree until verification passes.
 - Only the orchestrator changes task status and ownership.
 - Give each task one worktree. Keep one active task per worktree.
@@ -18,9 +18,10 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
 ## Workflow
 
 1. **Prime the tools.**
+   - Resolve the sibling `workmux.yaml` to an absolute path and confirm it exists before dispatch.
    - Confirm the project is in a Git repository. If not, run `git init` and create an initial commit. Choose the base branch for merging completed work.
    - Use `aven project` to find or create a project mapped to the repository.
-   - Ensure Workmux status hooks are installed for `pi`.
+   - Verify `${PI_CODING_AGENT_DIR}/extensions/workmux-status.ts` exists and contains both `register-agent` and `set-window-status`. If it does not, stop with `workmux setup --hooks` as an interactive prerequisite. Do not run setup through a pseudo-terminal.
 
 2. **Assign ready tasks.**
    - If not already specified, record prerequisite relationships in Aven for planned and discovered tasks before scheduling them. Use those dependencies to determine readiness.
@@ -34,9 +35,10 @@ Load **aven** for tasks and follow **coordinator** for dispatch, monitoring, rev
    - Start from the recorded base branch, including merged prerequisites.
    - Before reusing a worktree, preserve unrelated changes separately and update to the base. The merge skill stages all changes.
    - Give each worker the task reference, base branch, and these instructions:
-     1. Run `aven context <task-ref>`.
-     2. Implement the task, verify acceptance criteria, and commit.
-     3. Report check results, commit IDs, blockers, and discovered work. Leave task status and ownership to the orchestrator.
+     1. Act as a delegated worker and report completion only to the orchestrator.
+     2. Run `aven context <task-ref>`.
+     3. Implement the task, verify acceptance criteria, and commit.
+     4. Report check results, commit IDs, blockers, and discovered work. Leave task status, ownership, and user notification to the orchestrator.
    - During coordinator's review, check worker reports against Git state and `aven show <task-ref>`. Workmux `done` is not Aven task completion.
 
 4. **Verify merged work and complete each task.**

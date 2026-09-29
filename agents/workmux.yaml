@@ -1,0 +1,15 @@
+---
+# Worker launch policy owned by the agents workflow.
+panes:
+  - command: |
+      PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+      EXT="$PI_AGENT_DIR/extensions"
+      NPM="$PI_AGENT_DIR/npm/node_modules"
+      exec pi --no-extensions \
+        --extension "$EXT/workmux-status.ts" \
+        --extension "$NPM/@npm-ken/pi-tool-discovery/src/index.ts" \
+        --extension "$NPM/context-mode/build/adapters/pi/extension.js" \
+        --extension "$NPM/@ff-labs/pi-fff/src/index.ts" \
+        --extension "$NPM/@upstash/context7-pi/extensions" \
+        --extension "$NPM/pi-web-access/dist"
+    focus: true
