@@ -87,11 +87,11 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ### 5. Verify and complete the task
 
-1. Confirm that the merge reached the base branch. Run the required checks on the merged revision.
-2. If checks fail or cannot run, keep the task `active` and retain its worktree. Record the merge, check results, and next action in Aven.
-3. When acceptance criteria and checks pass, add a durable Aven completion comment containing the validated [worker report](#worker-brief), merged revision, check results for that revision, and `cleanup pending`.
-4. Run `aven edit <task-ref> --status done --clear-agent`, then query `aven list --ready` with the current run's filters for newly eligible tasks.
-5. Clean up the completed task's worktree and branch. Record `cleanup complete` in Aven.
+1. Confirm the merge reached the base branch; run required checks on that revision.
+2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
+3. Once acceptance criteria and checks pass, add an Aven completion comment with the validated [worker report](#worker-brief), merged revision, its check results, and `cleanup pending`.
+4. Mark the task `done`, then query `aven list --ready` with the run's filters for newly eligible tasks.
+5. Clean up the task's worktree and branch; record `cleanup complete` in Aven.
 
 ### 6. Complete the run
 
