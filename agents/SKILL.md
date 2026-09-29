@@ -80,10 +80,10 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ### 4. Review and merge the result
 
-1. Follow the coordinator review process.
-2. Validate the worker's report against Git state and `aven show <task-ref>`.
-3. Treat the summary as a draft until the merged work passes verification. Workmux `done` is not Aven task completion.
-4. Follow the coordinator merge process and apply the [Pi merge command](#pi-merge-command) override.
+1. Follow coordinator review.
+2. Validate the worker report against Git state and `aven show <task-ref>`.
+3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
+4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override.
 
 ### 5. Verify and complete the task
 
