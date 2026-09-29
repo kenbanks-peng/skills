@@ -21,9 +21,7 @@ Integration overrides below take precedence.
 
 ### Workmux configuration
 
-Before dispatch, resolve this skill's sibling `workmux.yaml` to an absolute path. Confirm that it exists, sets `agent: pi`, and identifies the worker pane with `exec <agent>`, using `--no-extensions` and explicit `--extension` entries. The placeholder enables Workmux's agent-pane recognition and prompt injection. On failure, report the configuration defect and stop dispatch; do not bypass prompt injection.
-
-Pass that path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker command and agent selection. Do not pass `--agent` or edit user or project Workmux configuration.
+Pass the absolute path of this skill's sibling `workmux.yaml` as `--config` to every `workmux add` and `workmux open`, including session reuse. Do not pass `--agent` or edit user/project Workmux configuration.
 
 ### Workmux setup
 
