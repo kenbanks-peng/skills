@@ -21,11 +21,39 @@ Apply the integration overrides below when you follow these skills.
 
 ### Workmux configuration
 
-Resolve the sibling `workmux.yaml` relative to this skill to an absolute path and confirm that it exists. Pass that path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker pane command. Do not pass `--agent` or edit user or project Workmux configuration.
+Before dispatch, resolve the sibling `workmux.yaml` relative to this skill to an absolute path. Confirm that it exists, sets `agent: pi`, and identifies the worker pane with `exec <agent>`, followed by the required Pi arguments and extensions. The placeholder lets Workmux recognize the agent pane and inject its prompt. If this check fails, report the configuration defect and stop dispatch rather than bypassing prompt injection.
+
+Pass that path as `--config <workflow-config>` to every `workmux add` and `workmux open` call, including session reuse. The workflow config owns the worker command and agent selection. Do not pass `--agent` or edit user or project Workmux configuration.
+
+### Workmux setup
+
+Replace the coordinator's parallel launch step with sequential setup: finish each `workmux add` or `workmux open` before starting the next in the same repository. This avoids contention on shared Git and Workmux metadata; worker execution remains parallel. Keep the coordinator's prompt-file preparation and startup confirmation checks.
+
+If setup reports a lock error, pause dispatch and inspect the owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work and reconcile partial resources; remove only resources confirmed safe to discard. Never delete a lock that may still have a live owner.
+
+### Multiplexer context
+
+Inspect the inherited multiplexer context before dispatch. For same-project launches:
+
+- When `HERDR_ENV=1`, preserve the inherited Herdr context, including `HERDR_SESSION`; omit the tmux-specific `--parent-session` override.
+- Otherwise, when using tmux and explicit placement is needed, resolve the intended session from the coordinator's known pane (`TMUX_PANE`) or explicit task context. Avoid a targetless tmux query.
+- If placement is required but the destination is unknown, ask the user. Never derive a session name from the repository name or use Herdr metadata as a tmux target.
+
+A pane's existence is not proof that the agent received its prompt. If the coordinator's startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Retain unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
 ### Pi merge command
 
-Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request instead of substituting `$ARGUMENTS`. Replace the coordinator's `/merge` command with `/skill:merge --into <recorded-base> --keep`. Use the task's recorded base branch. The `--keep` option retains the worktree until verification passes.
+Pi invokes skills with `/skill:<name>` and appends trailing arguments as a user request instead of substituting `$ARGUMENTS`. The merge skill gets its target from the branch's `workmux-base` Git configuration.
+
+Before merging, confirm that the configured base equals the base branch recorded in the task:
+
+```sh
+branch=$(git branch --show-current)
+configured_base=$(git config --local --get "branch.$branch.workmux-base")
+test "$configured_base" = "<recorded-base>"
+```
+
+Stop if the base is missing or does not match. When it matches, replace the coordinator's `/merge` command with `/skill:merge --keep`. The `--keep` option retains the worktree until verification passes.
 
 ## Operating invariants
 
