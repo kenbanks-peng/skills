@@ -35,6 +35,10 @@ This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SE
 
 If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
+### Merge notifications
+
+Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to the orchestrator. Include this override in every worker merge request.
+
 ### Pi merge command
 
 Pi uses `/skill:<name>`; trailing arguments become a user request, not `$ARGUMENTS` substitutions. The merge target comes from the branch's `workmux-base` Git config.
@@ -104,7 +108,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 Give each worker these instructions:
 
-1. Treat Aven as read-only; leave updates and user notification to the orchestrator.
+1. Treat Aven as read-only; leave updates and user notification to the orchestrator. Follow the [Merge notifications](#merge-notifications) override.
 2. Run `aven context <task-ref>`.
 3. Implement the task, verify acceptance criteria, and commit.
 4. Report only to the orchestrator: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
