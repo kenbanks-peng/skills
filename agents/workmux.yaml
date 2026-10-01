@@ -4,6 +4,7 @@ agent: pi
 panes:
   - command: >-
       pi --no-extensions
+      --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/@npm-ken/pi-virtual-model/src/index.ts"
       --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/workmux-status.ts"
       --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/@npm-ken/pi-tool-discovery/src/index.ts"
       --extension "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/npm/node_modules/context-mode/build/adapters/pi/extension.js"
