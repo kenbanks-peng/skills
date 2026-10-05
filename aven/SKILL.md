@@ -12,6 +12,8 @@ If the user gives instructions to use tasks (rather than todos):
 
 ## Guidance
 
-Use the aven --epic option when related tasks benefit from a shared grouping.
+Use the aven --epic option when related tasks benefit from a shared grouping. For grouping, prefer epics over labels.
 
-Use dependencies when one task must wait for another.
+If you use a label, the label must first be created before being applied to a task.
+
+Use task dependencies when one task must wait for another.
