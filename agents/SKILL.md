@@ -56,7 +56,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 ## Operating invariants
 
 - Only the orchestrator updates Aven task status, ownership, comments, and notes; workers treat Aven as read-only.
-- When setting status with `aven edit`, include `--agent <agent>` (for example, `--agent pi`) while in`active` state, otherwise include `--clear-agent`.
+- When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in`active` state, otherwise include `--clear-agent`.
 - Use one worktree per task, with at most one active task per worktree.
 - Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
 
@@ -66,12 +66,12 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 1. If needed, initialize the Git repository with `git init` and an initial commit.
 2. Use the base branch for merges.
-3. Use `aven project` to find (or if needed, to create) an Aven project mapped to the repository.
+3. Initialize the aven database and project based on instructions in the aven skill.
 
 ### 2. Select ready tasks
 
 1. Ensure any missing prerequisites are recorded in Aven before scheduling any task.
-2. Select tasks with `aven list --ready` and applicable filters; inspect each with `aven context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
+2. Select tasks with `aven --db .aven/tasks.db list --ready` and applicable filters; inspect each with `aven --db .aven/tasks.db context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
 3. Mark the task `active` when starting it.
 
 ### 3. Prepare and dispatch a worker
@@ -85,7 +85,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 ### 4. Review and merge the result
 
 1. Follow coordinator review.
-2. Validate the worker report against Git state and `aven show <task-ref>`.
+2. Validate the worker report against Git state and `aven --db .aven/tasks.db show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
 4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override.
 
@@ -94,7 +94,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 1. Confirm the merge reached the base branch; run required checks on that revision.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
 3. Once acceptance criteria and checks pass, add an Aven completion comment with the validated [worker report](#worker-brief), merged revision, its check results, and `cleanup pending`.
-4. Mark the task `done`, then query `aven list --ready` with the run's filters for newly eligible tasks.
+4. Mark the task `done`, then query `aven --db .aven/tasks.db list --ready` with the run's filters for newly eligible tasks.
 5. Clean up the task's worktree and branch; record `cleanup complete` in Aven.
 
 ### 6. Complete the run
@@ -109,7 +109,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 Give each worker these instructions:
 
 1. Treat Aven as read-only; leave updates and user notification to the orchestrator. Follow the [Merge notifications](#merge-notifications) override.
-2. Run `aven context <task-ref>`.
+2. Run `aven --db .aven/tasks.db context <task-ref>`.
 3. Implement the task, verify acceptance criteria, and commit.
 4. Report only to the orchestrator: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 
@@ -117,7 +117,7 @@ Give each worker these instructions:
 
 ### Interrupted work
 
-After context loss or worker exit, run `aven list --open` and inspect each task with `aven context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
+After context loss or worker exit, run `aven --db .aven/tasks.db list --open` and inspect each task with `aven --db .aven/tasks.db context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
 
 ### Pending cleanup
 

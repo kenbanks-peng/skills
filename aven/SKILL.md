@@ -1,12 +1,11 @@
 ---
 name: aven
 description: >-
-  `aven` is a local-first task manager. Use it to find and inspect work, maintain
-  task state, create follow-up tasks, and leave durable handoff context.
+  `aven` is a local-first task manager. Use it to find and inspect work, maintain task state, create follow-up tasks, and leave durable handoff context.
 ---
 
-Do not create tasks unless the user asks or active agent instructions enable
-automatic task creation.
+If the user gives instructions to use tasks (rather than todos):
 
-Before using aven, run `aven skill` and read its output for detailed instructions.
-
+1. Run `aven skill` and read its output for detailed instructions.
+2. If `.aven/tasks.db` does not exist, run `aven --db .aven/tasks.db project create <project> --path .` where <project> corresponds to the project root folder name.
+3. Run every Aven CLI command involving the database from the target project's root directory with the option `--db .aven/tasks.db`.
