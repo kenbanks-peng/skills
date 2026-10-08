@@ -21,7 +21,13 @@ Integration overrides below take precedence.
 
 ### Workmux configuration
 
-Pass the absolute path of this skill's sibling `workmux.yaml` as `--config` to every `workmux add` and `workmux open`, including session reuse. Do not pass `--agent` or edit user/project Workmux configuration.
+Default to Linux sandbox workers using `~/.config/workmux/agents.linux.yaml`. Use `~/.config/workmux/agents.macos.yaml` only when the user explicitly requests macOS workers. Both configurations inherit shared defaults from the global Workmux configuration; the macOS configuration explicitly disables sandboxing.
+
+Resolve the selected configuration to an absolute path and pass it as `--config` to every `workmux add` and `workmux open`, including session reuse. Do not pass `--agent` or edit user/project Workmux configuration. Never silently fall back to macOS if Linux sandbox startup fails.
+
+Record the selected execution mode and configuration path in Aven notes alongside the Workmux handle, task branch, and base branch. Preserve the recorded mode when resuming a task. Before switching modes, stop the existing worker and preserve its work; changing configuration does not migrate a running worker.
+
+These configurations select the worker environment, not the orchestrator environment. The orchestrator remains on macOS unless separately requested.
 
 ### Workmux setup
 
