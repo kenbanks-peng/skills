@@ -41,6 +41,17 @@ This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SE
 
 If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
+### Task progress tab
+
+The orchestrator should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
+
+```sh
+herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "<absolute-project-root>" --label tasks
+herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
+```
+
+Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
+
 ### Merge notifications
 
 Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to the orchestrator. Include this override in every worker merge request.
@@ -73,6 +84,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 1. If needed, initialize the Git repository with `git init` and an initial commit.
 2. Use the base branch for merges.
 3. Initialize the aven database and project based on instructions in the aven skill.
+4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
 
 ### 2. Select ready tasks
 
@@ -108,7 +120,8 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 1. Confirm all selected tasks are verified and merged.
 2. Run run-wide checks on the final base revision; require passing results.
 3. Confirm cleanup is complete.
-4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff).
+4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
+5. Otherwise, close the run-owned [Task progress tab](#task-progress-tab) before the final response.
 
 ## Worker brief
 
