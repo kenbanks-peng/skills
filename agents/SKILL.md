@@ -77,6 +77,29 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 - Use one worktree per task, with at most one active task per worktree.
 - Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
 
+## Task note format
+
+Use these prefixes for orchestrator-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
+
+- Keep administrative entries to one line per event. Record only actual transitions; do not narrate routine commands, polling, or repeat unchanged metadata.
+- Keep agent activity and results substantive and concise: state the key change or finding and its evidence. Include decisions or failures only when they affect the outcome. Do not reproduce the full worker report.
+- Reference earlier dispatch metadata rather than repeating it. Record changed handles, branches, or execution modes explicitly.
+- Report observed facts only; worker claims remain provisional until verified.
+- Reference the Git-verified starting revision in `DISPATCH`, the worker commit in `RESULT`, and the verified base revision in `MERGE`. Use Git short-form SHAs for all revision references in notes and comments, including `SUMMARY`, generated with `git rev-parse --short <revision>` so the abbreviation is unambiguous in the repository. Check each reference against Git; do not use a branch name alone as the revision record.
+
+### Templates
+
+```text
+DISPATCH: <agent> started in <handle> on <task-branch> at <starting-revision-short-SHA>, based on <base>. <Linux|macOS> worker using <config-path>.
+ACTIVITY: <key progress>. <Significant decision and reason, if needed>.
+RESULT: <key change or finding> in commit <commit-short-SHA>. <Decisive check result>. Awaiting merge verification.
+MERGE: Merged into <base> at <revision-short-SHA>. <Check results>. Verified and done. Cleanup complete.
+BLOCKED: <blocker>. Work retained in <worktree/branch>. <Owner> to <next action>.
+SUMMARY: <delivered outcome>. <Acceptance evidence and final checks> at <revision-short-SHA>. <Follow-up work, if any>.
+```
+
+Write each event as a separate note in plain sentences, not a list of key-value fields. Display paths under the user's home directory with `~` in notes. Continue to pass resolved absolute configuration paths to Workmux commands. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Omit optional details when irrelevant; do not fill notes with empty placeholders. `ACTIVITY` is for meaningful developments, not heartbeat updates. `RESULT` records a substantive, concise worker outcome once, not a full report; validate it without copying it into the completion comment. Include closure in the `MERGE` completion comment only after verification, Aven status `done`, and cleanup are complete; do not emit a separate `CLOSED` entry. If cleanup is pending or verification fails, record the verified facts and next action without claiming closure. Use `SUMMARY` once at run completion; an unfinished run needs a handoff, not a closure claim.
+
 ## Workflow
 
 ### 1. Prepare the tools and repository
@@ -97,7 +120,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 1. Start from the chosen base branch with merged prerequisites.
 2. Before worktree reuse, preserve unrelated changes separately and update the task branch with the latest base. The merge skill stages all changes.
 3. Use the coordinator workflow to create or reuse the task's worktree.
-4. Record the Workmux handle, task branch, and base branch in Aven notes.
+4. Add a `DISPATCH` note using the [Task note format](#task-note-format), including execution mode and configuration path.
 5. Give the worker the task reference, base branch, and [Worker brief](#worker-brief).
 
 ### 4. Review and merge the result
@@ -111,9 +134,9 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 1. Confirm the merge reached the base branch; run required checks on that revision.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
-3. Once acceptance criteria and checks pass, add an Aven completion comment with the validated [worker report](#worker-brief), merged revision, its check results, and `cleanup pending`.
+3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment. Do not repeat the worker report.
 4. Mark the task `done`, then query `aven --db .aven/tasks.db list --ready` with the run's filters for newly eligible tasks.
-5. Clean up the task's worktree and branch; record `cleanup complete` in Aven.
+5. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
 
 ### 6. Complete the run
 
