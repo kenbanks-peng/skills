@@ -5,9 +5,11 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 # Aven + Workmux
 
+You are the dispatch: you create and track tasks using Aven, and dispatch those tasks to workers using Workmux. Workers implement assigned tasks in separate worktrees, and you verify their results.
+
 ## Required skills
 
-Load and follow each skill before its operation:
+Load the following skills when needed:
 
 - **aven** — task management.
 - **coordinator** — agent dispatch, monitoring, review, and merging.
@@ -15,44 +17,32 @@ Load and follow each skill before its operation:
 - **worktree** — worktree task delegation.
 - **merge** — worker-side commit, rebase, and merge.
 
-## Integration overrides
+## Overrides
 
-Integration overrides below take precedence.
+The overrides below take precedence over the loaded skills.
 
-### Workmux configuration
+### Creating the task DB
 
-Default to Linux sandbox workers using `~/.config/workmux/agents.linux.yaml`. Use `~/.config/workmux/agents.macos.yaml` only when the user explicitly requests macOS workers. Both configurations inherit shared defaults from the global Workmux configuration; the macOS configuration explicitly disables sandboxing.
+From the project root, run this command using the folder name for `<project>`:
 
-Resolve the selected configuration to an absolute path and pass it as `--config` to every `workmux add` and `workmux open`, including session reuse. Do not pass `--agent` or edit user/project Workmux configuration. Never silently fall back to macOS if Linux sandbox startup fails.
+```sh
+aven --db .aven/tasks.db project create <project> --path .
+```
 
-Record the selected execution mode and configuration path in Aven notes alongside the Workmux handle, task branch, and base branch. Preserve the recorded mode when resuming a task. Before switching modes, stop the existing worker and preserve its work; changing configuration does not migrate a running worker.
+### Creating workers
 
-These configurations select the worker environment, not the orchestrator environment. The orchestrator remains on macOS unless separately requested.
+As dispatch, you create workers using `workmux add --config <config file>`. Default to Linux sandbox workers using the config file: `~/.config/workmux/agents.linux.yaml`. If the user explicitly excludes sandboxing or explicitly requests macOS workers, then use `~/.config/workmux/agents.macos.yaml`.
+
+Do not use workmux's `--agent` option.
 
 ### Shared Aven database
 
-Keep one authoritative database at `<absolute-main-worktree-root>/.aven/tasks.db`. Resolve the main worktree root, not the current worker worktree or a subdirectory. Initialize the database/project on the host with the aven skill before any Linux `workmux add` or `workmux open`; the new mount resolver requires the host `.aven` directory to exist.
-
-The global `~/.config/workmux/config.yaml` must contain this entry under `sandbox.extra_mounts`, preserving any other mounts:
-
-```yaml
-sandbox:
-  extra_mounts:
-    - host_path: "{project_root}/.aven"
-      guest_path: /tmp/.aven
-      writable: true
-```
-
-This requires the Workmux fork's dynamic mount support (commit `a50daccb`) and the container backend, including `apple-container`. Workmux expands `{project_root}` to the main worktree root at launch. Extra mounts are global-only: putting this entry in `agents.linux.yaml`, a `--config` override, or `.workmux.yaml` is ignored. Verify this setup without editing configuration during ordinary dispatch; stop and report a missing mount or unsupported backend rather than silently falling back.
-
-Mount the whole directory, not just `tasks.db`, so SQLite WAL/SHM and Aven lock files share the same writable location. The writable mount permits database bookkeeping; it does not grant workers permission to change task data. Do not copy the database into worker worktrees or initialize a separate worker database.
-
 Use an explicit `--db` on every Aven command, overriding the required skills' database-path instructions:
 
-- **Host orchestrator and unsandboxed workers:** `--db .aven/tasks.db` when running from the main project root. From a worker worktree, use `--db <absolute-main-worktree-root>/.aven/tasks.db` so it still opens the same database.
+- **Host dispatch and unsandboxed workers:** `--db .aven/tasks.db` when running from the main project root. From a worker worktree, use `--db <absolute-main-worktree-root>/.aven/tasks.db` so it still opens the same database.
 - **Linux sandbox workers:** always `--db /tmp/.aven/tasks.db`, from their task worktree. Never use the worktree-local `.aven/tasks.db` or a macOS host path inside the sandbox.
 
-All relative Aven commands below are host-orchestrator commands unless explicitly marked as worker commands. Include the exact environment-appropriate database path in each worker brief. Before reading task context, workers must check that the supplied database exists (Linux: `test -f /tmp/.aven/tasks.db && test -w /tmp/.aven`). If missing, inaccessible, or the task cannot be resolved, stop and report to the orchestrator; do not create a database. Check the database path and mount again on resume. Existing running sandboxes need a safe stop/reopen to acquire a new mount; configuration edits do not retrofit them.
+All relative Aven commands below are host-dispatch commands unless explicitly marked as worker commands. Include the exact environment-appropriate database path in each worker brief. Before reading task context, workers must check that the supplied database exists (Linux: `test -f /tmp/.aven/tasks.db && test -w /tmp/.aven`). If missing, inaccessible, or the task cannot be resolved, stop and report to dispatch; do not create a database. Check the database path and mount again on resume. Existing running sandboxes need a safe stop/reopen to acquire a new mount; configuration edits do not retrofit them.
 
 ### Workmux setup
 
@@ -68,7 +58,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 
 ### Task progress tab
 
-The orchestrator should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
+Dispatch should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
 
 ```sh
 herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "<absolute-project-root>" --label tasks
@@ -79,7 +69,7 @@ Keep it open until all selected tasks are merged, checks pass, and cleanup is co
 
 ### Merge notifications
 
-Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to the orchestrator. Include this override in every worker merge request.
+Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to dispatch. Include this override in every worker merge request.
 
 ### Pi merge command
 
@@ -97,14 +87,14 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 ## Operating invariants
 
-- Only the orchestrator updates Aven task status, ownership, comments, and notes; workers treat Aven as read-only.
+- Only dispatch updates Aven task status, ownership, comments, and notes; workers treat Aven as read-only.
 - When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in`active` state, otherwise include `--clear-agent`.
 - Use one worktree per task, with at most one active task per worktree.
 - Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
 
 ## Task note format
 
-Use these prefixes for orchestrator-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
+Use these prefixes for dispatch-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
 
 - Keep administrative entries to one line per event. Record only actual transitions; do not narrate routine commands, polling, or repeat unchanged metadata.
 - Keep agent activity and results substantive and concise: state the key change or finding and its evidence. Include decisions or failures only when they affect the outcome. Do not reproduce the full worker report.
@@ -123,7 +113,7 @@ BLOCKED: <blocker>. Work retained in <worktree/branch>. <Owner> to <next action>
 SUMMARY: <delivered outcome>. <Acceptance evidence and final checks> at <revision-short-SHA>. <Follow-up work, if any>.
 ```
 
-Write each event as a separate note in plain sentences, not a list of key-value fields. Display paths under the user's home directory with `~` in notes. Continue to pass resolved absolute configuration paths to Workmux commands. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Omit optional details when irrelevant; do not fill notes with empty placeholders. `ACTIVITY` is for meaningful developments, not heartbeat updates. `RESULT` records a substantive, concise worker outcome once, not a full report; validate it without copying it into the completion comment. Include closure in the `MERGE` completion comment only after verification, Aven status `done`, and cleanup are complete; do not emit a separate `CLOSED` entry. If cleanup is pending or verification fails, record the verified facts and next action without claiming closure. Use `SUMMARY` once at run completion; an unfinished run needs a handoff, not a closure claim.
+Write each event as a separate note in plain sentences, not a list of key-value fields. Display paths under the user's home directory with `~` in notes. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Omit optional details when irrelevant; do not fill notes with empty placeholders. `ACTIVITY` is for meaningful developments, not heartbeat updates. `RESULT` records a substantive, concise worker outcome once, not a full report; validate it without copying it into the completion comment. Include closure in the `MERGE` completion comment only after verification, Aven status `done`, and cleanup are complete; do not emit a separate `CLOSED` entry. If cleanup is pending or verification fails, record the verified facts and next action without claiming closure. Use `SUMMARY` once at run completion; an unfinished run needs a handoff, not a closure claim.
 
 ## Workflow
 
@@ -131,7 +121,7 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 
 1. If needed, initialize the Git repository with `git init` and an initial commit.
 2. Use the base branch for merges.
-3. Initialize the Aven database and project at the main worktree root based on the aven skill and [Shared Aven database](#shared-aven-database). Verify the Linux mount configuration before dispatch.
+3. Follow [Creating the task DB](#creating-the-task-db) to initialize the Aven database and project before dispatch.
 4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
 
 ### 2. Select ready tasks
@@ -175,10 +165,10 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 
 Give each worker these instructions:
 
-1. Treat Aven as read-only; leave updates and user notification to the orchestrator. Follow the [Merge notifications](#merge-notifications) override.
+1. Treat Aven as read-only; leave updates and user notification to dispatch. Follow the [Merge notifications](#merge-notifications) override.
 2. Check the supplied database exists, then run `aven --db <worker-db-path> context <task-ref>`: use `/tmp/.aven/tasks.db` for Linux sandbox workers, or the host main worktree's `.aven/tasks.db` for unsandboxed workers, as specified under [Shared Aven database](#shared-aven-database). Never initialize a worker database.
 3. Implement the task, verify acceptance criteria, and commit.
-4. Report only to the orchestrator: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
+4. Report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 
 ## Recovery and handoff
 
