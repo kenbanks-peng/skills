@@ -29,6 +29,31 @@ Record the selected execution mode and configuration path in Aven notes alongsid
 
 These configurations select the worker environment, not the orchestrator environment. The orchestrator remains on macOS unless separately requested.
 
+### Shared Aven database
+
+Keep one authoritative database at `<absolute-main-worktree-root>/.aven/tasks.db`. Resolve the main worktree root, not the current worker worktree or a subdirectory. Initialize the database/project on the host with the aven skill before any Linux `workmux add` or `workmux open`; the new mount resolver requires the host `.aven` directory to exist.
+
+The global `~/.config/workmux/config.yaml` must contain this entry under `sandbox.extra_mounts`, preserving any other mounts:
+
+```yaml
+sandbox:
+  extra_mounts:
+    - host_path: "{project_root}/.aven"
+      guest_path: /tmp/.aven
+      writable: true
+```
+
+This requires the Workmux fork's dynamic mount support (commit `a50daccb`) and the container backend, including `apple-container`. Workmux expands `{project_root}` to the main worktree root at launch. Extra mounts are global-only: putting this entry in `agents.linux.yaml`, a `--config` override, or `.workmux.yaml` is ignored. Verify this setup without editing configuration during ordinary dispatch; stop and report a missing mount or unsupported backend rather than silently falling back.
+
+Mount the whole directory, not just `tasks.db`, so SQLite WAL/SHM and Aven lock files share the same writable location. The writable mount permits database bookkeeping; it does not grant workers permission to change task data. Do not copy the database into worker worktrees or initialize a separate worker database.
+
+Use an explicit `--db` on every Aven command, overriding the required skills' database-path instructions:
+
+- **Host orchestrator and unsandboxed workers:** `--db .aven/tasks.db` when running from the main project root. From a worker worktree, use `--db <absolute-main-worktree-root>/.aven/tasks.db` so it still opens the same database.
+- **Linux sandbox workers:** always `--db /tmp/.aven/tasks.db`, from their task worktree. Never use the worktree-local `.aven/tasks.db` or a macOS host path inside the sandbox.
+
+All relative Aven commands below are host-orchestrator commands unless explicitly marked as worker commands. Include the exact environment-appropriate database path in each worker brief. Before reading task context, workers must check that the supplied database exists (Linux: `test -f /tmp/.aven/tasks.db && test -w /tmp/.aven`). If missing, inaccessible, or the task cannot be resolved, stop and report to the orchestrator; do not create a database. Check the database path and mount again on resume. Existing running sandboxes need a safe stop/reopen to acquire a new mount; configuration edits do not retrofit them.
+
 ### Workmux setup
 
 Even for parallel workers, serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention. Preserve prompt-file preparation and startup checks.
@@ -106,7 +131,7 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 
 1. If needed, initialize the Git repository with `git init` and an initial commit.
 2. Use the base branch for merges.
-3. Initialize the aven database and project based on instructions in the aven skill.
+3. Initialize the Aven database and project at the main worktree root based on the aven skill and [Shared Aven database](#shared-aven-database). Verify the Linux mount configuration before dispatch.
 4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
 
 ### 2. Select ready tasks
@@ -121,7 +146,7 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 2. Before worktree reuse, preserve unrelated changes separately and update the task branch with the latest base. The merge skill stages all changes.
 3. Use the coordinator workflow to create or reuse the task's worktree.
 4. Add a `DISPATCH` note using the [Task note format](#task-note-format), including execution mode and configuration path.
-5. Give the worker the task reference, base branch, and [Worker brief](#worker-brief).
+5. Give the worker the task reference, base branch, exact database path for its execution mode, and [Worker brief](#worker-brief).
 
 ### 4. Review and merge the result
 
@@ -151,7 +176,7 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 Give each worker these instructions:
 
 1. Treat Aven as read-only; leave updates and user notification to the orchestrator. Follow the [Merge notifications](#merge-notifications) override.
-2. Run `aven --db .aven/tasks.db context <task-ref>`.
+2. Check the supplied database exists, then run `aven --db <worker-db-path> context <task-ref>`: use `/tmp/.aven/tasks.db` for Linux sandbox workers, or the host main worktree's `.aven/tasks.db` for unsandboxed workers, as specified under [Shared Aven database](#shared-aven-database). Never initialize a worker database.
 3. Implement the task, verify acceptance criteria, and commit.
 4. Report only to the orchestrator: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 
