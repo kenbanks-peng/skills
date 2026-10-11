@@ -19,7 +19,6 @@ Load the following skills when needed:
 
 ## Operating invariants
 
-- Only dispatch updates Aven task status, ownership, comments, and notes; workers treat Aven as read-only.
 - When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in`active` state, otherwise include `--clear-agent`.
 - Use one worktree per task, with at most one active task per worktree.
 - Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
@@ -116,7 +115,7 @@ On a lock error, pause dispatch. Never delete a potentially live lock. First, in
 1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
 2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
 3. Provide further instructions if needed, but do not replicate what is already in the task.
-4. Instruct the worker to treat Aven as read-only, leave updates and user notification to dispatch, and follow the [Merge notifications](#merge-notifications) override.
+4. Instruct the worker to leave user notification to dispatch and follow the [Merge notifications](#merge-notifications) override.
 5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
 6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
 7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
