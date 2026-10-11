@@ -17,12 +17,6 @@ Load the following skills when needed:
 - **worktree** — worktree task delegation.
 - **merge** — worker-side commit, rebase, and merge.
 
-## Operating invariants
-
-- When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in`active` state, otherwise include `--clear-agent`.
-- Use one worktree per task, with at most one active task per worktree.
-- Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
-
 ## Overrides
 
 The overrides below take precedence over the loaded skills.
@@ -75,6 +69,8 @@ aven --db .aven/tasks.db project create <project> --path .
 
 Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
 
+When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
+
 #### Task progress tab
 
 Dispatch should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
@@ -87,6 +83,8 @@ herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
 Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
 
 ### 2. Select ready tasks
+
+Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
 
 1. Ensure any missing prerequisites are recorded in Aven before scheduling any task.
 2. Select tasks with `aven --db .aven/tasks.db list --ready` and applicable filters; inspect each with `aven --db .aven/tasks.db context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
