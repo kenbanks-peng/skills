@@ -7,7 +7,18 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 You are the dispatch: you create and track tasks using Aven, and dispatch those tasks to workers using Workmux. Workers implement assigned tasks in separate worktrees, and you verify their results.
 
-## Required skills
+## Workflow
+
+### 1. Prepare the tools and repository
+
+Load the required skills as needed throughout the workflow. This skill’s instructions take precedence over the loaded skills.
+
+1. If needed, initialize the Git repository with `git init` and an initial commit.
+2. Use the base branch for merges.
+3. Follow [Creating and accessing the Aven tasks DB](#creating-and-accessing-the-aven-tasks-db) to initialize the Aven database and project before dispatch.
+4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
+
+#### Required skills
 
 Load the following skills when needed:
 
@@ -17,47 +28,9 @@ Load the following skills when needed:
 - **worktree** — worktree task delegation.
 - **merge** — worker-side commit, rebase, and merge.
 
-## Overrides
-
-The overrides below take precedence over the loaded skills.
-
-### Multiplexer context
+#### Multiplexer context
 
 This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
-
-If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
-
-## Task note format
-
-Use these prefixes for dispatch-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
-
-- Keep administrative entries to one line per event. Record only actual transitions; do not narrate routine commands, polling, or repeat unchanged metadata.
-- Keep agent activity and results substantive and concise: state the key change or finding and its evidence. Include decisions or failures only when they affect the outcome. Do not reproduce the full worker report.
-- Reference earlier dispatch metadata rather than repeating it. Record changed handles, branches, or execution modes explicitly.
-- Report observed facts only; worker claims remain provisional until verified.
-- Reference the Git-verified starting revision in `DISPATCH`, the worker commit in `RESULT`, and the verified base revision in `MERGE`. Use Git short-form SHAs for all revision references in notes and comments, including `SUMMARY`, generated with `git rev-parse --short <revision>` so the abbreviation is unambiguous in the repository. Check each reference against Git; do not use a branch name alone as the revision record.
-
-### Templates
-
-```text
-DISPATCH: <agent> started in <handle> on <task-branch> at <starting-revision-short-SHA>, based on <base>. <Linux|macOS> worker using <config-path>.
-ACTIVITY: <key progress>. <Significant decision and reason, if needed>.
-RESULT: <key change or finding> in commit <commit-short-SHA>. <Decisive check result>. Awaiting merge verification.
-MERGE: Merged into <base> at <revision-short-SHA>. <Check results>. Verified and done. Cleanup complete.
-BLOCKED: <blocker>. Work retained in <worktree/branch>. <Owner> to <next action>.
-SUMMARY: <delivered outcome>. <Acceptance evidence and final checks> at <revision-short-SHA>. <Follow-up work, if any>.
-```
-
-Write each event as a separate note in plain sentences, not a list of key-value fields. Display paths under the user's home directory with `~` in notes. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Omit optional details when irrelevant; do not fill notes with empty placeholders. `ACTIVITY` is for meaningful developments, not heartbeat updates. `RESULT` records a substantive, concise worker outcome once, not a full report; validate it without copying it into the completion comment. Include closure in the `MERGE` completion comment only after verification, Aven status `done`, and cleanup are complete; do not emit a separate `CLOSED` entry. If cleanup is pending or verification fails, record the verified facts and next action without claiming closure. Use `SUMMARY` once at run completion; an unfinished run needs a handoff, not a closure claim.
-
-## Workflow
-
-### 1. Prepare the tools and repository
-
-1. If needed, initialize the Git repository with `git init` and an initial commit.
-2. Use the base branch for merges.
-3. Follow [Creating the task DB](#creating-the-task-db) to initialize the Aven database and project before dispatch.
-4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
 
 #### Creating and accessing the Aven tasks DB
 
@@ -81,6 +54,29 @@ herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
 ```
 
 Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
+
+#### Task note format
+
+Use these prefixes for dispatch-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
+
+- Keep administrative entries to one line per event. Record only actual transitions; do not narrate routine commands, polling, or repeat unchanged metadata.
+- Keep agent activity and results substantive and concise: state the key change or finding and its evidence. Include decisions or failures only when they affect the outcome. Do not reproduce the full worker report.
+- Reference earlier dispatch metadata rather than repeating it. Record changed handles, branches, or execution modes explicitly.
+- Report observed facts only; worker claims remain provisional until verified.
+- Reference the Git-verified starting revision in `DISPATCH`, the worker commit in `RESULT`, and the verified base revision in `MERGE`. Use Git short-form SHAs for all revision references in notes and comments, including `SUMMARY`, generated with `git rev-parse --short <revision>` so the abbreviation is unambiguous in the repository. Check each reference against Git; do not use a branch name alone as the revision record.
+
+##### Templates
+
+```text
+DISPATCH: <agent> started in <handle> on <task-branch> at <starting-revision-short-SHA>, based on <base>. <Linux|macOS> worker using <config-path>.
+ACTIVITY: <key progress>. <Significant decision and reason, if needed>.
+RESULT: <key change or finding> in commit <commit-short-SHA>. <Decisive check result>. Awaiting merge verification.
+MERGE: Merged into <base> at <revision-short-SHA>. <Check results>. Verified and done. Cleanup complete.
+BLOCKED: <blocker>. Work retained in <worktree/branch>. <Owner> to <next action>.
+SUMMARY: <delivered outcome>. <Acceptance evidence and final checks> at <revision-short-SHA>. <Follow-up work, if any>.
+```
+
+Write each event as a separate note in plain sentences, not a list of key-value fields. Display paths under the user's home directory with `~` in notes. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Omit optional details when irrelevant; do not fill notes with empty placeholders. `ACTIVITY` is for meaningful developments, not heartbeat updates. `RESULT` records a substantive, concise worker outcome once, not a full report; validate it without copying it into the completion comment. Include closure in the `MERGE` completion comment only after verification, Aven status `done`, and cleanup are complete; do not emit a separate `CLOSED` entry. If cleanup is pending or verification fails, record the verified facts and next action without claiming closure. Use `SUMMARY` once at run completion; an unfinished run needs a handoff, not a closure claim.
 
 ### 2. Select ready tasks
 
@@ -107,6 +103,8 @@ Do not use workmux's `--agent` option.
 Even for parallel workers, serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention. Preserve prompt-file preparation and startup checks.
 
 On a lock error, pause dispatch. Never delete a potentially live lock. First, inspect owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work, reconcile partial resources, and remove only resources confirmed safe to discard.
+
+If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
 #### Worker brief
 
@@ -159,20 +157,20 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
 5. Otherwise, close the run-owned [Task progress tab](#task-progress-tab) before the final response.
 
-## Recovery and handoff
+### Recovery and handoff
 
-### Interrupted work
+#### Interrupted work
 
 After context loss or worker exit, run `aven --db .aven/tasks.db list --open` and inspect each task with `aven --db .aven/tasks.db context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
 
-### Pending cleanup
+#### Pending cleanup
 
 Finish pending cleanup for `done` tasks without merging again.
 
-### Reassignment
+#### Reassignment
 
 Before reassignment, stop the previous worker, preserve its changes, check whether it merged, and record the handoff.
 
-### Unfinished tasks
+#### Unfinished tasks
 
 Record progress, check results, blockers, and next actions in Aven. Retain unfinished worktrees, overriding coordinator cleanup.
