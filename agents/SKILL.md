@@ -24,6 +24,16 @@ Load the following skills when needed:
 - Use one worktree per task, with at most one active task per worktree.
 - Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
 
+## Overrides
+
+The overrides below take precedence over the loaded skills.
+
+### Multiplexer context
+
+This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
+
+If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
+
 ## Task note format
 
 Use these prefixes for dispatch-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
@@ -56,6 +66,27 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 3. Follow [Creating the task DB](#creating-the-task-db) to initialize the Aven database and project before dispatch.
 4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
 
+#### Creating and accessing the Aven tasks DB
+
+From the project root, run this command using the folder name for `<project>`:
+
+```sh
+aven --db .aven/tasks.db project create <project> --path .
+```
+
+Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
+
+#### Task progress tab
+
+Dispatch should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
+
+```sh
+herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "<absolute-project-root>" --label tasks
+herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
+```
+
+Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
+
 ### 2. Select ready tasks
 
 1. Ensure any missing prerequisites are recorded in Aven before scheduling any task.
@@ -70,12 +101,50 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 4. Add a `DISPATCH` note using the [Task note format](#task-note-format), including execution mode and configuration path.
 5. Prepare the worker prompt following [Worker brief](#worker-brief).
 
+#### Creating workers
+
+As dispatch, you create workers using `workmux add --config <config file>`. Default to Linux sandbox workers using the config file: `~/.config/workmux/agents.linux.yaml`. If the user explicitly excludes sandboxing or explicitly requests macOS workers, then use `~/.config/workmux/agents.macos.yaml`.
+
+Do not use workmux's `--agent` option.
+
+Even for parallel workers, serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention. Preserve prompt-file preparation and startup checks.
+
+On a lock error, pause dispatch. Never delete a potentially live lock. First, inspect owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work, reconcile partial resources, and remove only resources confirmed safe to discard.
+
+#### Worker brief
+
+1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
+2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
+3. Provide further instructions if needed, but do not replicate what is already in the task.
+4. Instruct the worker to treat Aven as read-only, leave updates and user notification to dispatch, and follow the [Merge notifications](#merge-notifications) override.
+5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
+6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
+7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
+
 ### 4. Review and merge the result
 
 1. Follow coordinator review.
 2. Validate the worker report against Git state and `aven --db .aven/tasks.db show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
 4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override.
+
+#### Merge notifications
+
+Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to dispatch. Include this override in every worker merge request.
+
+#### Pi merge command
+
+Pi uses `/skill:<name>`; trailing arguments become a user request, not `$ARGUMENTS` substitutions. The merge target comes from the branch's `workmux-base` Git config.
+
+Before merging, check it against the task's recorded base:
+
+```sh
+branch=$(git branch --show-current)
+configured_base=$(git config --local --get "branch.$branch.workmux-base")
+test "$configured_base" = "<recorded-base>"
+```
+
+Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with `/skill:merge --keep` to retain the worktree until verification passes.
 
 ### 5. Verify and complete the task
 
@@ -92,75 +161,6 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 3. Confirm cleanup is complete.
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
 5. Otherwise, close the run-owned [Task progress tab](#task-progress-tab) before the final response.
-
-## Overrides
-
-The overrides below take precedence over the loaded skills.
-
-### Multiplexer context
-
-This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
-
-If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
-
-### Creating and accessing the Aven tasks DB
-
-From the project root, run this command using the folder name for `<project>`:
-
-```sh
-aven --db .aven/tasks.db project create <project> --path .
-```
-
-Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
-
-### Task progress tab
-
-Dispatch should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
-
-```sh
-herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "<absolute-project-root>" --label tasks
-herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
-```
-
-Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
-
-### Creating workers
-
-As dispatch, you create workers using `workmux add --config <config file>`. Default to Linux sandbox workers using the config file: `~/.config/workmux/agents.linux.yaml`. If the user explicitly excludes sandboxing or explicitly requests macOS workers, then use `~/.config/workmux/agents.macos.yaml`.
-
-Do not use workmux's `--agent` option.
-
-Even for parallel workers, serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention. Preserve prompt-file preparation and startup checks.
-
-On a lock error, pause dispatch. Never delete a potentially live lock. First, inspect owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work, reconcile partial resources, and remove only resources confirmed safe to discard.
-
-### Merge notifications
-
-Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to dispatch. Include this override in every worker merge request.
-
-### Pi merge command
-
-Pi uses `/skill:<name>`; trailing arguments become a user request, not `$ARGUMENTS` substitutions. The merge target comes from the branch's `workmux-base` Git config.
-
-Before merging, check it against the task's recorded base:
-
-```sh
-branch=$(git branch --show-current)
-configured_base=$(git config --local --get "branch.$branch.workmux-base")
-test "$configured_base" = "<recorded-base>"
-```
-
-Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with `/skill:merge --keep` to retain the worktree until verification passes.
-
-## Worker brief
-
-1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
-2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
-3. Provide further instructions if needed, but do not replicate what is already in the task.
-4. Instruct the worker to treat Aven as read-only, leave updates and user notification to dispatch, and follow the [Merge notifications](#merge-notifications) override.
-5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
-6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
-7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 
 ## Recovery and handoff
 
