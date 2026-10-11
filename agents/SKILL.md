@@ -21,11 +21,7 @@ b. If no git repository exists, initialize one using `git init` and add a .gitig
 
 c. Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
 
-d. Open a `tasks` tab using [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh); run from the project root:
-
-```sh
-sh "<skill-dir>/scripts/open-tasks-tab.sh"
-```
+d. Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
 
 Keep the tasks pane open until run completion; see [Complete the run](#6-complete-the-run) for cleanup and handoff.
 
@@ -139,11 +135,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 2. Run run-wide checks on the final base revision; require passing results.
 3. Confirm cleanup is complete.
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
-5. Otherwise, close the run-owned task progress tab before the final response:
-
-   ```sh
-   sh "<skill-dir>/scripts/close-tasks-tab.sh"
-   ```
+5. Otherwise, close the run-owned task progress tab before the final response using `sh "<skill-dir>/scripts/close-tasks-tab.sh"`.
 
 ### Recovery and handoff
 
