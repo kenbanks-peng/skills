@@ -154,19 +154,13 @@ Write each event as a separate note in plain sentences, not a list of key-value 
 
 ## Worker brief
 
-Include the assigned Aven task reference, base branch, and the instructions below in each worker prompt. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference:
-
-- Linux sandbox: `aven --db /tmp/.aven/tasks.db context <task-ref>`.
-- Unsandboxed macOS: `aven --db .aven/tasks.db context <task-ref>`.
-
-Provide further instructions if needed, but do not replicate what is already in the task.
-
-Give each worker these instructions:
-
-1. Treat Aven as read-only; leave updates and user notification to dispatch. Follow the [Merge notifications](#merge-notifications) override.
-2. Check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
-3. Implement the task, verify acceptance criteria, and commit.
-4. Report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
+1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
+2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
+3. Provide further instructions if needed, but do not replicate what is already in the task.
+4. Instruct the worker to treat Aven as read-only, leave updates and user notification to dispatch, and follow the [Merge notifications](#merge-notifications) override.
+5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
+6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
+7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 
 ## Recovery and handoff
 
