@@ -27,7 +27,7 @@ d. Open a `tasks` tab using [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.s
 sh "<skill-dir>/scripts/open-tasks-tab.sh"
 ```
 
-Keep the tasks pane open until run completion; see [Task progress tab](#task-progress-tab) for cleanup and handoff.
+Keep the tasks pane open until run completion; see [Complete the run](#6-complete-the-run) for cleanup and handoff.
 
 #### Multiplexer context
 
@@ -38,18 +38,6 @@ This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SE
 Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
 
 When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
-
-#### Task progress tab
-
-The scripts share `${TMPDIR:-/tmp}/herdr-tasks-${HERDR_WORKSPACE_ID}.pane-id`. Preserve `TMPDIR` and `HERDR_WORKSPACE_ID` between calls. Only one workflow may own a tasks pane per workspace; the open script refuses to overwrite existing state. On resumption, reuse the recorded pane instead of creating another.
-
-After successful run completion, close the pane before the final response using [scripts/close-tasks-tab.sh](scripts/close-tasks-tab.sh):
-
-```sh
-sh "<skill-dir>/scripts/close-tasks-tab.sh"
-```
-
-The close script reloads the pane ID and removes the state file only after closing succeeds. For an unfinished run, leave the pane and state file in place for handoff.
 
 #### Task note format
 
@@ -151,7 +139,11 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 2. Run run-wide checks on the final base revision; require passing results.
 3. Confirm cleanup is complete.
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
-5. Otherwise, close the run-owned [Task progress tab](#task-progress-tab) before the final response.
+5. Otherwise, close the run-owned task progress tab before the final response:
+
+   ```sh
+   sh "<skill-dir>/scripts/close-tasks-tab.sh"
+   ```
 
 ### Recovery and handoff
 
