@@ -23,8 +23,6 @@ c. Create an aven project using the root folder name for <project>. Run `aven --
 
 d. Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
 
-Keep the tasks pane open until run completion; see [Complete the run](#6-complete-the-run) for cleanup and handoff.
-
 #### Multiplexer context
 
 This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
@@ -91,7 +89,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
 2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
 3. Provide further instructions if needed, but do not replicate what is already in the task.
-4. Instruct the worker to leave user notification to dispatch and follow the [Merge notifications](#merge-notifications) override.
+4. Instruct the worker to run `workmux merge` without `--notification`, overriding the merge skill's notification instructions; dispatch handles user notification.
 5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
 6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
 7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
@@ -101,11 +99,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 1. Follow coordinator review.
 2. Validate the worker report against Git state and `aven --db .aven/tasks.db show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
-4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override.
-
-#### Merge notifications
-
-Run `workmux merge` without `--notification`, overriding the merge skill's notification instructions. Leave user notification to dispatch. Include this override in every worker merge request.
+4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the worker brief's notification override in every worker merge request.
 
 #### Pi merge command
 
