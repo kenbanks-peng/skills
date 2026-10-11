@@ -21,14 +21,13 @@ b. If no git repository exists, initialize one using `git init` and add a .gitig
 
 c. Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
 
-d. Open a `tasks` tab. Require `HERDR_ENV=1`; use the project root:
+d. Open a `tasks` tab using [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh). Require `HERDR_ENV=1` and `HERDR_WORKSPACE_ID`; run from the project root:
 
 ```sh
-herdr tab create --workspace "$HERDR_WORKSPACE_ID" --label tasks
-herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
+sh "<skill-dir>/scripts/open-tasks-tab.sh"
 ```
 
-Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
+`<skill-dir>` is the absolute directory containing this `SKILL.md`, not the project root. The script persists the pane ID so later shell calls can retrieve it. Keep the tasks pane open until run completion; see [Task progress tab](#task-progress-tab) for cleanup and handoff.
 
 #### Multiplexer context
 
@@ -41,6 +40,16 @@ Qualify all Aven commands with the `--db` option. As dispatch, your personal Ave
 When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
 
 #### Task progress tab
+
+The scripts share `${TMPDIR:-/tmp}/herdr-tasks-${HERDR_WORKSPACE_ID}.pane-id`. Preserve `TMPDIR` and `HERDR_WORKSPACE_ID` between calls. Only one workflow may own a tasks pane per workspace; the open script refuses to overwrite existing state. On resumption, reuse the recorded pane instead of creating another.
+
+After successful run completion, close the pane before the final response using [scripts/close-tasks-tab.sh](scripts/close-tasks-tab.sh):
+
+```sh
+sh "<skill-dir>/scripts/close-tasks-tab.sh"
+```
+
+The close script reloads the pane ID and removes the state file only after closing succeeds. For an unfinished run, leave the pane and state file in place for handoff.
 
 #### Task note format
 
