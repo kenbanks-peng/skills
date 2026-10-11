@@ -5,22 +5,11 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 # Aven + Workmux
 
-You are the dispatch: you create and track tasks using Aven, and dispatch those tasks to workers using Workmux. Workers implement assigned tasks in separate worktrees, and you verify their results.
+You are the dispatcher: you create and track tasks using Aven, and dispatch those tasks to workers using Workmux. Workers implement assigned tasks in separate worktrees, and you verify their results. This skill’s instructions take precedence over any successive loaded skills.
 
-## Workflow
+## Workflow Preparations
 
-### 1. Prepare the tools and repository
-
-Load the required skills as needed throughout the workflow. This skill’s instructions take precedence over the loaded skills.
-
-1. If needed, initialize the Git repository with `git init` and an initial commit.
-2. Use the base branch for merges.
-3. Follow [Creating and accessing the Aven tasks DB](#creating-and-accessing-the-aven-tasks-db) to initialize the Aven database and project before dispatch.
-4. Open the [Task progress tab](#task-progress-tab) before scheduling workers.
-
-#### Required skills
-
-Load the following skills when needed:
+a. Load the required skills as needed throughout the workflow.
 
 - **aven** — task management.
 - **coordinator** — agent dispatch, monitoring, review, and merging.
@@ -28,25 +17,15 @@ Load the following skills when needed:
 - **worktree** — worktree task delegation.
 - **merge** — worker-side commit, rebase, and merge.
 
-#### Multiplexer context
+b. If no git repository exists, initialize one using `git init` and add a .gitignore as an initial commit.
 
-This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
+c. Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
 
-#### Creating and accessing the Aven tasks DB
+d. Open the Task progress tab.
 
-From the project root, run this command using the folder name for `<project>`:
+Having initialized the Aven database and added the project, open a `tasks` tab.
 
-```sh
-aven --db .aven/tasks.db project create <project> --path .
-```
-
-Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
-
-When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
-
-#### Task progress tab
-
-Dispatch should open one `tasks` tab after initializing Aven. Require `HERDR_ENV=1`; use the project root:
+Require `HERDR_ENV=1`; use the project root:
 
 ```sh
 herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "<absolute-project-root>" --label tasks
@@ -54,6 +33,18 @@ herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
 ```
 
 Keep it open until all selected tasks are merged, checks pass, and cleanup is complete. Then run `herdr tab close <recorded-tab-id>` before the final response.
+
+#### Multiplexer context
+
+This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
+
+#### Creating and accessing the Aven tasks DB
+
+Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
+
+When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
+
+#### Task progress tab
 
 #### Task note format
 
