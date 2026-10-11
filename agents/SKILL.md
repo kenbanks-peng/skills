@@ -3,9 +3,11 @@ name: agents
 description: Run parallel or dependent coding tasks with Aven and Workmux. Track ownership, verify merges, and resume interrupted work.
 ---
 
-# Aven + Workmux
+# Multi-Agent Task Workflow using Aven and Workmux
 
-You are the dispatcher: you create and track tasks using Aven, and dispatch those tasks to workers using Workmux. Workers implement assigned tasks in separate worktrees, and you verify their results. This skill’s instructions take precedence over any successive loaded skills.
+You are the dispatcher. Aven tracks tasks; Workmux manages workers in separate worktrees. This skill’s instructions take precedence over any successive loaded skills.
+
+Prepare workflow → create and select ready tasks → activate → prepare worktree and dispatch → implement → check acceptance criteria → commit → report → review and validate → authorize → merge → verify on base → mark done → discover newly ready tasks → clean up → verify final run → close progress tab → summarize.
 
 ## Workflow Preparations
 
@@ -89,7 +91,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
 2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
 3. Provide further instructions if needed, but do not replicate what is already in the task.
-4. Instruct the worker to run `workmux merge` without `--notification`, overriding the merge skill's notification instructions; dispatch handles user notification.
+4. Instruct the worker to wait for explicit merge authorization from dispatch. Once authorized, run `workmux merge` without `--notification`, overriding the merge skill's notification instructions; dispatch handles user notification.
 5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
 6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
 7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
