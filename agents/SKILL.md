@@ -21,13 +21,13 @@ b. If no git repository exists, initialize one using `git init` and add a .gitig
 
 c. Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
 
-d. Open a `tasks` tab using [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh). Require `HERDR_ENV=1` and `HERDR_WORKSPACE_ID`; run from the project root:
+d. Open a `tasks` tab using [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh); run from the project root:
 
 ```sh
 sh "<skill-dir>/scripts/open-tasks-tab.sh"
 ```
 
-`<skill-dir>` is the absolute directory containing this `SKILL.md`, not the project root. The script persists the pane ID so later shell calls can retrieve it. Keep the tasks pane open until run completion; see [Task progress tab](#task-progress-tab) for cleanup and handoff.
+Keep the tasks pane open until run completion; see [Task progress tab](#task-progress-tab) for cleanup and handoff.
 
 #### Multiplexer context
 
