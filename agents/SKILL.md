@@ -21,14 +21,10 @@ b. If no git repository exists, initialize one using `git init` and add a .gitig
 
 c. Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
 
-d. Open the Task progress tab.
-
-Having initialized the Aven database and added the project, open a `tasks` tab.
-
-Require `HERDR_ENV=1`; use the project root:
+d. Open a `tasks` tab. Require `HERDR_ENV=1`; use the project root:
 
 ```sh
-herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "<absolute-project-root>" --label tasks
+herdr tab create --workspace "$HERDR_WORKSPACE_ID" --label tasks
 herdr pane run <returned-root-pane-id> "aven --db .aven/tasks.db"
 ```
 
