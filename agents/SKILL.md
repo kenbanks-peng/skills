@@ -9,9 +9,11 @@ You are the dispatcher. Use Aven to track tasks; Use Workmux to manage workers i
 
 Prepare workflow → create 'todo' tasks → activate → prepare worktree and dispatch → implement → check acceptance criteria → commit → report → review and validate → authorize → merge → verify on base → mark done → discover newly ready tasks → clean up → verify final run → close progress tab → summarize.
 
-## Workflow Preparations
+## Workflow preparations
 
-a. Load the required skills as needed throughout the workflow.
+### Skills
+
+Load the required skills as needed throughout the workflow.
 
 - **aven** — task management.
 - **coordinator** — agent dispatch, monitoring, review, and merging.
@@ -19,21 +21,25 @@ a. Load the required skills as needed throughout the workflow.
 - **worktree** — worktree task delegation.
 - **merge** — worker-side commit, rebase, and merge.
 
-b. If no git repository exists, initialize one using `git init` and add a .gitignore as an initial commit.
+### Herdr Multiplexer
 
-c. Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
+This workflow uses Herdr, not tmux. Omit `--parent-session` and ignore any tmux session-selection and window-placement instructions.
 
-d. Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
-
-#### Herdr Multiplexer
-
-This workflow uses Herdr, not tmux. Preserve inherited `HERDR_ENV` and `HERDR_SESSION`. Omit `--parent-session` and skip the required skills' tmux session lookup and placement instructions.
-
-#### Creating and accessing the Aven tasks DB
+### Creating and accessing the Aven tasks DB
 
 Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
 
 When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
+
+### Miscellaneous
+
+If no git repository exists, initialize one using `git init` and add a .gitignore as an initial commit.
+
+Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
+
+Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
+
+## 1. Create tasks
 
 ### 2. Select ready tasks
 
