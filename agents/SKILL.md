@@ -13,17 +13,20 @@ sequenceDiagram
     participant Worker
 
     Note over Dispatcher: Workflow preparations
-    Note over Dispatcher: Create 'todo' tasks
-    Dispatcher->>Worker: Dispatch
-    Note over Worker: Implement task
-    Note over Worker: Check acceptance criteria
-    Note over Worker: Commit
-    Worker-->>Dispatcher: Report
-    Note over Dispatcher: Review and validate
-    Dispatcher->>Worker: Authorize merge
-    Note over Worker: Merge (retain worktree)
-    Note over Dispatcher: Verify on base
-    Note over Dispatcher: Mark done
+    Note over Dispatcher: Create epics and tasks<br/> with dependencies
+    loop each todo-state task
+        Dispatcher->>Worker: Dispatch
+        Note over Worker: Load task context
+        Note over Worker: Implement task
+        Note over Worker: Log key decisions<br/>and events
+        Note over Worker: Verify each criterion<br/>with logged evidence
+        Note over Worker: Commit changes
+        Worker-->>Dispatcher: Report
+        Note over Dispatcher: Review and validate
+        Dispatcher->>Worker: Invoke merge skill
+        Note over Worker: Merge
+        Note over Dispatcher: Wait for worker, verify<br>on base, and mark done
+    end
     Note over Dispatcher: Discover newly ready tasks
     Note over Dispatcher: Clean up
     Note over Dispatcher: Verify final run
