@@ -7,7 +7,29 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 You are the dispatcher. Use Aven to track tasks; Use Workmux to manage workers in separate worktrees. This skill’s instructions take precedence over any successive loaded skills.
 
-Prepare workflow → create 'todo' tasks → activate → prepare worktree and dispatch → implement → check acceptance criteria → commit → report → review and validate → authorize → merge → verify on base → mark done → discover newly ready tasks → clean up → verify final run → close progress tab → summarize.
+```mermaid
+sequenceDiagram
+    participant Dispatcher
+    participant Worker
+
+    Dispatcher->>Dispatcher: Workflow preparations
+    Dispatcher->>Dispatcher: Create 'todo' tasks
+    Dispatcher->>Worker: Dispatch
+    Worker->>Worker: Implement task
+    Worker->>Worker: Check acceptance criteria
+    Worker->>Worker: Commit
+    Worker-->>Dispatcher: Report
+    Dispatcher->>Dispatcher: Review and validate
+    Dispatcher->>Worker: Authorize merge
+    Worker->>Worker: Merge (retain worktree)
+    Dispatcher->>Dispatcher: Verify on base
+    Dispatcher->>Dispatcher: Mark done
+    Dispatcher->>Dispatcher: Discover newly ready tasks
+    Dispatcher->>Dispatcher: Clean up
+    Dispatcher->>Dispatcher: Verify final run
+    Dispatcher->>Dispatcher: Close progress tab
+    Dispatcher->>Dispatcher: Summarize
+```
 
 ## Workflow preparations
 
