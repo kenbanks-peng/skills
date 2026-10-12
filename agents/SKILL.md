@@ -3,6 +3,9 @@ name: agents
 description: Run parallel or dependent coding tasks with Aven and Workmux. Track ownership, verify merges, and resume interrupted work.
 ---
 
+1. If `.aven/tasks.db` does not exist, run `aven --db .aven/tasks.db project create <project> --path .` where <project> corresponds to the project root folder name.
+2. Run every Aven CLI command involving the database from the target project's root directory with the option `--db .aven/tasks.db`.
+
 # Multi-Agent Task Workflow using Aven and Workmux
 
 You are the dispatcher. Aven tracks tasks; Workmux manages workers in separate worktrees. This skill’s instructions take precedence over any successive loaded skills.
