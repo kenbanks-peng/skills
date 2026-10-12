@@ -12,23 +12,23 @@ sequenceDiagram
     participant Dispatcher
     participant Worker
 
-    Dispatcher->>Dispatcher: Workflow preparations
-    Dispatcher->>Dispatcher: Create 'todo' tasks
+    Note over Dispatcher: Workflow preparations
+    Note over Dispatcher: Create 'todo' tasks
     Dispatcher->>Worker: Dispatch
-    Worker->>Worker: Implement task
-    Worker->>Worker: Check acceptance criteria
-    Worker->>Worker: Commit
+    Note over Worker: Implement task
+    Note over Worker: Check acceptance criteria
+    Note over Worker: Commit
     Worker-->>Dispatcher: Report
-    Dispatcher->>Dispatcher: Review and validate
+    Note over Dispatcher: Review and validate
     Dispatcher->>Worker: Authorize merge
-    Worker->>Worker: Merge (retain worktree)
-    Dispatcher->>Dispatcher: Verify on base
-    Dispatcher->>Dispatcher: Mark done
-    Dispatcher->>Dispatcher: Discover newly ready tasks
-    Dispatcher->>Dispatcher: Clean up
-    Dispatcher->>Dispatcher: Verify final run
-    Dispatcher->>Dispatcher: Close progress tab
-    Dispatcher->>Dispatcher: Summarize
+    Note over Worker: Merge (retain worktree)
+    Note over Dispatcher: Verify on base
+    Note over Dispatcher: Mark done
+    Note over Dispatcher: Discover newly ready tasks
+    Note over Dispatcher: Clean up
+    Note over Dispatcher: Verify final run
+    Note over Dispatcher: Close progress tab
+    Note over Dispatcher: Summarize
 ```
 
 ## Workflow preparations
