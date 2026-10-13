@@ -76,31 +76,27 @@ Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from 
 
 ## 3. Prepare and dispatch a worker
 
-1. Follow coordinator dispatch, applying the [Creating workers](#creating-workers) requirements.
-2. Prepare the worker prompt following [Worker brief](#worker-brief).
-3. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
+1. Follow coordinator dispatch with the [Creating workers](#creating-workers) overrides and [Worker brief](#worker-brief).
+2. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
 
 #### Creating workers
 
-As dispatch, you create workers using `workmux add --config <config file>`. Default to Linux sandbox workers using the config file: `~/.config/workmux/agents.linux.yaml`. If the user explicitly excludes sandboxing or explicitly requests macOS workers, then use `~/.config/workmux/agents.macos.yaml`.
+Use `workmux add --config ~/.config/workmux/agents.linux.yaml` by default (Linux sandbox). Use `~/.config/workmux/agents.macos.yaml` only when the user explicitly requests macOS or excludes sandboxing. Do not use `--agent`.
 
-Do not use workmux's `--agent` option.
+Override coordinator's parallel spawning: serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention.
 
-Even for parallel workers, serialize `workmux add` and `workmux open` per repository to avoid Git/Workmux metadata contention. Preserve prompt-file preparation and startup checks.
+On a lock error, pause dispatch; inspect owning processes, `workmux list`, and `git worktree list` before retrying. Never delete a potentially live lock. Preserve work, reconcile partial resources, and discard only confirmed-safe resources.
 
-On a lock error, pause dispatch. Never delete a potentially live lock. First, inspect owning processes, `workmux list`, and `git worktree list` before retrying. Preserve existing work, reconcile partial resources, and remove only resources confirmed safe to discard.
-
-If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or monitoring completion. Preserve unfinished work under [Recovery and handoff](#recovery-and-handoff).
+If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or waiting for completion. Retain unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
 #### Worker brief
 
-1. Include the assigned Aven task reference, base branch, and the worker instructions below in each worker prompt.
-2. Supply the task-context command for the worker's execution mode, replacing `<task-ref>` with the assigned task reference: Linux sandbox uses `aven --db /tmp/.aven/tasks.db context <task-ref>`; unsandboxed macOS uses `aven --db .aven/tasks.db context <task-ref>`.
-3. Provide further instructions if needed, but do not replicate what is already in the task.
-4. Instruct the worker to wait for explicit merge authorization from dispatch. Once authorized, run `workmux merge` without `--notification`, overriding the merge skill's notification instructions; dispatch handles user notification.
-5. Instruct the worker to check the supplied database exists, then retrieve and read the task context using the supplied command. Never initialize a worker database.
-6. Instruct the worker to implement the task, verify acceptance criteria, and commit.
-7. Instruct the worker to report only to dispatch: a concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
+Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
+
+- Check the supplied database exists, then read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS). Substitute the assigned reference and supply the applicable command. Never initialize a worker database.
+- Implement the task, verify acceptance criteria, and commit.
+- Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
+- Wait for explicit merge authorization from dispatch. Once authorized, run `workmux merge` without `--notification`, overriding the merge skill; dispatch handles user notification.
 
 ### 4. Review and merge the result
 
