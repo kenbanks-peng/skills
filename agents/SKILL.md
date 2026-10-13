@@ -99,7 +99,8 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
 3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment.
 4. Mark the task `done`, then query `aven --db .aven/tasks.db list --ready` with the run's filters for newly eligible tasks.
-5. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
+5. Create or reuse Aven tasks for discovered work. Put current-run work in `todo` with applicable dependencies; keep deferred work in `backlog` and outside the current run.
+6. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
 
 ### 6. Complete the run
 
