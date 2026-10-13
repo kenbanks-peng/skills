@@ -63,23 +63,22 @@ Create an aven project using the root folder name for <project>. Run `aven --db 
 
 Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
 
-## 1. Create tasks
+## 1. Create epics and tasks
 
-### 2. Select ready tasks
+1. When helpful, create epics.
+2. Reuse existing tasks; split remaining work into 'todo' tasks with applicable dependencies, and where feasible, with disjoint parallel write scopes.
+3. Keep deferred work in `backlog` and outside the current run.
 
-Create tasks for discovered work, each with scope and acceptance criteria. Exclude deferred work from the current run.
+## 2. Select ready tasks
 
-1. Ensure any missing prerequisites are recorded in Aven before scheduling any task.
 2. Select tasks with `aven --db .aven/tasks.db list --ready` and applicable filters; inspect each with `aven --db .aven/tasks.db context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
 3. Mark the task `active` when starting it.
 
-### 3. Prepare and dispatch a worker
+## 3. Prepare and dispatch a worker
 
-1. Start from the chosen base branch with merged prerequisites.
-2. Before worktree reuse, preserve unrelated changes separately and update the task branch with the latest base. The merge skill stages all changes.
-3. Use the coordinator workflow to create or reuse the task's worktree.
-4. Add a `DISPATCH` note using the [Task note format](#task-note-format), including execution mode and configuration path.
-5. Prepare the worker prompt following [Worker brief](#worker-brief).
+1. Prepare the worker prompt following [Worker brief](#worker-brief).
+2. Follow coordinator dispatch, applying the [Creating workers](#creating-workers) requirements.
+3. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
 
 #### Creating workers
 
