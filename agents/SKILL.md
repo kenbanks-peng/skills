@@ -111,6 +111,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 3. Confirm cleanup is complete.
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
 5. Otherwise, close the run-owned task progress tab before the final response using `sh "<skill-dir>/scripts/close-tasks-tab.sh"`.
+6. Record the run's `SUMMARY` in Aven and give the user a concise final report of the outcome, validation, and follow-up work.
 
 ### Recovery and handoff
 
