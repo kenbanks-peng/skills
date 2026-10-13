@@ -69,6 +69,7 @@ Include the assigned Aven task reference, base branch, and these instructions; a
 - Read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
 - Before implementation, mark the task `active` in the supplied database with `--agent <agent>` identifying yourself.
 - Implement the task, verify acceptance criteria, and commit.
+- Log a concise task report in the supplied Aven database before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 - Wait for explicit merge authorization from dispatch. Once authorized, run `workmux merge` without `--notification`, overriding the merge skill; dispatch handles user notification.
 
@@ -78,6 +79,7 @@ Include the assigned Aven task reference, base branch, and these instructions; a
 2. Validate the worker report against Git state and `aven --db .aven/tasks.db show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
 4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the worker brief's notification override in every worker merge request.
+5. Wait for the worker's merge completion or failure report before verifying the merged work.
 
 #### Pi merge command
 
