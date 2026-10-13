@@ -49,8 +49,9 @@ Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from 
 
 ## 3. Prepare and dispatch a worker
 
-1. Follow coordinator dispatch with the [Creating workers](#creating-workers) overrides and [Worker brief](#worker-brief).
-2. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
+1. Before dispatch, mark the task `active` with `aven --db .aven/tasks.db edit <task-ref> --status active --agent <agent>`, identifying the assigned worker.
+2. Follow coordinator dispatch with the [Creating workers](#creating-workers) overrides and [Worker brief](#worker-brief).
+3. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
 
 #### Creating workers
 
@@ -67,11 +68,10 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
 - Read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
-- Before implementation, mark the task `active` in the supplied database with `--agent <agent>` identifying yourself.
 - Implement the task, verify acceptance criteria, and commit.
 - Log a concise task report in the supplied Aven database before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
-- Wait for explicit merge authorization from dispatch. Once authorized, run `workmux merge` without `--notification`, overriding the merge skill; dispatch handles user notification.
+- Wait for explicit merge authorization from dispatch. Once authorized, follow the [Pi merge command](#pi-merge-command); dispatch handles user notification.
 
 ### 4. Review and merge the result
 
@@ -93,7 +93,13 @@ configured_base=$(git config --local --get "branch.$branch.workmux-base")
 test "$configured_base" = "<recorded-base>"
 ```
 
-Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with `/skill:merge --keep` to retain the worktree until verification passes.
+Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with this worker request:
+
+```text
+/skill:merge --keep Omit --notification from the workmux merge command; dispatch handles user notification.
+```
+
+Follow the merge skill's full procedure. The notification override changes only notification behavior; `--keep` retains the worktree until dispatch verification passes.
 
 ### 5. Verify and complete the task
 
