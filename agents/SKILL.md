@@ -76,8 +76,8 @@ Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from 
 
 ## 3. Prepare and dispatch a worker
 
-1. Prepare the worker prompt following [Worker brief](#worker-brief).
-2. Follow coordinator dispatch, applying the [Creating workers](#creating-workers) requirements.
+1. Follow coordinator dispatch, applying the [Creating workers](#creating-workers) requirements.
+2. Prepare the worker prompt following [Worker brief](#worker-brief).
 3. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
 
 #### Creating workers
