@@ -24,9 +24,9 @@ sequenceDiagram
         Note over Dispatcher: Review and validate
         Dispatcher->>Worker: Invoke merge skill
         Note over Worker: Merge
-        Note over Dispatcher: Wait for worker, verify<br>on base, and mark done
-        Note over Dispatcher: Create any newly discovered tasks
-        Note over Dispatcher: Clean up
+        Note over Dispatcher: Wait for worker
+        Note over Dispatcher: Verify on base<br/>Mark task done<br/>Cleanup
+        Note over Dispatcher: Create discovered tasks
     end
     Note over Dispatcher: Verify final run
     Note over Dispatcher: Close progress tab
