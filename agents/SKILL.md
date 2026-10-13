@@ -7,37 +7,11 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 You are the dispatcher. Use Aven to track tasks; Use Workmux to manage workers in separate worktrees. This skill’s instructions take precedence over any successive loaded skills.
 
-```mermaid
-sequenceDiagram
-    participant Dispatcher
-    participant Worker
-
-    Note over Dispatcher: Workflow preparations
-    Note over Dispatcher: Create epics and tasks
-    loop each todo-state task
-        Dispatcher->>Worker: Dispatch
-        Note over Worker: Load task context
-        Note over Worker: Implement task
-        Note over Worker: Commit changes
-        Note over Worker: Log task report
-        Worker-->>Dispatcher: Report
-        Note over Dispatcher: Review and validate
-        Dispatcher->>Worker: Invoke merge skill
-        Note over Worker: Merge
-        Note over Dispatcher: Wait for worker
-        Note over Dispatcher: Verify on base<br/>Mark task done<br/>Cleanup
-        Note over Dispatcher: Create discovered tasks
-    end
-    Note over Dispatcher: Verify final run
-    Note over Dispatcher: Close progress tab
-    Note over Dispatcher: Summarize
-```
+See the [workflow diagram](workflow.md).
 
 ## Workflow preparations
 
 ### Skills
-
-Load the required skills as needed throughout the workflow.
 
 - **aven** — task management.
 - **coordinator** — agent dispatch, monitoring, review, and merging.
@@ -71,8 +45,7 @@ Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from 
 
 ## 2. Select ready tasks
 
-2. Select tasks with `aven --db .aven/tasks.db list --ready` and applicable filters; inspect each with `aven --db .aven/tasks.db context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
-3. Mark the task `active` when starting it.
+1. Select tasks with `aven --db .aven/tasks.db list --ready` and applicable filters; inspect each with `aven --db .aven/tasks.db context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
 
 ## 3. Prepare and dispatch a worker
 
@@ -93,7 +66,8 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 
 Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
-- Check the supplied database exists, then read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS). Substitute the assigned reference and supply the applicable command. Never initialize a worker database.
+- Read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
+- Before implementation, mark the task `active` in the supplied database with `--agent <agent>` identifying yourself.
 - Implement the task, verify acceptance criteria, and commit.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 - Wait for explicit merge authorization from dispatch. Once authorized, run `workmux merge` without `--notification`, overriding the merge skill; dispatch handles user notification.
@@ -123,7 +97,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 1. Confirm the merge reached the base branch; run required checks on that revision.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
-3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment. Do not repeat the worker report.
+3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment.
 4. Mark the task `done`, then query `aven --db .aven/tasks.db list --ready` with the run's filters for newly eligible tasks.
 5. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
 
@@ -174,4 +148,4 @@ BLOCKED: <blocker>. Work retained in <worktree/branch>. <Owner> to <next action>
 SUMMARY: <delivered outcome>. <Acceptance evidence and final checks> at <revision-short-SHA>. <Follow-up work, if any>.
 ```
 
-Write each event as a separate note in plain sentences, not a list of key-value fields. Display paths under the user's home directory with `~` in notes. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Omit optional details when irrelevant; do not fill notes with empty placeholders. `ACTIVITY` is for meaningful developments, not heartbeat updates. `RESULT` records a substantive, concise worker outcome once, not a full report; validate it without copying it into the completion comment. Include closure in the `MERGE` completion comment only after verification, Aven status `done`, and cleanup are complete; do not emit a separate `CLOSED` entry. If cleanup is pending or verification fails, record the verified facts and next action without claiming closure. Use `SUMMARY` once at run completion; an unfinished run needs a handoff, not a closure claim.
+Write each event as a separate note. Display paths under the user's home directory with `~` in notes. Omit the task reference when the note is attached to that task; include it in shared or run-level notes. Record `RESULT` once; use the `MERGE` completion comment for closure rather than a separate `CLOSED` entry. Use `SUMMARY` once at run completion.
