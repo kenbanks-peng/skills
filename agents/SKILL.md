@@ -23,6 +23,8 @@ See the [workflow diagram](workflow.md).
 
 This workflow uses Herdr, not tmux. Omit `--parent-session` and ignore any tmux session-selection and window-placement instructions.
 
+At workflow startup, rename the dispatcher's own tab to `dispatcher` using `herdr tab rename <dispatcher-tab-id> dispatcher`. Do not rename a worker tab or the `tasks` tab.
+
 ### Creating and accessing the Aven tasks DB
 
 Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
