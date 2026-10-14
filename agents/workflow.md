@@ -7,7 +7,7 @@ sequenceDiagram
 
     Note over Dispatcher: Workflow preparations
     Note over Dispatcher: Create epics and tasks
-    loop each todo-state task
+    loop each ready task
         Dispatcher->>Worker: Dispatch
         Note over Worker: Load task context
         Note over Worker: Implement task
@@ -18,7 +18,7 @@ sequenceDiagram
         Dispatcher->>Worker: Invoke merge skill
         Note over Worker: Merge
         Note over Dispatcher: Wait for worker
-        Note over Dispatcher: Verify on base<br/>Mark task done<br/>Cleanup
+        Note over Dispatcher: Verify on base<br/>Cleanup<br/>Mark task done
         Note over Dispatcher: Create discovered tasks
     end
     Note over Dispatcher: Verify final run
