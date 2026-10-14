@@ -68,7 +68,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
 - Read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
-- Implement the task, verify acceptance criteria, and commit.
+- Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Each check must succeed before proceeding; a failure stops the block. Record failures separately as failures, keeping the task active and work retained.
 - Log a concise task report in the supplied Aven database before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 - Wait for explicit merge authorization from dispatch. Once authorized, follow the [Pi merge command](#pi-merge-command); dispatch handles user notification.
@@ -87,7 +87,8 @@ Pi uses `/skill:<name>`; trailing arguments become a user request, not `$ARGUMEN
 
 Before merging, check it against the task's recorded base:
 
-```sh
+```bash
+set -euo pipefail
 branch=$(git branch --show-current)
 configured_base=$(git config --local --get "branch.$branch.workmux-base")
 test "$configured_base" = "<recorded-base>"
@@ -96,14 +97,14 @@ test "$configured_base" = "<recorded-base>"
 Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with this worker request:
 
 ```text
-/skill:merge --keep Omit --notification from the workmux merge command; dispatch handles user notification.
+/skill:merge --keep Omit --notification from the workmux merge command; dispatch handles user notification. Run required checks and the actions they gate in fail-fast Bash blocks beginning with set -euo pipefail; write success reports only after all required checks pass.
 ```
 
 Follow the merge skill's full procedure. The notification override changes only notification behavior; `--keep` retains the worktree until dispatch verification passes.
 
 ### 5. Verify and complete the task
 
-1. Confirm the merge reached the base branch; run required checks on that revision.
+1. Confirm the merge reached the base branch; run required checks on that revision in a fail-fast Bash block beginning with `set -euo pipefail`. Gate cleanup, completion comments, and `done` status on every required check passing; apply the same gate to run-wide checks and the final `SUMMARY`.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
 3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment.
 4. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
