@@ -114,7 +114,7 @@ Follow the merge skill's full procedure. The notification override changes only 
 
 1. Confirm all selected tasks are verified and merged.
 2. Run run-wide checks on the final base revision; require passing results.
-3. Confirm cleanup is complete.
+3. Confirm cleanup is complete. If all worker worktrees have been removed, remove their parent worktree folder with `rmdir` if it still exists. Preserve a non-empty folder and record pending cleanup.
 4. If any condition is unmet, record a handoff under [Recovery and handoff](#recovery-and-handoff) and leave the task progress tab open.
 5. Otherwise, close the run-owned task progress tab before the final response using `sh "<skill-dir>/scripts/close-tasks-tab.sh"`.
 6. Record the run's `SUMMARY` in Aven and give the user a concise final report of the outcome, validation, and follow-up work.
