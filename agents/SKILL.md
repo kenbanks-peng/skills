@@ -27,7 +27,7 @@ At workflow startup, rename the dispatcher's own tab to `dispatcher` using `herd
 
 ### Creating and accessing the Aven tasks DB
 
-Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db /tmp/.aven/tasks.db`.
+Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db "$HOME/.aven/tasks.db"`.
 
 When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
 
@@ -69,7 +69,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 
 Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
-- Read task context with `aven --db /tmp/.aven/tasks.db context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
+- Read task context with `aven --db "$HOME/.aven/tasks.db" context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
 - Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Each check must succeed before proceeding; a failure stops the block. Record failures separately as failures, keeping the task active and work retained.
 - Log a concise task report in the supplied Aven database before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
