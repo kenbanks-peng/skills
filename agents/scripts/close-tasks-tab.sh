@@ -1,7 +1,18 @@
 #!/bin/sh
 set -eu
 
-[ "${HERDR_ENV:-}" = 1 ] || { echo 'HERDR_ENV=1 is required' >&2; exit 1; }
+if [ "${HERDR_ENV:-}" != 1 ]; then
+  if [ -n "${TMUX:-}" ]; then
+    session_id=$(tmux display-message -p '#{session_id}')
+    windows=$(tmux list-windows -t "$session_id" -F '#{window_id} #{window_name}')
+    window_id=$(printf '%s\n' "$windows" | awk '$2 == "tasks" { print $1; exit }')
+    [ -n "$window_id" ] || exit 0
+    tmux kill-window -t "$window_id"
+    exit 0
+  fi
+  echo 'An active Herdr or tmux session is required' >&2
+  exit 1
+fi
 : "${HERDR_WORKSPACE_ID:?Required}"
 
 tabs=$(herdr tab list --workspace "$HERDR_WORKSPACE_ID")

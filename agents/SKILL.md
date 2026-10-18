@@ -7,8 +7,6 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 You are the dispatcher. Use Aven to track tasks; Use Workmux to manage workers in separate worktrees. This skill’s instructions take precedence over any successive loaded skills.
 
-See the [workflow diagram](workflow.md).
-
 ## Workflow preparations
 
 ### Skills
@@ -19,11 +17,14 @@ See the [workflow diagram](workflow.md).
 - **worktree** — worktree task delegation.
 - **merge** — worker-side commit, rebase, and merge.
 
-### Herdr Multiplexer
+### Multiplexer
 
-This workflow uses Herdr, not tmux. Omit `--parent-session` and ignore any tmux session-selection and window-placement instructions.
+Use the dispatcher's active multiplexer: Herdr when `HERDR_ENV=1`; otherwise tmux when `TMUX` is set. If neither is active, ask the user to start the workflow in one. When nested, Herdr takes precedence, matching the tab helpers.
 
-At workflow startup, rename the dispatcher's own tab to `dispatcher` using `herdr tab rename <dispatcher-tab-id> dispatcher`. Do not rename a worker tab or the `tasks` tab.
+- **Herdr:** Omit `--parent-session` and ignore tmux session-selection and window-placement instructions. At startup, identify the dispatcher's own tab and rename it with `herdr tab rename <dispatcher-tab-id> dispatcher`.
+- **tmux:** Follow coordinator's tmux session-selection and window-placement instructions, including `--parent-session` where applicable. At startup, rename the dispatcher's own window with `tmux rename-window -t <dispatcher-window-id> dispatcher`.
+
+Rename only the dispatcher's tab or window, leaving worker and `tasks` tabs/windows unchanged.
 
 ### Aven task ownership
 
@@ -35,7 +36,7 @@ If no git repository exists, initialize one using `git init` and add a .gitignor
 
 Create an aven project using the root folder name for <project>. Run `aven project create <project> --path .`
 
-Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh" "<absolute-project-root>"`. Pass the target project’s absolute root directory explicitly; the script uses it as the new tab’s working directory.
+Open a `tasks` tab (Herdr) or window (tmux) by running `sh "<skill-dir>/scripts/open-tasks-tab.sh" "<absolute-project-root>"`. Pass the target project’s absolute root directory explicitly; the script uses it as the new tab’s working directory.
 
 ## 1. Create epics and tasks
 
