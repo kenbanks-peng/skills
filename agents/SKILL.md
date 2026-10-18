@@ -25,17 +25,15 @@ This workflow uses Herdr, not tmux. Omit `--parent-session` and ignore any tmux 
 
 At workflow startup, rename the dispatcher's own tab to `dispatcher` using `herdr tab rename <dispatcher-tab-id> dispatcher`. Do not rename a worker tab or the `tasks` tab.
 
-### Creating and accessing the Aven tasks DB
+### Aven task ownership
 
-Qualify all Aven commands with the `--db` option. As dispatch, your personal Aven commands must use `--db .aven/tasks.db`. Your instructions to unsandboxed macOS workers must also use `--db .aven/tasks.db`. But your instructions to sandboxed Linux workers must use `--db "$HOME/.aven/tasks.db"`.
-
-When setting status with `aven --db .aven/tasks.db edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
+When setting status with `aven edit`, include `--agent <agent>` (for example, `--agent pi`) while in `active` state, otherwise include `--clear-agent`.
 
 ### Miscellaneous
 
 If no git repository exists, initialize one using `git init` and add a .gitignore as an initial commit.
 
-Create an aven project using the root folder name for <project>. Run `aven --db .aven/tasks.db project create <project> --path .`
+Create an aven project using the root folder name for <project>. Run `aven project create <project> --path .`
 
 Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
 
@@ -47,11 +45,11 @@ Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from 
 
 ## 2. Select ready tasks
 
-1. Select tasks with `aven --db .aven/tasks.db list --ready` and applicable filters; inspect each with `aven --db .aven/tasks.db context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
+1. Select tasks with `aven list --ready` and applicable filters; inspect each with `aven context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
 
 ## 3. Prepare and dispatch a worker
 
-1. Before dispatch, mark the task `active` with `aven --db .aven/tasks.db edit <task-ref> --status active --agent <agent>`, identifying the assigned worker.
+1. Before dispatch, mark the task `active` with `aven edit <task-ref> --status active --agent <agent>`, identifying the assigned worker.
 2. Follow coordinator dispatch with the [Creating workers](#creating-workers) overrides and [Worker brief](#worker-brief).
 3. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
 
@@ -69,16 +67,16 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 
 Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
-- Read task context with `aven --db "$HOME/.aven/tasks.db" context <task-ref>` (Linux sandbox) or `aven --db .aven/tasks.db context <task-ref>` (unsandboxed macOS).
+- Read task context with `aven context <task-ref>`.
 - Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Each check must succeed before proceeding; a failure stops the block. Record failures separately as failures, keeping the task active and work retained.
-- Log a concise task report in the supplied Aven database before reporting to dispatch.
+- Log a concise task report in Aven before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
 - Wait for explicit merge authorization from dispatch. Once authorized, follow the [Pi merge command](#pi-merge-command); dispatch handles user notification.
 
 ### 4. Review and merge the result
 
 1. Follow coordinator review.
-2. Validate the worker report against Git state and `aven --db .aven/tasks.db show <task-ref>`.
+2. Validate the worker report against Git state and `aven show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
 4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the worker brief's notification override in every worker merge request.
 5. Wait for the worker's merge completion or failure report before verifying the merged work.
@@ -110,7 +108,7 @@ Follow the merge skill's full procedure. The notification override changes only 
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
 3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment.
 4. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
-5. Mark the task `done`, then query `aven --db .aven/tasks.db list --ready` with the run's filters for newly eligible tasks.
+5. Mark the task `done`, then query `aven list --ready` with the run's filters for newly eligible tasks.
 6. Create or reuse Aven tasks for discovered work. Put current-run work in `todo` with applicable dependencies; keep deferred work in `backlog` and outside the current run.
 
 ### 6. Complete the run
@@ -126,7 +124,7 @@ Follow the merge skill's full procedure. The notification override changes only 
 
 #### Interrupted work
 
-After context loss or worker exit, run `aven --db .aven/tasks.db list --open` and inspect each task with `aven --db .aven/tasks.db context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
+After context loss or worker exit, run `aven list --open` and inspect each task with `aven context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
 
 #### Pending cleanup
 
