@@ -11,11 +11,14 @@ You are the dispatcher. Use Aven to track tasks; Use Workmux to manage workers i
 
 ### Skills
 
-- **aven** — task management.
-- **coordinator** — agent dispatch, monitoring, review, and merging.
-- **workmux** — worktree and agent management.
-- **worktree** — worktree task delegation.
-- **merge** — worker-side commit, rebase, and merge.
+Load supporting skills when needed, using this document as the authoritative workflow:
+
+- **aven** — load before task operations for task commands, notes, and dependencies.
+- **coordinator** — load before dispatch for dispatch, monitoring, session reuse, and sequential merge coordination; apply this document's overrides.
+- **workmux** — consult when CLI syntax or configuration details are needed.
+- **merge** — workers load when dispatch authorizes merging, for commit, rebase, conflict resolution, and merge procedures.
+
+The Workmux-installed **worktree** skill provides standalone delegation; its workflow is already covered here and by coordinator, so no separate load is needed.
 
 ### Multiplexer
 
@@ -67,17 +70,16 @@ Include in the worker brief the assigned Aven task reference, base branch, and t
 - Read task context with `aven context <task-ref>`.
 - Only dispatch changes Aven task status and ownership. You may add task notes and reports; leave the task `active` with its assigned agent. Dispatch marks it `done` and clears ownership after verification and cleanup.
 - Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Record failures separately as failures, keeping the task active and work retained.
-- Log a concise task report in Aven before reporting to dispatch.
-- Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
-- After reporting to dispatch, end your turn and leave the worktree intact.
+- Report exclusively through notes on the assigned Aven task: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work. Record merge results and failures there too; dispatch retrieves reports from Aven rather than terminal responses.
+- After writing the task report, end your turn and leave the worktree intact.
 
 ## 4. Review and merge the result
 
-1. Follow coordinator review.
-2. Validate the worker report against Git state and `aven show <task-ref>`.
+1. Retrieve the worker report with `aven show <task-ref> --full`. This replaces coordinator's mandatory terminal capture before review. Use `workmux capture` only to diagnose missing notes or unexpected worker state; if Aven reporting fails, preserve work and restore reporting before proceeding.
+2. Validate the Aven report against Git state and required check results.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
-4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the base-branch check and full worker request from that section inline in every merge authorization, substituting the task's recorded base.
-5. Wait for the worker's merge completion or failure report before verifying the merged work.
+4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the base-branch check and full worker request from that section inline in every merge authorization, substituting the assigned task reference and recorded base.
+5. Wait for the worker's merge completion or failure note in Aven before verifying the merged work.
 
 ### Pi merge command
 
@@ -95,14 +97,14 @@ test "$configured_base" = "<recorded-base>"
 Stop if the base is missing or mismatched. Otherwise, replace the coordinator's `/merge` with this worker request:
 
 ```text
-/skill:merge --keep Omit --notification from the workmux merge command; dispatch handles user notification. Run required checks and the actions they gate in fail-fast Bash blocks beginning with set -euo pipefail; write success reports only after all required checks pass.
+/skill:merge --keep Omit --notification from the workmux merge command; dispatch handles user notification. Run required checks and the actions they gate in fail-fast Bash blocks beginning with set -euo pipefail; write success reports only after all required checks pass. Record merge results and failures exclusively as notes on Aven task <task-ref>. If merge or verification fails, stop before retrying and record the failed command, working directory, Git and common directories, explicit base ref (refs/heads/<recorded-base>), lock metadata and owning processes if identifiable, and Workmux/worktree state. Preserve the worktree and potentially live locks; record unknown causes as unknown.
 ```
 
 Follow the merge skill's full procedure. `--keep` retains the worktree until dispatch verification passes.
 
 ## 5. Verify and complete the task
 
-1. Confirm the merge reached the base branch; run required checks on that revision in a fail-fast Bash block beginning with `set -euo pipefail`. Gate cleanup, completion comments, and `done` status on every required check passing; apply the same gate to run-wide checks and the final `SUMMARY`.
+1. Confirm the worker commit is an ancestor of the explicit base ref `refs/heads/<recorded-base>`; run required checks on that base revision in a fail-fast Bash block beginning with `set -euo pipefail`. Gate cleanup, completion comments, and `done` status on every required check passing; apply the same gate to run-wide checks and the final `SUMMARY`.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
 3. Once acceptance criteria and checks pass, retain the Git-verified merged revision and check results for the completion comment.
 4. Clean up the task's worktree and branch; add one `MERGE` completion comment in Aven containing the merged revision, check results, and closure: `Verified and done. Cleanup complete.` If cleanup fails, record pending cleanup and the next action without claiming closure.
