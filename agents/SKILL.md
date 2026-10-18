@@ -7,7 +7,7 @@ description: Run parallel or dependent coding tasks with Aven and Workmux. Track
 
 You are the dispatcher. Use Aven to track tasks; Use Workmux to manage workers in separate worktrees. This skill’s instructions take precedence over any successive loaded skills.
 
-## Workflow preparations
+## 0. Workflow preparations
 
 ### Skills
 
@@ -42,7 +42,7 @@ When setting status with `aven edit`, identify task ownership within Aven by inc
 
 ## 2. Select ready tasks
 
-1. Select tasks with `aven list --ready` and applicable filters; inspect each with `aven context <task-ref>`. Mark prerequisites `done` only after [Verify and complete the task](#5-verify-and-complete-the-task).
+1. Select tasks with `aven list --ready` and applicable filters; inspect tasks with `aven context <task-ref>`.
 
 ## 3. Prepare and dispatch a worker
 
@@ -50,7 +50,7 @@ When setting status with `aven edit`, identify task ownership within Aven by inc
 2. Follow coordinator dispatch with the [Creating workers](#creating-workers) overrides and [Worker brief](#worker-brief).
 3. After confirming startup, add a `DISPATCH` note using [Task note format](#task-note-format).
 
-#### Creating workers
+### Creating workers
 
 Use `workmux add --config ~/.config/workmux/agents.linux.yaml` by default (Linux sandbox). Use `~/.config/workmux/agents.macos.yaml` only when the user explicitly requests macOS or excludes sandboxing. Do not use `--agent`.
 
@@ -60,25 +60,25 @@ On a lock error, pause dispatch; inspect owning processes, `workmux list`, and `
 
 If startup confirmation fails, inspect `workmux status` and `workmux capture <handle>` for each unconfirmed worker before retrying or waiting for completion. Retain unfinished work under [Recovery and handoff](#recovery-and-handoff).
 
-#### Worker brief
+### Worker brief
 
-Include the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
+Include in the worker brief the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
 - Read task context with `aven context <task-ref>`.
-- Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Each check must succeed before proceeding; a failure stops the block. Record failures separately as failures, keeping the task active and work retained.
+- Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Record failures separately as failures, keeping the task active and work retained.
 - Log a concise task report in Aven before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
-- Wait for explicit merge authorization from dispatch. Once authorized, follow the [Pi merge command](#pi-merge-command); dispatch handles user notification.
+- Wait for explicit merge authorization from dispatch, which will include the base-branch check and merge command. Execute those instructions once authorized; dispatch handles user notification.
 
-### 4. Review and merge the result
+## 4. Review and merge the result
 
 1. Follow coordinator review.
 2. Validate the worker report against Git state and `aven show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
-4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the worker brief's notification override in every worker merge request.
+4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the base-branch check and full worker request from that section inline in every merge authorization, substituting the task's recorded base. Workers cannot access this dispatch document; send executable instructions, not a section link.
 5. Wait for the worker's merge completion or failure report before verifying the merged work.
 
-#### Pi merge command
+### Pi merge command
 
 Pi uses `/skill:<name>`; trailing arguments become a user request, not `$ARGUMENTS` substitutions. The merge target comes from the branch's `workmux-base` Git config.
 
@@ -99,7 +99,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 
 Follow the merge skill's full procedure. The notification override changes only notification behavior; `--keep` retains the worktree until dispatch verification passes.
 
-### 5. Verify and complete the task
+## 5. Verify and complete the task
 
 1. Confirm the merge reached the base branch; run required checks on that revision in a fail-fast Bash block beginning with `set -euo pipefail`. Gate cleanup, completion comments, and `done` status on every required check passing; apply the same gate to run-wide checks and the final `SUMMARY`.
 2. If checks fail or cannot run, keep the task `active` and retain its worktree. Return actionable failures to the worker for repair, review and merge the fix, then repeat verification on the updated base revision. If blocked, record the merge, check results, blocker, and next action in Aven; report the blocker to the user.
@@ -108,7 +108,7 @@ Follow the merge skill's full procedure. The notification override changes only 
 5. Mark the task `done`, then query `aven list --ready` with the run's filters for newly eligible tasks.
 6. Create or reuse Aven tasks for discovered work. Put current-run work in `todo` with applicable dependencies; keep deferred work in `backlog` and outside the current run.
 
-### 6. Complete the run
+## 6. Complete the run
 
 1. Confirm all selected tasks are verified and merged.
 2. Run run-wide checks on the final base revision; require passing results.
@@ -117,25 +117,25 @@ Follow the merge skill's full procedure. The notification override changes only 
 5. Otherwise, close the run-owned task progress tab before the final response using `sh "<skill-dir>/scripts/close-tasks-tab.sh"`.
 6. Record the run's `SUMMARY` in Aven and give the user a concise final report of the outcome, validation, and follow-up work.
 
-### Recovery and handoff
+## Recovery and handoff
 
-#### Interrupted work
+### Interrupted work
 
 After context loss or worker exit, run `aven list --open` and inspect each task with `aven context <task-ref>`. Before restarting, check Workmux and Git using handles and branches from Aven notes; resolve ownership or merge-record conflicts.
 
-#### Pending cleanup
+### Pending cleanup
 
 Finish pending cleanup for `done` tasks without merging again.
 
-#### Reassignment
+### Reassignment
 
 Before reassignment, stop the previous worker, preserve its changes, check whether it merged, and record the handoff.
 
-#### Unfinished tasks
+### Unfinished tasks
 
 Record progress, check results, blockers, and next actions in Aven. Retain unfinished worktrees, overriding coordinator cleanup.
 
-#### Task note format
+### Task note format
 
 Use these prefixes for dispatch-written Aven notes and comments. They are note templates, not shell commands. These rules override more verbose administrative reporting in the required skills.
 
@@ -145,7 +145,7 @@ Use these prefixes for dispatch-written Aven notes and comments. They are note t
 - Report observed facts only; worker claims remain provisional until verified.
 - Reference the Git-verified starting revision in `DISPATCH`, the worker commit in `RESULT`, and the verified base revision in `MERGE`. Use Git short-form SHAs for all revision references in notes and comments, including `SUMMARY`, generated with `git rev-parse --short <revision>` so the abbreviation is unambiguous in the repository. Check each reference against Git; do not use a branch name alone as the revision record.
 
-##### Templates
+### Templates
 
 ```text
 DISPATCH: <agent> started in <handle> on <task-branch> at <starting-revision-short-SHA>, based on <base>. <Linux|macOS> worker using <config-path>.
