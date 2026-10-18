@@ -68,7 +68,7 @@ Include in the worker brief the assigned Aven task reference, base branch, and t
 - Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Record failures separately as failures, keeping the task active and work retained.
 - Log a concise task report in Aven before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
-- Wait for explicit merge authorization from dispatch, which will include the base-branch check and merge command. Execute those instructions once authorized; dispatch handles user notification.
+- After reporting to dispatch, end your turn and leave the worktree intact.
 
 ## 4. Review and merge the result
 
