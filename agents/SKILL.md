@@ -65,6 +65,7 @@ If startup confirmation fails, inspect `workmux status` and `workmux capture <ha
 Include in the worker brief the assigned Aven task reference, base branch, and these instructions; add only context not already in the task:
 
 - Read task context with `aven context <task-ref>`.
+- Only dispatch changes Aven task status and ownership. You may add task notes and reports; leave the task `active` with its assigned agent. Dispatch marks it `done` and clears ownership after verification and cleanup.
 - Implement the task, verify acceptance criteria, and commit. Run required checks and the actions they gate (commit, merge, or success-report writes) in a fail-fast Bash block beginning with `set -euo pipefail`. Record failures separately as failures, keeping the task active and work retained.
 - Log a concise task report in Aven before reporting to dispatch.
 - Report only to dispatch: concise implementation summary, notable decisions, affected components, check results, commit IDs, blockers, and discovered work.
