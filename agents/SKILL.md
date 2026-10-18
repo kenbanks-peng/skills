@@ -75,7 +75,7 @@ Include in the worker brief the assigned Aven task reference, base branch, and t
 1. Follow coordinator review.
 2. Validate the worker report against Git state and `aven show <task-ref>`.
 3. Keep the report provisional until merged-work verification passes. Workmux `done` does not complete the Aven task.
-4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the base-branch check and full worker request from that section inline in every merge authorization, substituting the task's recorded base. Workers cannot access this dispatch document; send executable instructions, not a section link.
+4. Follow coordinator merging with the [Pi merge command](#pi-merge-command) override. Include the base-branch check and full worker request from that section inline in every merge authorization, substituting the task's recorded base.
 5. Wait for the worker's merge completion or failure report before verifying the merged work.
 
 ### Pi merge command
@@ -97,7 +97,7 @@ Stop if the base is missing or mismatched. Otherwise, replace the coordinator's 
 /skill:merge --keep Omit --notification from the workmux merge command; dispatch handles user notification. Run required checks and the actions they gate in fail-fast Bash blocks beginning with set -euo pipefail; write success reports only after all required checks pass.
 ```
 
-Follow the merge skill's full procedure. The notification override changes only notification behavior; `--keep` retains the worktree until dispatch verification passes.
+Follow the merge skill's full procedure. `--keep` retains the worktree until dispatch verification passes.
 
 ## 5. Verify and complete the task
 
