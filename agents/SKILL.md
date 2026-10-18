@@ -35,7 +35,7 @@ If no git repository exists, initialize one using `git init` and add a .gitignor
 
 Create an aven project using the root folder name for <project>. Run `aven project create <project> --path .`
 
-Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh"` from the project root.
+Open a `tasks` tab by running `sh "<skill-dir>/scripts/open-tasks-tab.sh" "<absolute-project-root>"`. Pass the target project’s absolute root directory explicitly; the script uses it as the new tab’s working directory.
 
 ## 1. Create epics and tasks
 
