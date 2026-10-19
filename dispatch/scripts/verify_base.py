@@ -13,7 +13,6 @@ import tempfile
 import time
 from pathlib import Path
 
-# Running this CLI must not leave an import cache in the installed skill.
 sys.dont_write_bytecode = True
 
 from git_preflight import (
@@ -79,14 +78,11 @@ def validate_identity(checkout, pinned):
 
 
 def stop_group(process):
-    # The leader can already have exited while descendants still own this group.
     try:
         os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
         return
     time.sleep(0.2)
-    # Reap an exited leader before escalation (macOS can reject signalling a
-    # group containing only its zombie). Still kill any surviving descendants.
     process.poll()
     try:
         os.killpg(process.pid, signal.SIGKILL)
@@ -96,8 +92,6 @@ def stop_group(process):
 
 def run_check(check, checkout, timeout):
     require(os.name == "posix", "Check execution requires POSIX process groups")
-    # Files avoid communicate() hanging on pipes inherited by descendants. Only
-    # the first MiB per stream is included in JSON; the capture files are temporary.
     limit = 1024 * 1024
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
         process = subprocess.Popen(
@@ -203,7 +197,6 @@ def observe_base(args, evidence):
             "Base moved since pinning; verification is not safe for closure",
         )
     except (CheckError, OSError) as exc:
-        # None means unknown, never an assertion that the base stayed put.
         evidence.setdefault("base_moved", None)
         evidence["ok"] = False
         evidence.setdefault("errors", []).append(str(exc))
@@ -221,7 +214,7 @@ def parser():
             "JSON output is capped at 1 MiB per stream (truncation flagged); temporary capture files can grow until the check ends. "
             "Children that deliberately escape the process group are not contained. "
             "Only a successful, still-clean temporary checkout is removed; failures retain it for diagnosis. "
-            "No task or worker ref is changed by this script. Checks are trusted executable code, not sandboxed. "
+            "Checks are trusted executable code, not sandboxed. "
             "Evidence is a snapshot: serialize merges and recheck the base before closure."
         ),
     )
@@ -266,7 +259,6 @@ def main(argv=None):
     observe_base(args, evidence)
     if evidence["ok"]:
         try:
-            # Never force removal: Git must also agree this checkout is clean.
             git(args.repo, "worktree", "remove", evidence["worktree"])
             evidence["cleanup"] = "removed"
             Path(evidence["temporary_directory"]).rmdir()

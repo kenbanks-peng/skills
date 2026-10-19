@@ -42,9 +42,6 @@ def stop(receipt, execute=False, timeout=30, previous=None):
             try:
                 observation = inspect(runtime, identity)
             except ValueError:
-                # Workmux uses --rm. A failed inspect alone proves nothing.
-                # Accept absence only after our successful stop, or with matching
-                # earlier stop evidence, and a successful independent full listing.
                 if not (stop_requested or previous_matches):
                     raise
                 identities = container_ids(runtime)
@@ -77,7 +74,6 @@ def stop(receipt, execute=False, timeout=30, previous=None):
             result.update(ok=True, stopped=False, dry_run=True)
             return result
         binary = "container" if runtime == "apple-container" else runtime
-        # Recheck identity immediately before the side effect.
         if observe() != "running":
             raise ValueError(
                 "Container state changed before stop; inspect before retry"
@@ -104,7 +100,6 @@ def main():
         epilog=(
             "Dry-run by default. Missing containers and inspect errors alone are not proof of exit. "
             "Persist stdout. Only after stopped=true may dispatch reconcile the recorded UI. "
-            "This helper never removes a container, worktree, branch, or tab."
         ),
     )
     parser.add_argument("--receipt", required=True)

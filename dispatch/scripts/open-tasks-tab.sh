@@ -18,7 +18,6 @@ if [ "${HERDR_ENV:-}" = 1 ]; then
   : "${HERDR_WORKSPACE_ID:?Required}"
   response=$(herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$project_dir" --label tasks)
   pane_id=$(printf '%s' "$response" | jq -er '.result.root_pane.pane_id')
-  # Emit ownership evidence before starting Aven so a failed start is recoverable.
   printf 'herdr:%s\n' "$pane_id"
   herdr pane run "$pane_id" "aven" >&2
 elif [ -n "${TMUX:-}" ]; then

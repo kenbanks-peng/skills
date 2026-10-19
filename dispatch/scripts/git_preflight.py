@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Git evidence and merge preconditions (stdlib only)."""
+"""Check Git merge preconditions without changes."""
 
 import argparse
 import json
@@ -14,7 +14,6 @@ class CheckError(Exception):
 
 
 def git_env():
-    # Do not let the caller's Git routing/index overrides redirect explicit paths.
     return {
         key: value for key, value in os.environ.items() if not key.startswith("GIT_")
     }

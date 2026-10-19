@@ -142,7 +142,6 @@ def launch(args):
         ]
         if args.parent_session:
             argv.extend(["--parent-session", args.parent_session])
-        # Preserve launch output in the receipt, never mix it into JSON stdout.
         try:
             result["launch_output"] = run(argv, args.repo, timeout=args.timeout)
         except ValueError as error:
@@ -196,7 +195,7 @@ def main():
         epilog=(
             "Run in the original multiplexer. Read the prompt before launch. Persist stdout "
             "outside the worktree even on failure; reconcile partial resources before retry. "
-            "Use CLI discovery once per run. This adapter does not change Aven."
+            "Use CLI discovery once per run."
         ),
     )
     for field in (

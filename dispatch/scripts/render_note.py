@@ -8,7 +8,6 @@ from string import Template
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 KINDS = ("DISPATCH", "RESULT", "MERGE_PENDING", "MERGE_VERIFIED", "BLOCKED", "SUMMARY")
-# Input evidence is stable even when the human-facing template omits fields.
 INPUT_FIELDS = {
     'DISPATCH': ['task_ref', 'handle', 'branch', 'worktree', 'base', 'launch_base', 'agent_type', 'config', 'execution_mode', 'worker_worktree', 'launch_receipt'],
     'RESULT': ['summary', 'worker_commit', 'task_ref', 'components', 'checks'],
@@ -124,13 +123,10 @@ def main():
             "JSON stdout from verify_base.py and cleanup_worker.py (relative to cwd or absolute).\n"
             "Successful evidence must match full SHAs and exact repository/base/worker identity.\n"
             "Use canonical paths for repo and worktree. Dry runs are rejected.\n"
-            "MERGE_VERIFIED summarizes distinct passed checks; full argv stays in evidence files.\n"
-            "These files are trusted local evidence, not tamper-proof attestations.\n"
             "Rendering does not recheck current Git state or establish semantic correctness.\n"
             "Review for relevance and add material decisions or exceptions before posting with tasks. Failed/skipped checks belong\n"
             "in BLOCKED, not a success note. Include an authorization ID in BLOCKED.phase\n"
             'for a merge failure. For SUMMARY.follow_ups use ["None"] if none exist.\n'
-            "No shell interpolation, Aven operations, or task/status changes are performed."
         ),
     )
     parser.add_argument("--kind", choices=KINDS, required=True)

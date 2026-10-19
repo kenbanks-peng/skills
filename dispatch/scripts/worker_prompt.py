@@ -88,30 +88,6 @@ def main():
             "not a CLI override. Use repository-relative source paths and preserve\n"
             "attachment paths. Put dependencies, concurrent ownership, and special\n"
             "instructions in context. Unknown fields are rejected.\n\n"
-            "Example shape (replace task values and SHA placeholder):\n"
-            + json.dumps(
-                {
-                    "task_ref": "SND-AG91",
-                    "project": "sandbox",
-                    "routing": "workspace default; preserve configured shared .aven routing",
-                    "branch": "demo-alpha",
-                    "base": "main",
-                    "launch_base": "<full SHA captured immediately before launch>",
-                    "objective": "Add exactly one line: <!-- demo worker alpha: concurrent dispatch -->",
-                    "write_scope": ["demo.md only, specifically the alpha comment"],
-                    "acceptance_checks": [
-                        "Own exact comment appears once",
-                        "git diff --check passes",
-                        "Only demo.md differs from launch base",
-                    ],
-                    "context": ["Create demo.md if absent; preserve existing text."],
-                    "attachments": [],
-                },
-                indent=2,
-            )
-            + "\n\nAppends the current worker.md contract. Text is literal: shell\n"
-            "expressions and paths are not expanded. Does not launch workers or\n"
-            "change Aven or Git. Existing output files are never overwritten."
         ),
     )
     parser.add_argument(

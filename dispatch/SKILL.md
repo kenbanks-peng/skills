@@ -7,7 +7,7 @@ description: Use when the user explicitly requests dispatch to run coding tasks 
 
 Coordinate workers; own the run through verified completion or a durable handoff. Read enough project context to define scope and acceptance criteria; delegate implementation.
 
-This is an independently maintained workflow. Use the `tasks` skill for Aven operations and installed CLI help for syntax.
+Use the `tasks` skill for Aven operations and installed CLI help for syntax.
 
 ## Contract
 
@@ -29,7 +29,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
 2. Generate each initial worker prompt with [scripts/worker_prompt.py](scripts/worker_prompt.py) using its `--help` and the [runtime procedure](runtime.md).
 3. Mark the task `active` with its agent type, then create/open the worker using the runtime procedure. Retain a successful launch receipt with observed host/worker paths, container identity, and UI IDs before treating it as dispatched.
-4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. Record shared config, execution mode, UI resource IDs, and run-wide checks in one ACTIVITY: run-context note on the run epic or designated task; refer to that record from task notes and record task-specific overrides. The handle identifies the individual worker; the Aven agent field identifies its type.
+4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. Record shared config, execution mode, UI resource IDs, and run-wide checks in one ACTIVITY: run-context note on the run epic or designated task; refer to that record from task notes and record task-specific overrides.
 
 ## 3. Monitor and review
 
@@ -68,4 +68,4 @@ Record only the new event. Keep recovery coordinates in DISPATCH and shared sett
 - `BLOCKED` — blocker first, then recovery evidence, responsible party, and next action.
 - `SUMMARY` — delivered outcome, final verified revision, run-wide check results, and follow-up refs; leave lifecycle history in earlier notes.
 
-Use [render_note.py](scripts/render_note.py) and its `--help` to render transition notes from the [templates](templates). Review for relevance and add material decisions or exceptions before appending through `tasks`; rendering never posts or changes status. Worker prompts inline the same compact format for use when helpers are inaccessible. Keep existing JSON input fields for compatibility and evidence validation even when omitted from display. The helper kinds `MERGE_PENDING` and `MERGE_VERIFIED` render `MERGE` and `VERIFIED` respectively. Use full Git SHAs for machine evidence and Git-generated unambiguous short SHAs for other prose. Keep failure details sufficient to resume; never replace evidence with a success claim.
+Use [render_note.py](scripts/render_note.py) and its `--help` to render transition notes from the [templates](templates). Review for relevance and add material decisions or exceptions before appending through `tasks`. Supply all required JSON input fields, including evidence fields omitted from display. The helper kinds `MERGE_PENDING` and `MERGE_VERIFIED` render `MERGE` and `VERIFIED` respectively. Use full Git SHAs for machine evidence and Git-generated unambiguous short SHAs for other prose. Keep failure details sufficient to resume; never replace evidence with a success claim.

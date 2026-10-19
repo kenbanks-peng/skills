@@ -32,7 +32,6 @@ OPERATIONS = (
 
 
 def terminate_group(proc):
-    """Escalate even if the leader exits: descendants can still hold the group."""
     errors = []
     for sig in (signal.SIGTERM, signal.SIGKILL):
         try:
@@ -51,7 +50,6 @@ def terminate_group(proc):
 
 
 def command(argv, cwd, timeout=10):
-    """Bound runtime and returned output; preserve failures and truncation."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update(GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0", LC_ALL="C")
     result = {"argv": argv, "cwd": str(cwd), "ok": False}
@@ -138,7 +136,6 @@ def state(repo):
         ),
     }.items():
         result[name] = git(repo, *args)
-    # Detached HEAD is an observation, not a failed snapshot.
     if result["branch"].get("returncode") == 1 and not result["branch"].get("error"):
         result["branch"]["ok"] = True
         result["branch"]["detached"] = True

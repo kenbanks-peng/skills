@@ -50,7 +50,7 @@ def render(params, procedure):
     lines.extend(
         [
             "",
-            "This authorizes one merge attempt only. Include this authorization ID in the result or failure note so dispatch can distinguish it from an earlier attempt.",
+            "Attempt one merge only. Include this authorization ID in the result or failure note.",
             "",
             "## Required post-rebase checks",
             "",
@@ -70,8 +70,7 @@ def main():
             "authorization_id: a new unique ID for this attempt (retain it in Aven).\n"
             "worktree: worker-visible path. base: recorded local branch, not a remote ref.\n"
             "routing: configured Aven defaults or diagnosed overrides.\n"
-            "Generate only after review and preflight. Generation does not send authorization,\n"
-            "run Git, or change Aven. The current merge.md is inlined for sandboxed workers.\n"
+            "Generate only after review and preflight.\n"
             "Use a new output file in an existing directory; literal text is not evaluated."
         ),
     )

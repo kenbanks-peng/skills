@@ -203,7 +203,6 @@ def cleanup(args):
         if not args.execute:
             result.update(ok=True, dry_run=True)
             return result
-        # Re-read every precondition immediately before the first destructive step.
         check(
             validate(args) == (repo, worker, parent, common),
             "Validated resource identity changed before cleanup",
@@ -211,7 +210,6 @@ def cleanup(args):
         removal = git(repo, "worktree", "remove", "--", str(worker))
         result["actions"].append(removal)
         require(removal)
-        # No force deletion, and never delete a branch that moved during removal.
         check(
             ref(repo, args.base) == args.verified_base_sha,
             "Base moved during cleanup; branch retained",

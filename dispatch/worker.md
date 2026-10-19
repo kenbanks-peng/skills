@@ -1,6 +1,6 @@
 # Worker contract
 
-Dispatch includes this contract in the worker prompt. You implement the assigned task; dispatch owns scheduling and closure.
+Implement the assigned task; dispatch owns scheduling and closure.
 
 ## Start
 

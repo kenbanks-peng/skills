@@ -84,8 +84,6 @@ def containers(runtime):
 
 
 def worker_path(observation, worktree):
-    # Require the exact worktree bind mount. A broad parent mount is not proof
-    # that this is the worker's container.
     matches = [
         m["destination"] for m in observation["mounts"] if m["source"] == str(worktree)
     ]

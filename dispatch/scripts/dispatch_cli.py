@@ -45,7 +45,6 @@ def discover(cache, refresh=False):
         if not all(all(flags.values()) for flags in item["commands"].values()):
             data["ok"] = False
     cache.parent.mkdir(parents=True, exist_ok=True)
-    # The cache is run-local evidence, not a repository configuration file.
     temporary = cache.with_suffix(cache.suffix + ".tmp")
     temporary.write_text(json.dumps(data, indent=2) + "\n")
     temporary.replace(cache)
@@ -73,7 +72,6 @@ def latest_report(data, kind, authorization=None, after=None):
         selected.append(note)
     if not selected:
         raise ValueError("No matching report; inspect worker state or use recovery")
-    # Do not rely on Aven's presentation order.
     selected.sort(key=lambda n: (n["created_at"], n["id"]))
     return {"ok": True, "kind": kind, "note": selected[-1]}
 

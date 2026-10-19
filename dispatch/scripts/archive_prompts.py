@@ -66,8 +66,6 @@ def archive(receipt, stop, destination, execute=False):
         if not execute:
             result.update(ok=True, dry_run=True)
             return result
-        # Exclusive creation protects earlier evidence. Partial archives remain
-        # recoverable, and retries accept only byte-identical copies.
         destination.mkdir(parents=True, exist_ok=True)
         for entry in result["files"]:
             source, target = Path(entry["source"]), Path(entry["archive"])
@@ -86,7 +84,6 @@ def archive(receipt, stop, destination, execute=False):
                     os.fsync(output.fileno())
             if target.read_bytes() != data or source.read_bytes() != data:
                 raise ValueError("Archive verification failed; source retained")
-        # Remove originals only after every archive copy has passed verification.
         for entry in result["files"]:
             source = Path(entry["source"])
             if (
