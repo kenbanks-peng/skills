@@ -7,22 +7,21 @@ description: Use when the user explicitly requests dispatch to run coding tasks 
 
 Coordinate workers; own the run through verified completion or a durable handoff. Read enough project context to define scope and acceptance criteria; delegate implementation.
 
-Use the `tasks` skill for Aven operations and installed CLI help for syntax.
+Use the `tasks` skill for Aven operations and `aven` CLI help for syntax.
 
 ## Contract
 
 - Dispatch alone changes task status and assignment. Workers write evidence and reports.
-- Aven is the durable run record; Git and executed checks establish completion. Workmux `done` means a worker ended its turn, not that a task is complete.
+- Aven is the durable run record. Workmux `done` means a worker ended its turn, not that a task is complete.
 - Serialize worker creation/opening and merges per repository. Implementation may run in parallel within disjoint write scopes.
-- Workers merge only after authorization. Keep worktrees until merged-base verification passes; failed or uncertain work remains recoverable.
-- Use the fail-fast helpers for mechanical gates. For shell sequences, run checks and gated actions in Bash blocks beginning with `set -euo pipefail`. Record failures separately; success notes, cleanup, and completion require passing evidence.
 
 ## 1. Prepare
 
-1. Load `tasks`. Establish the repository, Aven project, explicit local base branch, selected task set, and required task/run checks. Reuse existing project mappings; ask before initializing a missing Git repository.
-2. Read [runtime.md](runtime.md) before launching or reconnecting workers. Confirm the execution configuration and multiplexer are usable; set up the dispatch and tasks tabs as described there.
-3. Reuse existing tasks; create missing tasks with acceptance criteria and write scopes. Select current-run work as `todo`, express ordering through dependencies, and leave deferred work in `backlog`.
-4. If any selected work is already active or has dispatch notes, reconcile it using [recovery.md](recovery.md) before starting replacements.
+1. Load `tasks`.
+2. Ask before initializing a missing Git repository.
+3. Read [runtime.md](runtime.md) before launching or reconnecting workers.
+4. Reuse existing tasks; create missing tasks with acceptance criteria and write scopes. Express ordering through dependencies.
+5. If any selected work is already active or has dispatch notes, reconcile it using [recovery.md](recovery.md) before starting replacements.
 
 ## 2. Dispatch ready work
 
