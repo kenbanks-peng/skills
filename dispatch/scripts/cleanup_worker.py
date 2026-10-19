@@ -12,6 +12,8 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from recovery_snapshot import git, require, state, worktrees
+from stop_worker import stop
+from worker_runtime import load_receipt
 
 
 def exact_path(value):
@@ -50,6 +52,31 @@ def validate(args):
         check(
             re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", sha) is not None,
             "Verified revisions must be full lowercase commit SHAs",
+        )
+    if args.receipt or args.stop_evidence:
+        check(
+            bool(args.receipt and args.stop_evidence),
+            "--receipt and --stop-evidence must be supplied together",
+        )
+        receipt = load_receipt(args.receipt)
+        evidence = json.loads(Path(args.stop_evidence).read_text())
+        check(
+            receipt["repo"] == str(repo)
+            and receipt["worktree"] == str(worker)
+            and receipt["branch"] == args.branch
+            and evidence.get("ok") is True
+            and evidence.get("stopped") is True
+            and evidence.get("repo") == str(repo)
+            and evidence.get("worktree") == str(worker)
+            and evidence.get("handle") == receipt["handle"]
+            and evidence.get("container_id")
+            == (receipt.get("container") or {}).get("id"),
+            "Worker-stop evidence identity mismatch",
+        )
+        current = stop(receipt, previous=evidence)
+        check(
+            current.get("ok") is True and current.get("stopped") is True,
+            "Worker container exit is no longer confirmed: " + json.dumps(current),
         )
     listing, records = worktrees(repo)
     require(listing)
@@ -215,7 +242,7 @@ def cleanup(args):
                     raise
                 result["parent"] = "retained nonempty parent"
         result["ok"] = True
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, KeyError, TypeError) as exc:
         result["error"] = str(exc)
     return result
 
@@ -255,6 +282,14 @@ def main():
         "--worker-commit",
         required=True,
         help="Full verified worker tip SHA, ancestor of base",
+    )
+    parser.add_argument(
+        "--receipt",
+        help="Launch receipt; required with --stop-evidence for container workers",
+    )
+    parser.add_argument(
+        "--stop-evidence",
+        help="Confirmed stop JSON; rechecked against the container before cleanup",
     )
     parser.add_argument(
         "--parent",

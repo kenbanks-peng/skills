@@ -5,7 +5,7 @@ Read before replacing workers, retrying uncertain operations, or resuming an int
 ## Reconcile first
 
 1. Query `aven list --open` using the run's project/scope filters and inspect task context and full notes. Include any completed tasks explicitly recorded as having pending cleanup.
-2. Reconstruct each task's handle, branch, worktree, base, config, last reported commit, and next action. Run [scripts/recovery_snapshot.py](scripts/recovery_snapshot.py) using its `--help`, retain the JSON, and compare its observations with the task record. Investigate missing, failed, or truncated observations before acting.
+2. Reconstruct each task's handle, branch, host and worker-visible worktree paths, base, config, container identity, UI IDs/context, last reported commit, and next action from retained launch receipts. Retain stop/archive evidence; a closed UI does not prove exit. Inspect missing coordinates rather than guessing. Run [scripts/recovery_snapshot.py](scripts/recovery_snapshot.py) using its `--help`, retain the JSON, and compare its observations with the task record. Investigate missing, failed, or truncated observations before acting.
 3. Establish what actually happened from Git ancestry and working-tree state. A missing worker window does not prove lost work; a completion note does not prove a merge. Inspect both the reported worker commit and current branch tip when they differ.
 
 ## Choose the next action
@@ -24,7 +24,7 @@ Read before replacing workers, retrying uncertain operations, or resuming an int
 ## Locks and reassignment
 
 - On a lock error, pause repository lifecycle mutations. Inspect lock metadata, owning processes, Git/common directories, and partial Workmux resources. Remove a lock only when it is confirmed stale; retain potentially live locks.
-- Before reassignment, stop the old worker and confirm it cannot continue writing. Preserve its changes, determine merge state, and record the handoff before assigning a replacement.
+- Before reassignment, stop the old worker and confirm it cannot continue writing using [the verified stop procedure](runtime.md#stop-archive-and-clean-up). Preserve its changes, determine merge state, and record the handoff before assigning a replacement.
 - Reuse the original session when available: send a follow-up to a live worker or reopen the retained worktree with `--continue`. Read [runtime.md](runtime.md) for environment and serialization rules. If the worktree was removed, reconcile the prior merge before recreating it from the recorded base.
 
 ## Leave a durable handoff

@@ -10,7 +10,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 KINDS = ("DISPATCH", "RESULT", "MERGE_PENDING", "MERGE_VERIFIED", "BLOCKED", "SUMMARY")
 # Input evidence is stable even when the human-facing template omits fields.
 INPUT_FIELDS = {
-    'DISPATCH': ['task_ref', 'handle', 'branch', 'worktree', 'base', 'launch_base', 'agent_type', 'config', 'execution_mode'],
+    'DISPATCH': ['task_ref', 'handle', 'branch', 'worktree', 'base', 'launch_base', 'agent_type', 'config', 'execution_mode', 'worker_worktree', 'launch_receipt'],
     'RESULT': ['summary', 'worker_commit', 'task_ref', 'components', 'checks'],
     'MERGE_PENDING': ['worker_commit', 'base', 'base_sha', 'task_ref', 'authorization_id', 'checks'],
     'MERGE_VERIFIED': ['base', 'verified_base_sha', 'task_ref', 'verification_evidence', 'cleanup_evidence', 'repo', 'branch', 'worktree', 'worker_commit'],

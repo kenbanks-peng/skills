@@ -28,13 +28,13 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
 2. Generate each initial worker prompt with [scripts/worker_prompt.py](scripts/worker_prompt.py) using its `--help` and the [runtime procedure](runtime.md).
-3. Mark the task `active` with its agent type, then create/open the worker using the runtime procedure. Confirm startup before treating it as dispatched.
+3. Mark the task `active` with its agent type, then create/open the worker using the runtime procedure. Retain a successful launch receipt with observed host/worker paths, container identity, and UI IDs before treating it as dispatched.
 4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. Record shared config, execution mode, UI resource IDs, and run-wide checks in one ACTIVITY: run-context note on the run epic or designated task; refer to that record from task notes and record task-specific overrides. The handle identifies the individual worker; the Aven agent field identifies its type.
 
 ## 3. Monitor and review
 
 1. Track all unresolved handles. Use bounded `workmux wait`, with `--any` for multiple workers; inspect status after each wait. Handle finished or waiting workers before waiting again.
-2. Retrieve reports with `aven show <task-ref> --full`. Use terminal capture only to diagnose missing reports, failed startup, or unexpected state.
+2. Retrieve the latest relevant note with [dispatch_cli.py](scripts/dispatch_cli.py) `report`, as described in [runtime.md](runtime.md#compact-reports). Retain full JSON once when several notes are needed; reserve full history for recovery. Use terminal capture only to diagnose missing reports, failed startup, or unexpected state.
 3. Compare the report with the actual diff, commits, acceptance criteria, and check evidence. Return incomplete work to the worker; a report remains provisional until base verification.
 4. After an interruption or additional user request, reconcile the full tracked set and resume monitoring unless the user stops the run or input is required. Use [recovery.md](recovery.md) for uncertain state.
 
@@ -44,12 +44,12 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 2. Wait for a new merge result or failure note for that authorization. An old Workmux `done` status is not acknowledgment. On failure, follow recovery before retrying.
 3. Run [verify_base.py](scripts/verify_base.py) with the checked post-rebase worker commit and required checks. Retain its JSON evidence. Recheck the base before closure if it may have moved.
 4. If verification fails or cannot run, keep the task active and its worktree intact. Send the failure back for repair, then repeat review, merge, and base verification.
-5. After verification, stop worker writers and reconcile their Workmux sessions. Review [cleanup_worker.py](scripts/cleanup_worker.py)'s dry run, then explicitly authorize cleanup using the verified revisions. Retain its JSON evidence and render the `MERGE_VERIFIED` note. Append it before marking the task `done` and clearing its agent. Any cleanup failure remains pending, not complete.
+5. After verification, follow [stop, archive, and cleanup](runtime.md#stop-archive-and-clean-up): verify worker exit, reconcile its UI, and archive generated prompts before cleanup checks. Review [cleanup_worker.py](scripts/cleanup_worker.py)'s dry run, then explicitly authorize cleanup using the verified revisions and container stop evidence. Retain all JSON evidence and render the `MERGE_VERIFIED` note. Append it before marking the task `done` and clearing its agent. Any cleanup failure remains pending, not complete.
 6. Query ready tasks again using the run's filters. Create or reuse tasks for discovered work; distinguish current-run work from deferred backlog.
 
 ## 5. Close the run
 
-1. Confirm all selected tasks are verified, merged, and cleaned up. Use `verify_base.py` for the run-wide checks against the final base revision, supplying a retained verified worker commit. Passing task checks do not replace these.
+1. Confirm all selected tasks are verified, merged, and cleaned up. If acceptance requires identifying notes, require a committed manifest and persistent CI check for all exact notes using the [runtime procedure](runtime.md#persistent-identifying-note-checks). Use `verify_base.py` for the run-wide checks against the final base revision, supplying a retained verified worker commit. Passing task checks do not replace these.
 2. After all worktrees are cleaned up, remove their recorded parent directories only if empty, using `rmdir` on each exact path; leave nonempty directories intact. A cleanup failure other than a nonempty directory remains pending.
 3. On successful completion, close this run's tasks view using its recorded resource ID and the [runtime cleanup procedure](runtime.md#dispatch-and-tasks-tabs). If any condition is unmet, retain it and write a recovery handoff instead of claiming completion.
 4. Render and append one `SUMMARY` note on the run's epic, or a designated task when there is no epic. Give the user a concise outcome and validation report.
