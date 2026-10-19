@@ -45,16 +45,12 @@ stderr, and exact revisions. Failure checkouts remain available for diagnosis.
 Evidence is under the saved record directory, outside worker worktrees.
 
 The command never stops workers, removes their worktrees, or changes Aven status.
-Continue with stop, archive, and cleanup using `integrated_worker_sha`,
-`verified_base_sha`, and `verification_evidence` from this event.
-After cleanup, before the completion note and status change, run:
-
-```sh
-python3 <skill-directory>/scripts/integrate.py APP-1234 --closure
-```
-
-This read-only gate rejects base movement. Keep repository serialization through
-closure; the gate is a snapshot, not a lock that survives command exit.
+Continue with [finish-worker](runtime.md#stop-archive-and-clean-up). It reads these
+saved revisions and verification evidence, confirms writer exit, archives known
+prompts, and attempts strict cleanup. One authorization covers the sequence.
+It rechecks the base and exit before saving the completion note and marking done.
+Safe retained resources remain explicit pending cleanup; housekeeping is separate.
+No caller-built recovery JSON or separate closure command is needed.
 Uncoordinated Git writers must be stopped or otherwise excluded.
 
 ## Failure and interruption

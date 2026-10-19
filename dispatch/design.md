@@ -131,8 +131,12 @@ interface as it replaces those commands; helper names and note schemas are not
 compatibility requirements. They do not prove live Workmux integration, UI behavior,
 conflict semantics, or serialization. Those need the later lifecycle tests.
 
-Current limits remain explicit: cleanup without container evidence accepts caller
-assertions about writers/checks; preflight is not merge authorization; closure
-rendering does not reread Git. The target record must join these guards. The current
-VERIFIED renderer requires executed cleanup; the target deliberately permits
-reported pending cleanup after the completion gates pass, per the epic decision.
+The normal finish interface now joins saved integration/check identity, current base,
+exact writer exit, archive, removal, and durable completion reporting under the
+repository lock. Tests exercise repeated finish, partial archive/removal, retained
+content, and separate delivery/cleanup/housekeeping outcomes. Unknown exit blocks
+completion. Local/Lima process evidence still requires review; it is not inferred
+from UI state. Herdr UI closure remains explicit best-effort housekeeping.
+Standalone helpers and the legacy cleanup-required VERIFIED renderer remain for
+diagnostics, not the normal completion path. They are not substitutes for finish.
+No command can exclude Git writers that do not honor the common repository lock.

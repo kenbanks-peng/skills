@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 
+from git_preflight import git
 from worker_runtime import canonical, emit, load_receipt, run
 
 
@@ -53,6 +54,11 @@ def archive(receipt, stop, destination, execute=False):
             tracked = run(["git", "ls-files", "--", str(relative)], worker).strip()
             if tracked:
                 raise ValueError(f"Tracked prompt must be retained: {source}")
+            ignored = git(
+                worker, "check-ignore", "-q", "--", str(relative), allowed=(0, 1)
+            )
+            if ignored.returncode == 0:
+                raise ValueError(f"Ignored prompt must be retained: {source}")
             data = source.read_bytes()
             if hashlib.sha256(data).hexdigest() != entry["sha256"]:
                 raise ValueError(f"Prompt changed since receipt: {source}")

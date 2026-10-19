@@ -75,7 +75,7 @@ identities block continuation. A missing UI, container, or branch is not permiss
 to launch again. Keep the record and follow [recovery.md](recovery.md); do not delete
 it to force a retry. Legacy launches without a saved record need explicit recovery,
 not automatic adoption. Integration and closure still use the guarded procedures
-below; the remaining lifecycle verbs are separate work.
+below and the saved-record finish operation.
 
 After confirmed launch, set Aven active/agent from the observed agent type, and
 append the DISPATCH note using the saved record. Dispatch retains task-status
@@ -85,14 +85,57 @@ than CLI timeouts. A timeout prompts inspection, not cancellation or completion.
 
 ## Stop, archive, and clean up
 
-After base verification, perform these steps in order. Serialize lifecycle operations and prevent replacement writers throughout the sequence.
+After successful integration, review one plan and authorize it once:
 
-1. Review [stop_worker.py](scripts/stop_worker.py)'s dry run against the launch receipt. Run it with `--execute` and retain JSON stdout. Require `ok: true` and `stopped: true`. Workmux uses auto-removal: a successful stop plus an independent container listing can confirm removal. A missing container before a confirmed stop is uncertain, not success. Use `--previous` with retained stop evidence to recheck an auto-removed container.
-2. Reconcile the recorded Workmux session/UI in the original multiplexer context. Closing a Herdr tab is not a container stop. For local workers, independently establish that all writers have exited; the container-stop helper refuses to certify local or Lima processes.
-3. Review [archive_prompts.py](scripts/archive_prompts.py)'s dry run, supplying the receipt, stop evidence, and an archive directory outside the worktree. Then run with `--execute` and retain stdout. Refresh observations before stopping if a follow-up generated new prompts. On partial failure, use the retained archive and source paths to reconcile before retrying.
-4. Run the existing cleanup dry run, then authorize execution. For container workers supply both `--receipt` and `--stop-evidence`; cleanup rechecks exit before removal. Keep strict dirty/untracked/ignored-file checks. Archive or resolve other artifacts explicitly instead of ignoring all of `.workmux/`.
+```sh
+python3 <skill-directory>/scripts/finish_worker.py APP-1234
+python3 <skill-directory>/scripts/finish_worker.py APP-1234 --authorize-finish
+```
 
-Retain container inspection access until cleanup finishes.
+Authorization covers stop, prompt archive, strict worktree and branch removal,
+best-effort housekeeping, a durable Aven report, and task completion. The command
+uses the saved assignment and integration evidence. It holds the common Git
+directory lock. Exclude writers that do not use this lock through completion.
+
+The operation requires matching successful independent checks and the current
+verified base. It confirms the exact recorded container and mount identity before
+archive, removal, and completion. UI closure is never exit evidence. A container
+missing before a confirmed stop is uncertain. A successful stop followed by an
+independent listing can confirm auto-removal. Local/Lima writer exit is not
+supported: preserve resources and obtain independent process evidence for review.
+
+Only receipt-listed, unchanged, untracked, non-ignored generated prompts are
+archived. Unknown, changed, tracked, ignored, dirty, or unsafe content remains.
+Every mutation has saved intent and completion state. Archives, stop evidence,
+the completion report, and the worker record remain in the common Git directory.
+
+Retry with the same reference and no new authorization:
+
+```sh
+python3 <skill-directory>/scripts/finish_worker.py APP-1234 --inspect
+python3 <skill-directory>/scripts/finish_worker.py APP-1234
+```
+
+Inspection does not change the record. Retry checks actual resources and performs
+only remaining actions. A verified archive can account for a source removed
+before interruption. A saved removal attempt can account for an absent worktree
+or branch. Never recreate a deleted resource to rerun cleanup. Changed identity,
+an unexpected absence, a changed plan, base movement, or uncertain exit requires
+judgment; do not edit the record to force success.
+
+Completion requires integration, independent checks, confirmed exit, and a saved
+Aven report. Cleanup is not an extra completion gate. Safe retained resources
+are listed in `pending_cleanup` with exact identity, evidence, owner, and next
+action; they are not called complete. A failed Aven note or status command blocks
+completion. Keep `completion.md` on write failure.
+
+Housekeeping is separate. Exact tmux panes are checked before closure. Other UI
+backends remain explicit housekeeping for the dispatcher to inspect in the
+original context; no unsupported closure command is guessed. An optional saved
+`cleanup_parent` permits only the exact immediate parent to be removed with
+`rmdir`. UI or empty-parent failure does not block delivery. Report
+`delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` separately.
+Retain container inspection access while cleanup remains pending.
 
 ## Compact reports
 
