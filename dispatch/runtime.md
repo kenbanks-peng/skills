@@ -5,7 +5,7 @@ Read before creating or reconnecting workers. CLI help supplies syntax; this doc
 ## Environment
 
 - Use `~/.config/workmux/agents.linux.yaml` by default. Use `~/.config/workmux/agents.macos.yaml` only when the user explicitly requests macOS or excludes sandboxing. Verify the selected file exists; a missing Linux setup is a blocker, not permission to fall back.
-- Pass the selected file with `--config` for creation/reopening. Let it select the agent; record the actual agent type in Aven rather than passing an `--agent` override.
+- Pass the selected file with `--config` for creation/reopening. The launch helper resolves the config path, including symbolic links, and records and uses the resolved path. Repository and prompt paths must remain canonical. Let it select the agent; record the actual agent type in Aven rather than passing an `--agent` override.
 - Use Herdr when `HERDR_ENV=1`, otherwise the active tmux session when `TMUX` is set. In Herdr omit `--parent-session`. In tmux identify the dispatcher's actual session and pass it when placement matters; ask if ambiguous rather than deriving it from a repository name.
 - Run Workmux lifecycle commands in the target repository. Qualify agent handles as `project:handle` when cross-project names collide.
 - Preserve Aven's configured database/workspace defaults and project inference in worker prompts, including for sandboxed workers. Supply routing overrides only when diagnostics establish that the defaults select the wrong target.

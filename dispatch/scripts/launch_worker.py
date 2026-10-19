@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import re
+from pathlib import Path
 
 from worker_runtime import canonical, containers, emit, load_receipt, run, worker_path
 
@@ -81,7 +82,8 @@ def launch(args):
     }
     try:
         canonical(args.repo)
-        canonical(args.config)
+        args.config = str(Path(args.config).expanduser().resolve(strict=True))
+        result["config"] = args.config
         canonical(args.prompt)
         if not args.handle or args.handle.startswith("-") or ":" in args.handle:
             raise ValueError("Use a local, explicit worker handle without ':'")

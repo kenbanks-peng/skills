@@ -39,7 +39,12 @@ def normalize(runtime, data):
     if runtime == "apple-container":
         config = data["configuration"]
         identity = config["id"]
-        status = data["status"].lower()
+        status = data["status"]
+        if isinstance(status, dict):
+            status = status.get("state")
+        if not isinstance(status, str) or not status.strip():
+            raise ValueError("Expected a non-empty Apple container status.state string")
+        status = status.lower()
         mounts = [
             {"source": m["source"], "destination": m["destination"]}
             for m in config["mounts"]
