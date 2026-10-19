@@ -27,7 +27,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 ## 2. Dispatch ready work
 
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
-2. Give each worker the task ref, project routing, base branch, write scope, acceptance checks, and the full [worker.md](worker.md) contract. Include context unavailable from the task and preserve attachment paths. Use repository-relative source paths.
+2. Generate each initial worker prompt with [scripts/worker_prompt.py](scripts/worker_prompt.py) using its `--help` and the [runtime procedure](runtime.md).
 3. Mark the task `active` with its agent type before launch. Write the prompt file, then create/open the worker using the runtime procedure. Confirm startup before treating it as dispatched.
 4. Append a `DISPATCH` note: handle, branch, worktree path, pre-launch base SHA captured by the runtime procedure, base branch, agent type, config, and execution mode. For resumed workers, retain the original launch evidence. The handle identifies the individual worker; the Aven agent field identifies its type.
 
@@ -51,7 +51,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 
 1. Confirm all selected tasks are verified, merged, and cleaned up. Run the run-wide checks against the final base revision; passing task checks do not replace these.
 2. After all worktrees are cleaned up, remove their recorded parent directories only if empty, using `rmdir` on each exact path; leave nonempty directories intact. A cleanup failure other than a nonempty directory remains pending.
-3. On successful completion, close the `tasks` tab/window created by this run using its recorded ID. If any condition is unmet, retain it and write a recovery handoff instead of claiming completion.
+3. On successful completion, close this run's tasks view using its recorded resource ID and the [runtime cleanup procedure](runtime.md#dispatch-and-tasks-tabs). If any condition is unmet, retain it and write a recovery handoff instead of claiming completion.
 4. Write one `SUMMARY` note on the run's epic, or a designated task when there is no epic: delivered outcome, final verified SHA, checks, and follow-up refs. Give the user a concise outcome and validation report.
 
 ## Evidence notes
