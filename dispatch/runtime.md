@@ -13,11 +13,23 @@ Read before creating or reconnecting workers. CLI help supplies syntax; this doc
 
 ## Launch and reconnect
 
-1. Run `python3 <skill-directory>/scripts/worker_prompt.py --help` for initial-brief parameters and usage. Write its JSON input with the file-write tool, then generate the prompt after capturing the launch SHA in step 2. For corrections and merge authorizations, write prompt files directly with the file-write tool. Keep prompt content as data, never interpolated into shell source. After generation or the final write, read back the complete prompt and verify its content, including literal shell expressions, Markdown backticks, and actual newlines, before launching or sending it. Send the merge procedure inline later, only with authorization.
+1. Run `python3 <skill-directory>/scripts/worker_prompt.py --help` for initial-brief parameters and usage. Write its JSON input with the file-write tool, then generate the prompt after capturing the launch SHA in step 2. Generate merge authorizations with `merge_prompt.py` only after review and preflight; write corrections directly with the file-write tool. Keep prompt content as data, never interpolated into shell source. After generation or the final write, read back the complete prompt and verify its content, including literal shell expressions, Markdown backticks, and actual newlines, before launching or sending it. Send the merge procedure inline later, only with authorization.
 2. Before each new worker launch, resolve `refs/heads/<base>` with `git rev-parse --verify refs/heads/<base>^{commit}` and record the full SHA in the prompt file as the launch base revision. Then use `workmux add <branch> --base <base> --name <handle> -b -P <prompt-file> --config <config-file>`, with the applicable multiplexer options. Resolve every placeholder before execution. Retain the branch name as `--base` so Workmux records the intended merge target.
 3. Serialize `add` and `open` per repository; parallel work begins after startup. For retained workers, send a follow-up to the live session or use `workmux open <handle> --continue -P <prompt-file> --config <config-file>`.
 4. Confirm startup with `workmux wait <handle> --status working --timeout 120`. For a new worker, verify the captured launch SHA is an ancestor of its branch; its tip may already include worker commits. Use the pre-launch SHA in the dispatch record, not a post-startup HEAD read. On failure inspect status/capture rather than blindly relaunching; follow [recovery.md](recovery.md).
 5. Monitor with bounded waits, such as `workmux wait <handles> --any --timeout 120`. Set any enclosing tool timeout longer than the CLI timeout. A wait timeout prompts inspection, not cancellation of the worker or completion of the run.
+
+## Mechanical gates and evidence
+
+Run the Python helpers on the dispatcher with `python3 <skill-directory>/scripts/<script> --help`; CLI help owns arguments and schemas. Write JSON inputs with the file-write tool. Keep prompts, parameters, and evidence outside worker worktrees so they do not affect cleanliness checks. Use the same canonical repository root throughout verification and cleanup. Persist JSON stdout even on nonzero exit; failures can contain retained-resource paths needed for recovery.
+
+- Before authorization: `git_preflight.py` checks the worker's Git preconditions; it does not replace diff review or the worker's just-in-time confirmations.
+- After merge and at run closure: `verify_base.py` runs the supplied checks in a temporary checkout of a pinned base. Checks are trusted executable commands, not sandboxed; supply repository-relative argv and arrange any environment/dependencies they need. Failed or dirty checkouts are retained; reconcile them before retrying. Passing checks alone do not authorize cleanup.
+- After successful verification: stop worker writers using the installed Workmux lifecycle commands, then review `cleanup_worker.py`'s dry run before explicit execution. Reconcile Workmux sessions separately; the helper removes Git resources only. Serialization remains necessary because inspection and deletion are not atomic. On partial cleanup, use recovery rather than forcing a rerun.
+- For uncertain state: `recovery_snapshot.py` gathers read-only observations. Missing or failed observations are not proof of absence.
+- For notes: `render_note.py` uses the templates and measured evidence. Closure notes require matching successful verification and executed cleanup results for the exact resources. Posting and task-status decisions remain with dispatch.
+
+Helpers require Python 3 and Git; verification and recovery process isolation require POSIX. Do not assume dispatcher-local scripts or templates are accessible inside worker sandboxes: prompts inline worker procedures instead.
 
 ## Dispatch and tasks tabs
 

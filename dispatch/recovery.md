@@ -5,21 +5,21 @@ Read before replacing workers, retrying uncertain operations, or resuming an int
 ## Reconcile first
 
 1. Query `aven list --open` using the run's project/scope filters and inspect task context and full notes. Include any completed tasks explicitly recorded as having pending cleanup.
-2. Reconstruct each task's handle, branch, worktree, base, config, last reported commit, and next action. Compare with `workmux list`, `workmux status`, and `git worktree list`.
+2. Reconstruct each task's handle, branch, worktree, base, config, last reported commit, and next action. Run [scripts/recovery_snapshot.py](scripts/recovery_snapshot.py) using its `--help`, retain the JSON, and compare its observations with the task record. Investigate missing, failed, or truncated observations before acting.
 3. Establish what actually happened from Git ancestry and working-tree state. A missing worker window does not prove lost work; a completion note does not prove a merge. Inspect both the reported worker commit and current branch tip when they differ.
 
 ## Choose the next action
 
-| Observed state | Action |
-| --- | --- |
-| Worker still running | Resume monitoring; avoid duplicate dispatch. |
-| Worker needs input | Resolve the question or report the blocker to the user. |
-| Startup unconfirmed | Inspect status and capture output; reconcile partial resources before retrying. A worker may have finished before `working` was observed. |
-| Report missing | Inspect worker state and restore Aven reporting before merge. |
-| Reported work not merged | Review it, then authorize a merge only when ready. |
-| Work already merged | Verify the actual base revision; repair failed checks without repeating the old merge. |
-| Verification passed, cleanup pending | Reconfirm ancestry and clean state, then finish cleanup and closure. |
-| Work or ownership uncertain | Preserve resources, record the discrepancy, and seek the missing evidence. |
+| Observed state                       | Action                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker still running                 | Resume monitoring; avoid duplicate dispatch.                                                                                                                                                                                                                                                               |
+| Worker needs input                   | Resolve the question or report the blocker to the user.                                                                                                                                                                                                                                                    |
+| Startup unconfirmed                  | Inspect status and capture output; reconcile partial resources before retrying. A worker may have finished before `working` was observed.                                                                                                                                                                  |
+| Report missing                       | Inspect worker state and restore Aven reporting before merge.                                                                                                                                                                                                                                              |
+| Reported work not merged             | Review it, then authorize a merge only when ready.                                                                                                                                                                                                                                                         |
+| Work already merged                  | Verify the actual base revision; repair failed checks without repeating the old merge.                                                                                                                                                                                                                     |
+| Verification passed, cleanup pending | Inspect recorded cleanup actions and surviving resources. Revalidate the base; use the cleanup helper only while its full preconditions still hold. If removal was partial, finish only the remaining actions after independently checking their guards; never recreate resources merely to rerun cleanup. |
+| Work or ownership uncertain          | Preserve resources, record the discrepancy, and seek the missing evidence.                                                                                                                                                                                                                                 |
 
 ## Locks and reassignment
 
@@ -29,4 +29,4 @@ Read before replacing workers, retrying uncertain operations, or resuming an int
 
 ## Leave a durable handoff
 
-Append `BLOCKED` with observed progress, commits/checks, retained resources, blocker, responsible party, and next action. Keep unfinished tasks active and assigned unless explicitly handing ownership off. Record changed handles/configurations rather than repeating the original dispatch entry. Tell the user what needs attention and retain run-owned progress UI while the run is incomplete.
+Render `BLOCKED` with [scripts/render_note.py](scripts/render_note.py), referencing the recovery snapshot and retained verification/cleanup evidence, then append it through `tasks`. Keep unfinished tasks active and assigned unless explicitly handing ownership off. Record changed handles/configurations rather than repeating the original dispatch entry. Tell the user what needs attention and retain run-owned progress UI while the run is incomplete.
