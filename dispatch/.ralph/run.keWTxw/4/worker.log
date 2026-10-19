@@ -1,7 +1,0 @@
-Committed `86f9c11` for SKL-BYB5.
-
-- All 70 tests passed in isolation.
-- Isolated Ruff failed on import classification.
-- Saved the blocker and evidence in Aven.
-
-The task remains active for review.

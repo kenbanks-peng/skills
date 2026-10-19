@@ -1,3 +1,0 @@
-# These CLI modules live in scripts, not in the enclosing dispatch directory.
-# Keep import classification stable from both the repository and skill roots.
-src = ["scripts"]
