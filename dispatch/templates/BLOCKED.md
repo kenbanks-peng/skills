@@ -1,15 +1,15 @@
-BLOCKED: $task_ref
+BLOCKED: $error
 
-Phase or authorization ID: $phase
+Next action: $next_action
+Responsible party: $owner
+
+Task: $task_ref
+Phase or authorization: $phase
 Failed command/action: $command
 Working directory: $working_directory
-Observed error or blocker: $error
 
-Observed state and retained resources:
+Retained state needed for recovery:
 $retained_state
 
-Evidence files or notes:
+Evidence:
 $evidence
-
-Responsible party: $owner
-Next action: $next_action

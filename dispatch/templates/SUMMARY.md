@@ -1,12 +1,10 @@
-SUMMARY: $task_ref
+SUMMARY: $outcome
 
-Delivered outcome:
-$outcome
-
+Run record: $task_ref
 Final verified base: $verified_base_sha
 
-Run-wide check evidence:
+Run-wide checks:
 $checks
 
-Follow-up refs (or explicitly none):
+Follow-ups:
 $follow_ups

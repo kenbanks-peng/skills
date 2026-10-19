@@ -29,6 +29,16 @@ aven edit <ref> --status done --clear-agent
 - Prefer epics over labels for grouping. Create labels before applying them. Epic membership is not a dependency; dependency arguments are blocked task first, blocker second.
 - Check dependencies before changing status or order. The agent field identifies a type, not a session; clear it when leaving active status. Mark `done` only after completion criteria pass.
 
+## Selective notes
+
+Notes are a handoff, not an execution transcript. Select by relevance, then format for scanning.
+
+- Lead with the outcome, decision, or blocker; use a short heading and bullets for supporting facts.
+- Include new facts needed to review, resume, or decide the next action. Record stable context once and refer back to its task or note; record changes explicitly.
+- Keep evidence compact: checked revision, relevant checks and results, and durable evidence paths. Use exact commands when needed to reproduce a failure or understand a nonstandard check; keep routine logs in evidence files.
+- Preserve consequential decisions and rationale, unexpected behavior, unresolved risks, and skipped or unavailable checks. Expand failure details enough to resume safely; relevance, not a word limit, determines length.
+- Omit routine procedure narration, repeated instructions or metadata, and assurances that workflow rules were followed. Required checks still run; their narration is selective.
+
 ## Durable handoffs
 
 - Append decisions, check evidence, blockers, and next actions as notes. Use files or stdin for long text; reference evidence rather than copying logs.

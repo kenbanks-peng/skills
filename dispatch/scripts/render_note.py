@@ -123,7 +123,7 @@ def main():
             + "\n\n".join(schemas)
             + "\n\nFields are nonempty strings except [list], which requires nonempty string lists.\n"
             "Use Git-generated SHAs and actual check evidence, never inferred passes.\n"
-            "MERGE_PENDING is the worker's result; MERGE_VERIFIED is dispatch's closure.\n"
+            "MERGE_PENDING renders MERGE (worker integration); MERGE_VERIFIED renders VERIFIED (dispatch closure).\n"
             "For MERGE_VERIFIED, verification_evidence and cleanup_evidence are paths to\n"
             "JSON stdout from verify_base.py and cleanup_worker.py (relative to cwd or absolute).\n"
             "Successful evidence must match full SHAs and exact repository/base/worker identity.\n"
@@ -131,7 +131,7 @@ def main():
             "MERGE_VERIFIED checks are generated from verification argv evidence, not supplied text.\n"
             "These files are trusted local evidence, not tamper-proof attestations.\n"
             "Rendering does not recheck current Git state or establish semantic correctness.\n"
-            "Review the note, then post with the tasks workflow. Failed/skipped checks belong\n"
+            "Review for relevance and add material decisions or exceptions before posting with tasks. Failed/skipped checks belong\n"
             "in BLOCKED, not a success note. Include an authorization ID in BLOCKED.phase\n"
             'for a merge failure. For SUMMARY.follow_ups use ["None"] if none exist.\n'
             "No shell interpolation, Aven operations, or task/status changes are performed."

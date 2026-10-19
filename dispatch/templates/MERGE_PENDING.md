@@ -1,9 +1,7 @@
-MERGE: merged worker $worker_commit into $base at $base_sha; awaiting dispatch verification.
+MERGE: worker $worker_commit integrated into $base at $base_sha; awaiting dispatch verification.
 
 Task: $task_ref
-Authorization ID: $authorization_id
+Authorization: $authorization_id
 
-Worker check evidence:
+Post-rebase checks:
 $checks
-
-Worktree retained; task status and assignment unchanged.

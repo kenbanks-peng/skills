@@ -29,7 +29,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
 2. Generate each initial worker prompt with [scripts/worker_prompt.py](scripts/worker_prompt.py) using its `--help` and the [runtime procedure](runtime.md).
 3. Mark the task `active` with its agent type, then create/open the worker using the runtime procedure. Confirm startup before treating it as dispatched.
-4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. The handle identifies the individual worker; the Aven agent field identifies its type.
+4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. Record shared config, execution mode, UI resource IDs, and run-wide checks once on the run epic or designated task; refer to that record from task notes and record task-specific overrides. The handle identifies the individual worker; the Aven agent field identifies its type.
 
 ## 3. Monitor and review
 
@@ -56,4 +56,13 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 
 ## Evidence notes
 
-Use [render_note.py](scripts/render_note.py) and its `--help` to render transition notes from the [templates](templates). Review the result, then append through `tasks`; rendering never posts or changes status. Worker reports remain governed by their inlined contracts when dispatcher-local helpers are inaccessible. Record facts once and refer back to unchanged metadata; add progress notes only for material decisions. Use full Git SHAs for machine evidence and Git-generated unambiguous short SHAs for other prose. Keep failure details sufficient to resume; never replace evidence with a success claim.
+Follow the `tasks` selective-note policy. Record transitions below; add progress notes only for material decisions or changes. Keep mandatory checks in the procedure, not a narrated checklist in the note.
+
+- `DISPATCH` — worker recovery coordinates and launch revision; reference shared run context.
+- `RESULT` — delivered change, commit, acceptance/check results, and exceptions.
+- `MERGE` — worker integration result, checked post-rebase commit, resulting base revision, post-rebase check results, and consequential conflict decisions. Explicitly awaiting dispatch verification.
+- `VERIFIED` — dispatch's independently tested base revision, check results, and completed cleanup. Add verification evidence rather than repeating the worker's merge report.
+- `BLOCKED` — blocker first, then recovery evidence, responsible party, and next action.
+- `SUMMARY` — delivered outcome, final verified revision, run-wide check results, and follow-up refs; leave lifecycle history in earlier notes.
+
+Use [render_note.py](scripts/render_note.py) and its `--help` to render transition notes from the [templates](templates). Review for relevance and add material decisions or exceptions before appending through `tasks`; rendering never posts or changes status. Worker reports remain governed by their inlined contracts when dispatcher-local helpers are inaccessible. The helper kinds `MERGE_PENDING` and `MERGE_VERIFIED` render `MERGE` and `VERIFIED` respectively. Use full Git SHAs for machine evidence and Git-generated unambiguous short SHAs for other prose. Keep failure details sufficient to resume; never replace evidence with a success claim.

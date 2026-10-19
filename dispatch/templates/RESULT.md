@@ -1,13 +1,10 @@
-RESULT: $task_ref
+RESULT: $summary
 
-$summary
-
-Worker commit: $worker_commit
+Commit: $worker_commit
+Task: $task_ref
 
 Affected components:
 $components
 
-Acceptance and check evidence:
+Checks:
 $checks
-
-Awaiting dispatch review and base verification; worktree retained.
