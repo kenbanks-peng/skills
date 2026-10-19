@@ -7,7 +7,7 @@ description: Use when the user explicitly requests dispatch to run coding tasks 
 
 Coordinate workers; own the run through verified completion or a durable handoff. Read enough project context to define scope and acceptance criteria; delegate implementation.
 
-This is an independently maintained workflow. Use the `tasks` skill for Aven operations and installed CLI help for syntax. Its supporting documents are procedures, not generated Workmux skills.
+This is an independently maintained workflow. Use the `tasks` skill for Aven operations and installed CLI help for syntax.
 
 ## Contract
 
@@ -27,7 +27,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 ## 2. Dispatch ready work
 
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
-2. Reuse a related worker session when practical. Give each worker the task ref, project routing, base branch, write scope, acceptance checks, and the full [worker.md](worker.md) contract. Include context unavailable from the task and preserve attachment paths. Use repository-relative source paths.
+2. Give each worker the task ref, project routing, base branch, write scope, acceptance checks, and the full [worker.md](worker.md) contract. Include context unavailable from the task and preserve attachment paths. Use repository-relative source paths.
 3. Mark the task `active` with its agent type before launch. Write the prompt file, then create/open the worker using the runtime procedure. Confirm startup before treating it as dispatched.
 4. Append a `DISPATCH` note: handle, branch, worktree path, pre-launch base SHA captured by the runtime procedure, base branch, agent type, config, and execution mode. For resumed workers, retain the original launch evidence. The handle identifies the individual worker; the Aven agent field identifies its type.
 
