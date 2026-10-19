@@ -117,7 +117,9 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234
 ```
 
 Inspection does not change the record. Retry checks actual resources and performs
-only remaining actions. A verified archive can account for a source removed
+only remaining actions. A resource that reappears after its removal was recorded
+complete requires judgment; the old authorization does not cover its deletion.
+A verified archive can account for a source removed
 before interruption. A saved removal attempt can account for an absent worktree
 or branch. Never recreate a deleted resource to rerun cleanup. Changed identity,
 an unexpected absence, a changed plan, base movement, or uncertain exit requires
@@ -129,7 +131,9 @@ are listed in `pending_cleanup` with exact identity, evidence, owner, and next
 action; they are not called complete. A failed Aven note or status command blocks
 completion. Keep `completion.md` on write failure.
 
-Housekeeping is separate. Exact tmux panes are checked before closure. Other UI
+Housekeeping is separate. Exact tmux panes and the saved server `socket_path`
+are checked before closure; records without server identity retain pending UI
+housekeeping rather than targeting a possibly unrelated server. Other UI
 backends remain explicit housekeeping for the dispatcher to inspect in the
 original context; no unsupported closure command is guessed. An optional saved
 `cleanup_parent` permits only the exact immediate parent to be removed with

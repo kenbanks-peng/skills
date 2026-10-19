@@ -1,0 +1,13 @@
+# These CLI modules live in scripts, not in the enclosing dispatch directory.
+# Keep import classification stable from both the repository and skill roots.
+src = ["scripts"]
+
+# Keep the required baseline stable across Ruff releases (including import order).
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+# These entry points disable bytecode before importing local CLI modules.
+[lint.per-file-ignores]
+"scripts/cleanup_worker.py" = ["E402"]
+"scripts/integrate.py" = ["E402"]
+"scripts/verify_base.py" = ["E402"]

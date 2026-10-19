@@ -89,6 +89,20 @@ def observation(record):
             and "HEAD " + record["integration"]["integrated_worker_sha"] in lines,
             "Registered worker identity changed",
         )
+        actual = paths(worker)
+        git_dir = Path(actual["git_dir"])
+        require(
+            actual["worktree"] == str(worker)
+            and actual["common_dir"] == record["common_dir"]
+            and git_dir.parent == Path(record["common_dir"]) / "worktrees"
+            and (worker / ".git").is_file()
+            and not (worker / ".git").is_symlink()
+            and Path((git_dir / "gitdir").read_text().strip()) == worker / ".git"
+            and git(worker, "symbolic-ref", "-q", "HEAD").stdout.strip()
+            == "refs/heads/" + record["branch"]
+            and commit(worker, "HEAD") == record["integration"]["integrated_worker_sha"],
+            "Current worker Git identity changed; preserve the resource",
+        )
     else:
         require(
             not worker.exists(), "Unregistered resource at worker path; preserve it"
@@ -193,6 +207,11 @@ def housekeeping(record, event, persist):
             try:
                 pane = agent["pane_id"]
                 require(bool(re.fullmatch(r"%[0-9]+", pane)), "Invalid saved pane")
+                socket = ui["context"].get("socket_path")
+                require(
+                    bool(socket) and Path(socket).is_absolute(),
+                    "Original tmux server identity is unavailable; preserve the pane",
+                )
                 # A failed lookup may mean it is gone, but is not proof; preserve uncertainty.
                 actual = run(
                     [
@@ -201,11 +220,12 @@ def housekeeping(record, event, persist):
                         "-p",
                         "-t",
                         pane,
-                        "#{pane_id}\t#{session_id}\t#{pane_current_path}",
+                        "#{socket_path}\t#{pane_id}\t#{session_id}\t#{pane_current_path}",
                     ]
                 ).strip()
                 require(
-                    actual == "\t".join((pane, agent["session"], record["worktree"])),
+                    actual
+                    == "\t".join((socket, pane, agent["session"], record["worktree"])),
                     "UI identity changed",
                 )
                 run(["tmux", "kill-pane", "-t", pane])
@@ -320,8 +340,22 @@ def finish(record, path, authorize=False, inspect_only=False):
         persist()
         return result
 
+    def guarded_state():
+        current_base(record)
+        observed = observation(record)
+        for kind in ("worktree", "branch"):
+            require(
+                not (
+                    observed[kind + "_present"]
+                    and event["actions"].get(kind) == "complete"
+                ),
+                "Completed " + kind + " reappeared; preserve it and request judgment",
+            )
+        return observed
+
     persist()
     try:
+        state = guarded_state()
         event["stop"] = stop(
             dict(record, finish=None), execute=True, previous=event.get("exit_evidence")
         )
@@ -333,6 +367,8 @@ def finish(record, path, authorize=False, inspect_only=False):
         event["exit_evidence"] = event["stop"]
         persist()
         event["delivered"] = True
+        # Stop may take time: do not archive against the pre-stop snapshot.
+        state = guarded_state()
         for kind in ("worktree", "branch"):
             require(
                 state[kind + "_present"] or kind in event["actions"],
@@ -365,6 +401,7 @@ def finish(record, path, authorize=False, inspect_only=False):
                             current.get("ok") and current.get("stopped"),
                             "Writer exit changed",
                         )
+                        guarded_state()
                         single = dict(record, prompts=[entry])
                         result = archive(single, current, target.parent, execute=True)
                         event.setdefault("archives", {})[name] = result
@@ -398,7 +435,7 @@ def finish(record, path, authorize=False, inspect_only=False):
             if state["branch_present"]:
                 current_base(record)
                 require(not operations(record["repo"]), "Git operation in progress")
-                observation(record)
+                guarded_state()
                 confirm_exit(record, event)
                 action(
                     "branch",
