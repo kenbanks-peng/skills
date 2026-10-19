@@ -9,15 +9,79 @@ Read before creating or reconnecting workers.
 - Use Herdr when `HERDR_ENV=1`, otherwise the active tmux session when `TMUX` is set. In Herdr omit `--parent-session`. In tmux identify the dispatcher's actual session and pass it when placement matters; ask if ambiguous rather than deriving it from a repository name.
 - Run Workmux lifecycle commands in the target repository. Qualify agent handles as `project:handle` when cross-project names collide.
 - Preserve Aven's configured database/workspace defaults and project inference in worker prompts, including for sandboxed workers. Supply routing overrides only when diagnostics establish that the defaults select the wrong target.
-- Run [dispatch_cli.py](scripts/dispatch_cli.py) `discover --cache <run-evidence>/cli.json` once per run. Reuse its compact capability output; it refreshes when executable identity changes. Use `--refresh` after a configuration/tool change. Inspect subcommand help only for missing capabilities or diagnosis; inspect configuration for execution mode, agent, sandbox, Aven routing, and base revision.
+- Do not run capability discovery or create a capability cache on a normal run. After an unsupported command, flag, or response schema, or a diagnosed tool change, use `dispatch_cli.py discover --cache <evidence>/cli.json --refresh` and targeted subcommand help. Resolve the incompatibility before another mutation.
 
-## Launch and reconnect
+## Launch and reconcile
 
-1. Capture the launch base with `git rev-parse --verify refs/heads/<base>^{commit}`, then generate the initial prompt with [worker_prompt.py](scripts/worker_prompt.py). Write corrections directly with the file-write tool. Before launching or sending any prompt, read it back and verify the complete content, including literal shell expressions, Markdown backticks, and newlines.
-2. Launch with [launch_worker.py](scripts/launch_worker.py), using its `--help`. Supply the canonical repository root, branch, local base branch, `--launch-base` SHA used in the reviewed prompt, handle, config, prompt, and actual container runtime (`apple-container`, `docker`, or `podman`); use `local` only for explicitly approved unsandboxed workers. Pass `--parent-session` only in tmux. Persist stdout outside the worktree, including on failure. Lima is not supported by this adapter; establish explicit process-stop evidence before using a separate Lima launch procedure.
-3. Serialize `add` and `open` per repository; parallel work begins after startup. For retained workers, send a follow-up to the live session or use `workmux open <handle> --continue -P <prompt-file> --config <config-file>`.
-4. Require `ok: true` in the receipt. Use its pre-launch SHA, observed host worktree, `worker_worktree`, container identity, and `ui` pane IDs/context. Paths in worker instructions come from worker-visible coordinates, not host-path guesses. An unavailable or ambiguous identity blocks confirmed dispatch. On failure retain the receipt and inspect status/capture before retrying; follow [recovery.md](recovery.md). After reopening a retained worker, refresh these observations with `launch_worker.py --observe-only --previous <original-receipt>` and the same launch arguments before further lifecycle operations.
-5. Monitor with bounded waits, such as `workmux wait <handles> --any --timeout 120`. Set any enclosing tool timeout longer than the CLI timeout. A wait timeout prompts inspection, not cancellation of the worker or completion of the run.
+Run from the target repository in the original multiplexer:
+
+```sh
+python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
+  --base main --scope src/ --scope tests/ \
+  --check '["python3", "-m", "unittest"]'
+```
+
+Supply the full task reference, explicit local base, repository-relative write scopes,
+and required checks as argv arrays. Repeat `--scope` and `--check` as needed.
+Do not supply prompt JSON, a project, a launch SHA, a branch, a handle, or receipt
+paths. The command reads `aven context <ref> --json` with configured defaults.
+Use `--db` or `--workspace` only for diagnosed routing overrides. Saved overrides
+are reused when the same full reference is supplied.
+
+The command derives the canonical repository and common Git directory. It locks
+`<common-git-dir>/dispatch.lock` across linked worktrees, captures the explicit
+base SHA, renders the assignment as literal JSON data plus the worker contract,
+and saves launch intent before calling Workmux. Workmux receives the pinned SHA;
+the record retains the explicit local integration base. This prevents a moving
+base from changing the launch revision.
+
+The default config is `~/.config/workmux/agents.linux.yaml`, with sandboxing
+explicitly enabled. The default container CLI is Apple `container` on macOS and
+Docker on Linux. Use `--runtime docker|podman|apple-container` for an actual runtime
+override. Use `--config` only for a genuine config override. Local execution
+(`--runtime local`) and a macOS config require explicit user approval through
+`--allow-local`. Approved local execution on macOS defaults to
+`~/.config/workmux/agents.macos.yaml`. Local execution on Linux requires an explicit
+config override. The local config must disable sandboxing, and the UI must report
+the actual local worktree root. A missing Linux
+config is a blocker, not permission to fall back.
+The selected config chooses the agent; the observed agent type is saved.
+
+The saved record is `<common-git-dir>/dispatch-workers/<full-ref>/worker.json`.
+The assignment, config snapshot, generated prompt copies, hashes, command errors,
+and operation observations are retained beside it, outside worker worktrees.
+Workmux also writes its own prompt copy inside the worktree; the command copies
+it to evidence without deleting it. Follow the stop/archive guards before deleting
+that source. Keep the common Git directory and its evidence on handoff.
+
+Require `ok: true` before treating a launch as confirmed. The record contains
+host and worker-visible worktree paths, the exact container ID and mount mapping,
+the branch, actual agent type, and exact UI pane and multiplexer context. It does
+not infer guest paths from host paths. A fast `done` status can confirm startup
+even when the bounded `working` wait missed it; this is not task completion.
+Missing or ambiguous identity remains an error with partial observations retained.
+
+Read current resources without changing the saved record:
+
+```sh
+python3 <skill-directory>/scripts/dispatch.py inspect APP-1234
+```
+
+Save reconciled observations with `inspect APP-1234 --resume`. The first confirmed
+observation also saves the explicit local base in Workmux branch metadata.
+Repeating `launch APP-1234` reconciles the existing assignment. Neither action
+creates, opens, replaces, or deletes a worker. Changed assignment inputs or saved
+identities block continuation. A missing UI, container, or branch is not permission
+to launch again. Keep the record and follow [recovery.md](recovery.md); do not delete
+it to force a retry. Legacy launches without a saved record need explicit recovery,
+not automatic adoption. Integration and closure still use the guarded procedures
+below; the remaining lifecycle verbs are separate work.
+
+After confirmed launch, set Aven active/agent from the observed agent type, and
+append the DISPATCH note using the saved record. Dispatch retains task-status
+ownership. Monitor with bounded waits, such as
+`workmux wait <handles> --any --timeout 120`. Set enclosing tool timeouts longer
+than CLI timeouts. A timeout prompts inspection, not cancellation or completion.
 
 ## Stop, archive, and clean up
 

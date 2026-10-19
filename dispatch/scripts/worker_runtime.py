@@ -12,9 +12,15 @@ def run(argv, cwd=None, timeout=30):
             argv, cwd=cwd, text=True, capture_output=True, timeout=timeout, check=False
         )
     except subprocess.TimeoutExpired as error:
-        raise ValueError(f"{argv!r}: timed out after {timeout}s") from error
+        raise ValueError(
+            f"{argv!r}: timed out after {timeout}s; "
+            f"stdout={error.stdout!r}; stderr={error.stderr!r}"
+        ) from error
     if result.returncode:
-        raise ValueError(f"{argv!r}: exit {result.returncode}: {result.stderr.strip()}")
+        raise ValueError(
+            f"{argv!r}: exit {result.returncode}: {result.stderr.strip()}; "
+            f"stdout={result.stdout!r}"
+        )
     return result.stdout
 
 

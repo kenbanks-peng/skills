@@ -26,8 +26,8 @@ Use the `tasks` skill for Aven operations and `aven` CLI help for syntax.
 ## 2. Dispatch ready work
 
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
-2. Generate each initial worker prompt with [scripts/worker_prompt.py](scripts/worker_prompt.py) using its `--help` and the [runtime procedure](runtime.md).
-3. Mark the task `active` with its agent type, then create/open the worker using the runtime procedure. Retain a successful launch receipt with observed host/worker paths, container identity, and UI IDs before treating it as dispatched.
+2. Run [scripts/dispatch.py](scripts/dispatch.py) `launch <full-task-ref>` with the explicit local base, write scopes, and required argv checks, using the [runtime procedure](runtime.md). It loads Aven context, creates the prompt, and saves one worker record. No caller-managed prompt JSON or launch receipt is needed.
+3. Require a confirmed launch in the saved record, then mark the task `active` with the observed agent type. Repeated launch and `inspect --resume` only reconcile existing resources; they never start a replacement.
 4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. Record shared config, execution mode, UI resource IDs, and run-wide checks in one ACTIVITY: run-context note on the run epic or designated task; refer to that record from task notes and record task-specific overrides.
 
 ## 3. Monitor and review

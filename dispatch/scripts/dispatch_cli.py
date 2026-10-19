@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compact CLI capability discovery and latest dispatch report output."""
+"""Compatibility troubleshooting and latest dispatch report output."""
 
 import argparse
 import json
@@ -80,7 +80,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     subs = parser.add_subparsers(dest="command", required=True)
     discovery = subs.add_parser(
-        "discover", help="Cache capabilities; emit no help text"
+        "discover",
+        help="Troubleshoot unsupported CLI/schema behavior or a diagnosed tool change only",
     )
     discovery.add_argument("--cache", type=Path, required=True)
     discovery.add_argument("--refresh", action="store_true")

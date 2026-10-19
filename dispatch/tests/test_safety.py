@@ -370,37 +370,6 @@ class SafetyTests(unittest.TestCase):
                 self.assert_preserved()
         self.assertTrue(all(call[0] == "aven" for call in self.calls()))
 
-    def test_stale_launch_does_not_create_worker(self):
-        config = self.root / "config.yaml"
-        config.write_text("agent: test")
-        prompt = self.root / "prompt.md"
-        prompt.write_text("reviewed prompt")
-        self.git(self.repo, "commit", "--allow-empty", "-qm", "base moved")
-        evidence = self.cli(
-            "launch_worker.py",
-            "--repo",
-            self.repo,
-            "--branch",
-            "new-worker",
-            "--base",
-            "main",
-            "--handle",
-            "new-worker",
-            "--config",
-            config,
-            "--prompt",
-            prompt,
-            "--launch-base",
-            self.base,
-            "--runtime",
-            "docker",
-            ok=False,
-        )
-        self.assertIn("Base moved", evidence["error"])
-        self.assertEqual(self.calls(), [])
-        self.assertEqual(prompt.read_text(), "reviewed prompt")
-        self.assertTrue(self.worker.exists())
-
     def test_uncertain_exit_blocks_stop_and_cleanup(self):
         receipt = self.json_file("receipt.json", self.receipt())
         previous = self.json_file(
