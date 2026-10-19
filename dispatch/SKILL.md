@@ -28,7 +28,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
 2. Generate each initial worker prompt with [scripts/worker_prompt.py](scripts/worker_prompt.py) using its `--help` and the [runtime procedure](runtime.md).
-3. Mark the task `active` with its agent type before launch. Write the prompt file, then create/open the worker using the runtime procedure. Confirm startup before treating it as dispatched.
+3. Mark the task `active` with its agent type, then create/open the worker using the runtime procedure. Confirm startup before treating it as dispatched.
 4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. The handle identifies the individual worker; the Aven agent field identifies its type.
 
 ## 3. Monitor and review
