@@ -1,7 +1,3 @@
-DISPATCH: $task_ref — launched $handle
-
-- Branch/worktree: $branch — $worktree
-- Launch base: $base at $launch_base
-- Agent: $agent_type
-- Config or run-context reference: $config
-- Execution mode or run-context reference: $execution_mode
+DISPATCH: $handle ($agent_type) on $branch; $base at $launch_base.
+- Worktree: $worktree
+- Context: $run_context

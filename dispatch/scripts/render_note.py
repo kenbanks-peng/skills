@@ -8,17 +8,16 @@ from string import Template
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 KINDS = ("DISPATCH", "RESULT", "MERGE_PENDING", "MERGE_VERIFIED", "BLOCKED", "SUMMARY")
+# Input evidence is stable even when the human-facing template omits fields.
+INPUT_FIELDS = {
+    'DISPATCH': ['task_ref', 'handle', 'branch', 'worktree', 'base', 'launch_base', 'agent_type', 'config', 'execution_mode'],
+    'RESULT': ['summary', 'worker_commit', 'task_ref', 'components', 'checks'],
+    'MERGE_PENDING': ['worker_commit', 'base', 'base_sha', 'task_ref', 'authorization_id', 'checks'],
+    'MERGE_VERIFIED': ['base', 'verified_base_sha', 'task_ref', 'verification_evidence', 'cleanup_evidence', 'repo', 'branch', 'worktree', 'worker_commit'],
+    'BLOCKED': ['error', 'next_action', 'owner', 'task_ref', 'phase', 'command', 'working_directory', 'retained_state', 'evidence'],
+    'SUMMARY': ['outcome', 'task_ref', 'verified_base_sha', 'checks', 'follow_ups'],
+}
 LIST_FIELDS = {"components", "checks", "retained_state", "evidence", "follow_ups"}
-
-
-def fields(template):
-    return list(
-        dict.fromkeys(
-            match.group("named") or match.group("braced")
-            for match in Template.pattern.finditer(template)
-            if match.group("named") or match.group("braced")
-        )
-    )
 
 
 def closure_evidence(params):
@@ -64,22 +63,17 @@ def closure_evidence(params):
         raise ValueError(
             "closure requires matching resource identity, successful verification, and executed cleanup evidence"
         )
-    return "\n".join(
-        "- " + json.dumps(check["argv"]) + " — passed (exit 0)" for check in checks
-    )
+    count = len({tuple(check["argv"]) for check in checks})
+    return f"{count} distinct check{'s' if count != 1 else ''} passed"
 
 
-def required_fields(kind, template):
-    return [
-        name
-        for name in fields(template)
-        if not (kind == "MERGE_VERIFIED" and name == "checks")
-    ]
+def required_fields(kind):
+    return INPUT_FIELDS[kind]
 
 
 def render(kind, params):
     template = (TEMPLATES / f"{kind}.md").read_text(encoding="utf-8")
-    required = required_fields(kind, template)
+    required = required_fields(kind)
     if not isinstance(params, dict) or set(params) != set(required):
         raise ValueError("parameters must contain exactly: " + ", ".join(required))
     rendered = {}
@@ -92,22 +86,24 @@ def render(kind, params):
                 or any(not isinstance(item, str) or not item.strip() for item in value)
             ):
                 raise ValueError(f"{field} must be a nonempty list of nonempty strings")
-            rendered[field] = "\n".join("- " + item for item in value)
+            rendered[field] = "; ".join(dict.fromkeys(item.strip() for item in value))
         else:
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{field} must be a nonempty string")
             rendered[field] = value
     if kind == "MERGE_VERIFIED":
         rendered["checks"] = closure_evidence(params)
-    return Template(template).substitute(rendered)
+    rendered["run_context"] = "; ".join(
+        dict.fromkeys(rendered.get(name, "") for name in ("config", "execution_mode"))
+    )
+    note = Template(template).substitute(rendered)
+    return note.replace(str(Path.home()) + "/", "~/")
 
 
 def main():
     schemas = []
     for kind in KINDS:
-        names = required_fields(
-            kind, (TEMPLATES / f"{kind}.md").read_text(encoding="utf-8")
-        )
+        names = required_fields(kind)
         schemas.append(
             kind
             + ":\n  "
@@ -128,7 +124,7 @@ def main():
             "JSON stdout from verify_base.py and cleanup_worker.py (relative to cwd or absolute).\n"
             "Successful evidence must match full SHAs and exact repository/base/worker identity.\n"
             "Use canonical paths for repo and worktree. Dry runs are rejected.\n"
-            "MERGE_VERIFIED checks are generated from verification argv evidence, not supplied text.\n"
+            "MERGE_VERIFIED summarizes distinct passed checks; full argv stays in evidence files.\n"
             "These files are trusted local evidence, not tamper-proof attestations.\n"
             "Rendering does not recheck current Git state or establish semantic correctness.\n"
             "Review for relevance and add material decisions or exceptions before posting with tasks. Failed/skipped checks belong\n"

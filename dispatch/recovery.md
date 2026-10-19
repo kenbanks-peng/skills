@@ -29,4 +29,4 @@ Read before replacing workers, retrying uncertain operations, or resuming an int
 
 ## Leave a durable handoff
 
-Render `BLOCKED` with [scripts/render_note.py](scripts/render_note.py), referencing the recovery snapshot and retained verification/cleanup evidence, then append it through `tasks`. Keep unfinished tasks active and assigned unless explicitly handing ownership off. Record changed handles/configurations rather than repeating the original dispatch entry. Tell the user what needs attention and retain run-owned progress UI while the run is incomplete.
+Render `BLOCKED` with [scripts/render_note.py](scripts/render_note.py), referencing the recovery snapshot and retained verification/cleanup evidence, then append it through `tasks`. Keep unfinished tasks active and assigned unless explicitly handing ownership off. Prefix recovery updates with `ACTIVITY:` and record changed handles/configurations rather than repeating the original dispatch entry. Tell the user what needs attention and retain run-owned progress UI while the run is incomplete.
