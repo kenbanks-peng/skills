@@ -1,0 +1,6 @@
+Completed SKL-7CA4.
+
+- Added guarded dispatch integration and recovery.
+- All 48 tests passed. Ruff checks passed.
+- Committed as `c2956c2`.
+- Saved the handoff note and marked the task done.
