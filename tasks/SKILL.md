@@ -9,7 +9,7 @@ Manage work in Aven. This is an independently maintained skill: use `aven <comma
 
 ## Locate and understand
 
-- Run commands from the intended repository; reuse Aven's project inference. Use `aven doctor` when routing is unclear and explicit workspace/project options when needed. Create a project mapping only when missing, using `aven project create <name> --path <path>`.
+- Run commands from the intended repository; use Aven's configured database/workspace defaults and project inference, including in sandboxed workers. When routing is unclear, use `aven doctor`; supply `--db` or `--workspace` overrides only when diagnostics establish that the defaults select the wrong target. Worker prompts should preserve those defaults rather than prescribe redundant overrides. Use project filters on commands that support them. Create a project mapping only when missing, using `aven project create <name> --path <path>`.
 - Select eligible work with `aven list --ready` and scope filters. Use `aven list --open` for recovery and `aven search` to avoid duplicate tasks; search can find completed work too.
 - Read `aven context <task-ref>` before acting. Use `aven show <task-ref> --full` when reviewing reports or decisions that need all notes and metadata.
 - Use refs printed by Aven, preferably project-qualified. Keep these local identifiers out of commit messages, PR descriptions, and external systems.
