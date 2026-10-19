@@ -1,35 +1,26 @@
 ---
 name: tasks
-description: Use when the user explicitly requests tasks for Aven task management, or when dispatch needs task records, dependencies, or durable handoffs.
+description: Use when the user or a calling workflow needs Aven task management, dependencies, or durable handoffs.
 ---
 
 # Tasks
 
-Manage work in Aven. This is an independently maintained skill: use `aven <command> --help` for syntax rather than loading the generated `aven skill` primer. The calling workflow decides who may change status and when work is complete.
+Use Aven as the durable work record. The user or calling workflow controls assignment and completion. Consult `aven <command> --help` for unfamiliar syntax.
 
-## Locate and understand
+## Find the work
 
-- Run commands from the intended repository; use Aven's configured database/workspace defaults and project inference, including in sandboxed workers. When routing is unclear, use `aven doctor`; supply `--db` or `--workspace` overrides only when diagnostics establish that the defaults select the wrong target. Worker prompts should preserve those defaults rather than prescribe redundant overrides. Use project filters on commands that support them. Create a project mapping only when missing, using `aven project create <name> --path <path>`.
-- Select eligible work with `aven list --ready` and scope filters. Use `aven list --open` for recovery and `aven search` to avoid duplicate tasks; search can find completed work too.
-- Read `aven context <task-ref>` before acting. Use `aven show <task-ref> --full` when reviewing reports or decisions that need all notes and metadata.
-- Use refs printed by Aven, preferably project-qualified. Keep these local identifiers out of commit messages, PR descriptions, and external systems.
+- Run from the target repository using configured database/workspace defaults and project inference. Create project mappings only when missing.
+- Search before creating tasks. Use `list --ready` for eligible work, `list --open` for recovery, and project filters to bound scope.
+- Read `context <ref>` before acting; use `show <ref> --full` when reviewing complete notes and metadata. Use Aven-provided refs.
 
-## Shape the work
+## Shape and track
 
-- Create tasks when requested or authorized by a calling workflow such as dispatch. Include scope, acceptance criteria, and enough rationale for another agent to continue independently.
-- Reuse existing tasks. Put selected, actionable work in `todo`, deferred work in `backlog`, and untriaged work in `inbox`.
-- Use `aven dep add <blocked> <blocker>` for execution order. Use epics for grouping: `aven add <title> --epic`, then `aven epic add <child> <epic>`. Epic membership does not establish a dependency.
-- Prefer epics over grouping labels; create a label before applying it. Inspect dependency/conflict context before changing ordering or status.
+- Give each task a scope, acceptance criteria, and enough rationale to resume independently. Use `inbox` for untriaged work, `todo` for selected work, and `backlog` for deferred work.
+- Express ordering with `dep add <blocked> <blocker>`. Use epics for grouping; membership does not establish a dependency. Check dependencies before changing status or order.
+- When authorized, start with `edit <ref> --status active --agent <type>`. The agent field identifies an agent type, not an individual session. Mark `done` only after the user or calling workflow's completion criteria pass; clear assignment with `--clear-agent` when leaving active status.
 
-## Update and preserve context
+## Leave a usable handoff
 
-- When authorized to start work, use `aven edit <task-ref> --status active --agent <agent-type>`. The agent field identifies a type such as `pi`, not a unique worker; record individual handles in notes.
-- Mark work `done` only after the calling workflow's completion criteria pass. Clear assignment with `--clear-agent` when leaving active status.
-- Append durable decisions, results, blockers, and next actions with `aven note <task-ref> --file <file>` or `--stdin`. Keep scratch work elsewhere; record new evidence rather than repeating unchanged notes.
-- Use `--description-file` or `--description-stdin` for new long descriptions. For existing descriptions that may be edited concurrently, inspect `aven text --help` and use the hash-checked text update workflow.
-- Use `aven bulk-update --help` and a dry run before broad mutations. Inspect sync conflicts before resolving them; preserve uncertain variants for review.
-- Keep secrets out of task records. If a write fails, retain the intended report locally, report the failure, and restore the durable record before claiming the transition succeeded.
-
-## Less common operations
-
-For scheduling, recurrence, attachments, moves, or conflict resolution, consult the relevant subcommand's `--help` only when needed. Use human-readable output interactively and `--json` when a script needs structured data. This skill defines task mechanics; dispatch-specific note prefixes, worker authority, merge gates, and cleanup rules belong to `dispatch`.
+- Append new decisions, results, check evidence, blockers, and next actions with `note <ref> --file <file>` or `--stdin`. Keep secrets and scratch logs out; reference existing evidence instead of repeating it.
+- Pass long text through files or stdin, not shell interpolation. For concurrent description edits, use `aven text` hash-checked updates. Dry-run bulk changes; preserve unresolved conflict variants.
+- If a write fails, retain the report locally and surface the failure. Restore the durable record before claiming the transition succeeded.

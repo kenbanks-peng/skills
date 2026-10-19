@@ -4,7 +4,7 @@ Dispatch includes this contract in the worker prompt. You implement the assigned
 
 ## Start
 
-1. Read `aven context <task-ref>` using the supplied project/workspace routing. Confirm your worktree, branch, assigned write scope, base, and acceptance checks.
+1. Read `aven context <task-ref>` from the assigned repository using configured Aven routing defaults, or explicit overrides supplied by dispatch. Confirm your worktree, branch, assigned write scope, base, and acceptance checks.
 2. Use the `tasks` skill for task mechanics. If it is unavailable, use `aven <command> --help`; task reports can be appended with `aven note <task-ref> --file <report-file>`.
 3. If context, dependencies, ownership, or acceptance criteria are inconsistent, report the blocker before changing code. Work directly in this worktree rather than dispatching more workers.
 
