@@ -20,7 +20,7 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 ## 1. Prepare
 
 1. Load `tasks`. Establish the repository, Aven project, explicit local base branch, selected task set, and required task/run checks. Reuse existing project mappings; ask before initializing a missing Git repository.
-2. Read [runtime.md](runtime.md) before launching or reconnecting workers. Confirm the execution configuration and multiplexer are usable.
+2. Read [runtime.md](runtime.md) before launching or reconnecting workers. Confirm the execution configuration and multiplexer are usable; set up the dispatch and tasks tabs as described there.
 3. Reuse existing tasks; create missing tasks with acceptance criteria and write scopes. Select current-run work as `todo`, express ordering through dependencies, and leave deferred work in `backlog`.
 4. If any selected work is already active or has dispatch notes, reconcile it using [recovery.md](recovery.md) before starting replacements.
 
@@ -50,8 +50,9 @@ This is an independently maintained workflow. Use the `tasks` skill for Aven ope
 ## 5. Close the run
 
 1. Confirm all selected tasks are verified, merged, and cleaned up. Run the run-wide checks against the final base revision; passing task checks do not replace these.
-2. Close only progress UI created by this run, using its recorded ID. If any condition is unmet, retain the UI and write a recovery handoff instead of claiming completion.
-3. Write one `SUMMARY` note on the run's epic, or a designated task when there is no epic: delivered outcome, final verified SHA, checks, and follow-up refs. Give the user a concise outcome and validation report.
+2. After all worktrees are cleaned up, remove their recorded parent directories only if empty, using `rmdir` on each exact path; leave nonempty directories intact. A cleanup failure other than a nonempty directory remains pending.
+3. On successful completion, close the `tasks` tab/window created by this run using its recorded ID. If any condition is unmet, retain it and write a recovery handoff instead of claiming completion.
+4. Write one `SUMMARY` note on the run's epic, or a designated task when there is no epic: delivered outcome, final verified SHA, checks, and follow-up refs. Give the user a concise outcome and validation report.
 
 ## Evidence notes
 

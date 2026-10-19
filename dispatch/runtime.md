@@ -18,9 +18,9 @@ Read before creating or reconnecting workers. CLI help supplies syntax; this doc
 4. Confirm startup with `workmux wait <handle> --status working --timeout 120`. For a new worker, verify the captured launch SHA is an ancestor of its branch; its tip may already include worker commits. Use the pre-launch SHA in the dispatch record, not a post-startup HEAD read. On failure inspect status/capture rather than blindly relaunching; follow [recovery.md](recovery.md).
 5. Monitor with bounded waits, such as `workmux wait <handles> --any --timeout 120`. Set any enclosing tool timeout longer than the CLI timeout. A wait timeout prompts inspection, not cancellation of the worker or completion of the run.
 
-## Optional progress UI
+## Dispatch and tasks tabs
 
-A progress tab is convenience, not a completion requirement. If useful, open Aven in a new tab/window in the project's directory, using the active multiplexer. Record the exact created tab/window ID in the run's Aven notes. Close only that ID after successful run completion; retain it on handoff. Never identify a tab to close solely by the label `tasks`.
+During preparation, use the active multiplexer to rename the dispatcher's current tab/window to `dispatch` and open a separate tab/window named `tasks` running `aven` in the project's directory. Record the exact created tasks tab/window ID in the run's Aven notes. On recovery, reuse that recorded tab/window if it still exists. Close only that ID after successful run completion; retain it on handoff. Never identify a tab to close solely by the label `tasks`.
 
 ## Maintenance
 
