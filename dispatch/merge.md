@@ -18,7 +18,7 @@ Dispatch sends this procedure with the task ref, recorded local base branch, and
 ## Merge and report
 
 1. Run `workmux merge --into <base> --keep` from the worker worktree after substituting the verified base. Keep hooks enabled. Dispatch handles user notification and cleanup.
-2. Confirm the post-rebase worker commit is an ancestor of `refs/heads/<base>` and record the resulting base revision. If the base moved incompatibly, stop and report; do not silently switch merge strategy or retry.
+2. After the merge succeeds, run `sleep 2` before reading the base ref or checking ancestry, allowing host-side ref updates to become visible through the sandbox's shared filesystem. Then confirm the captured post-rebase worker commit is an ancestor of `refs/heads/<base>` and record the resulting base revision. Run the check once; on failure, stop and report.
 3. Append `MERGE: merged worker <SHA> into <base> at <SHA>; <worker checks>; awaiting dispatch verification.` Obtain displayed short SHAs from Git.
 4. End your turn with the worktree retained and task status/assignment unchanged. Dispatch independently checks the base before closure.
 
