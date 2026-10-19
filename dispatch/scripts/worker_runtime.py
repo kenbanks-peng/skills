@@ -6,10 +6,16 @@ import subprocess
 from pathlib import Path
 
 
-def run(argv, cwd=None, timeout=30):
+def run(argv, cwd=None, timeout=30, env=None):
     try:
         result = subprocess.run(
-            argv, cwd=cwd, text=True, capture_output=True, timeout=timeout, check=False
+            argv,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+            env=env,
         )
     except subprocess.TimeoutExpired as error:
         raise ValueError(

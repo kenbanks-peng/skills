@@ -96,7 +96,7 @@ Retain container inspection access until cleanup finishes.
 
 ## Compact reports
 
-Use `dispatch_cli.py report --task <full-ref> --kind RESULT` for normal review. For merge responses use `--kind MERGE --authorization <id>`; check BLOCKED separately with the same ID if a merge fails. Use `--after <ISO-timestamp>` when a fresh event is required. No matching note is a failure, not completion. Use `--save <new-file>` to retain the full response, and `--input <file>` to select another report without another Aven call. Explicit `--db` and `--workspace` are available only for diagnosed routing overrides.
+Use `dispatch_cli.py report --task <full-ref> --kind RESULT` for normal review. After review, use [guarded integration](merge.md); read its saved event and check evidence instead of polling for a worker merge response. Use `--after <ISO-timestamp>` when a fresh event is required. No matching note is a failure, not completion. Use `--save <new-file>` to retain the full response, and `--input <file>` to select another report without another Aven call. Explicit `--db` and `--workspace` are available only for diagnosed routing overrides.
 
 ## Persistent identifying-note checks
 

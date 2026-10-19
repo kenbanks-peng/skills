@@ -39,11 +39,11 @@ Use the `tasks` skill for Aven operations and `aven` CLI help for syntax.
 
 ## 4. Merge, verify, complete
 
-1. Run [git_preflight.py](scripts/git_preflight.py) for the reviewed worker. On success, generate a single-attempt authorization with [merge_prompt.py](scripts/merge_prompt.py), then send it to one worker at a time. The generator inlines [merge.md](merge.md); use its authorization ID to correlate the response.
-2. Wait for a new merge result or failure note for that authorization. An old Workmux `done` status is not acknowledgment. On failure, follow recovery before retrying.
-3. Run [verify_base.py](scripts/verify_base.py) with the checked post-rebase worker commit and required checks. Retain its JSON evidence. Recheck the base before closure if it may have moved.
-4. If verification fails or cannot run, keep the task active and its worktree intact. Send the failure back for repair, then repeat review, merge, and base verification.
-5. After verification, follow [stop, archive, and cleanup](runtime.md#stop-archive-and-clean-up): verify worker exit, reconcile its UI, and archive generated prompts before cleanup checks. Review [cleanup_worker.py](scripts/cleanup_worker.py)'s dry run, then explicitly authorize cleanup using the verified revisions and container stop evidence. Retain all JSON evidence and render the `MERGE_VERIFIED` note. Append it before marking the task `done` and clearing its agent. Any cleanup failure remains pending, not complete.
+1. Run [integrate.py](scripts/integrate.py) with the full task reference, reviewed full worker commit, and latest reviewed RESULT note ID, using [merge.md](merge.md). The saved worker record supplies identity, explicit base, and required checks.
+2. Require `ok: true`. The operation rebases, checks the exact resulting commit, integrates with hooks enabled and the worktree retained, then independently verifies the pinned base. It saves revisions and check logs automatically. No worker merge prompt or merge-response polling is needed.
+3. On failure, keep the task active and worktree intact. Send conflicts or check failures for repair. After an attempted merge, use `--reconcile`; never repeat an uncertain merge blindly.
+4. Use the saved integration event's verified base, integrated worker SHA, and verification evidence for cleanup.
+5. After verification, follow [stop, archive, and cleanup](runtime.md#stop-archive-and-clean-up): verify worker exit, reconcile its UI, and archive generated prompts before cleanup checks. Review [cleanup_worker.py](scripts/cleanup_worker.py)'s dry run, then explicitly authorize cleanup using the verified revisions and container stop evidence. Retain all JSON evidence. After cleanup, run `integrate.py <ref> --closure` immediately before rendering and appending the `MERGE_VERIFIED` note, marking the task `done`, and clearing its agent. Exclude other Git writers through closure; base movement blocks completion. Any cleanup failure remains pending, not complete.
 6. Query ready tasks again using the run's filters. Create or reuse tasks for discovered work; distinguish current-run work from deferred backlog.
 
 ## 5. Close the run
@@ -62,7 +62,7 @@ Record only the new event. Keep recovery coordinates in DISPATCH and shared sett
 - `ACTIVITY:` — shared run context, a material decision, review/authorization, or recovery update. State what changed and why; routine polling needs no note.
 - `DISPATCH` — worker recovery coordinates and launch revision; reference shared run context.
 - `RESULT` — delivered change, commit, acceptance/check results, and exceptions.
-- `MERGE` — worker integration result, checked post-rebase commit, resulting base revision, post-rebase check results, and consequential conflict decisions. Explicitly awaiting dispatch verification.
+- `MERGE` — optional dispatch integration summary; link the saved integration event and exact checked revisions. No worker response is required.
 - `VERIFIED` — dispatch's independently tested base revision, check results, and completed cleanup. Add verification evidence rather than repeating the worker's merge report.
 - `BLOCKED` — blocker first, then recovery evidence, responsible party, and next action.
 - `SUMMARY` — delivered outcome, final verified revision, run-wide check results, and follow-up refs; leave lifecycle history in earlier notes.

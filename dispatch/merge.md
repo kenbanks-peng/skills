@@ -1,27 +1,79 @@
-# Authorized worker merge
+# Guarded dispatch integration
 
-Attempt one merge with the supplied task ref, local base branch, and required checks. Reconcile a failed attempt before retrying.
+Dispatch reviews the latest RESULT note, actual commits, diff, and acceptance
+criteria. Workers implement changes and repair ambiguous conflicts. They do not
+perform normal Git integration.
 
-## Preconditions
+## Integrate after review
 
-1. Confirm you are in the assigned worker worktree on its branch, with all intended changes committed and no unrelated uncommitted changes. If not, stop and report to dispatch.
-2. Read `branch.<worker-branch>.workmux-base` from local Git config. Require it to equal the recorded base and require `refs/heads/<base>` to exist. Missing or mismatched configuration is a blocker; there is no default target.
-3. Confirm there is no unfinished merge/rebase. Preserve any existing operation and ask dispatch to reconcile it rather than starting another.
+Run from a checkout of the target repository:
 
-## Rebase and check
+```sh
+python3 <skill-directory>/scripts/integrate.py APP-1234 \
+  --reviewed-commit <full-reviewed-worker-SHA> --result-id <reviewed-RESULT-note-ID>
+```
 
-1. Rebase onto the explicit local `refs/heads/<base>` before running checks and Workmux integration.
-2. For conflicts, inspect both sides and the relevant base history. Preserve both intended behaviors. Continue only when the resolution is understood; report ambiguous conflicts for guidance.
-3. Run the required checks after rebasing. Record the resulting worker commit with `git rev-parse HEAD`.
-4. Execute checks and the merge they gate in fail-fast Bash blocks beginning with `set -euo pipefail`. A failing check must prevent the merge command and any success note.
+This is the single integration operation. It uses the saved worker record for
+the worker identity, explicit local base, required argv checks, and Aven routing.
+The caller supplies review evidence, not another assignment.
 
-## Merge and report
+The command locks the same common-directory `dispatch.lock` as launch. All
+dispatch lifecycle operations must honor this lock. It rejects a stale RESULT
+ID or reviewed commit, a changed Workmux identity, missing or mismatched explicit
+Workmux base metadata, dirty state, hidden index flags, and unfinished Git
+operations. Required checks run on the dispatcher; unavailable dependencies fail.
 
-1. Run `workmux merge --rebase --into <base> --keep` from the worker worktree after substituting the verified base. Keep hooks enabled. Dispatch handles user notification and cleanup.
-2. After the merge succeeds, run `sleep 2` before reading refs or checking ancestry. Require the worker HEAD to equal the captured, checked post-rebase commit, then confirm that commit is an ancestor of `refs/heads/<base>` and record the resulting base revision. Run these assertions once; on failure, stop and report. If Workmux rewrote the worker commit, report that integration succeeded but the checked SHA changed; dispatch must reconcile and validate the integrated revision before closure.
-3. Append `MERGE: merged worker <SHA> into <base> at <SHA>; awaiting dispatch verification.` Follow the `tasks` selective-note policy: summarize post-rebase check results and commit/ancestry assertions, plus consequential conflict resolutions and their rationale. Reference unchanged launch metadata; omit the routine precondition and command narrative. Use one lead sentence and at most three short bullets, normally under 80 words, with the authorization ID. Use Git-generated unambiguous short SHAs in prose; retain full worker/base SHAs in a linked evidence file for dispatch's verification helpers. Display home paths with `~`.
-4. End your turn with the worktree retained and task status/assignment unchanged.
+It rebases onto the captured explicit base. It checks the resulting exact commit
+in an isolated detached worktree, then checks identity and base movement again.
+It runs `workmux merge --into <base> --keep` from the worker with hooks enabled.
+It does not ask Workmux to rebase again. Installed Workmux
+`0.1.276+herdr.1` supports these flags; `workmux merge --help` confirms that
+`--keep` retains the worktree, window, and branch. Do not use hook bypass flags.
 
-## Failure
+After integration, it observes actual worker/base commits and requires ancestry.
+If Workmux rewrites the worker commit, it requires the same content tree and
+checks the new commit rather than reusing the old check result. A content change
+requires review; it cannot receive automatic approval. It independently tests the pinned integrated base
+in another detached worktree. Base movement rejects success.
 
-On any failed check, rebase, merge, or ancestry assertion, stop and append `BLOCKED:`, leading with the blocker and next action, then a compact recovery summary and evidence-file reference. Retain authorization ID, failed command, working directory, exact error, worker/base refs and full SHAs, Git/common directories, and Workmux/worktree state in that file. For lock failures include lock metadata and owning processes when identifiable; label unknown causes as unknown. Preserve work and potentially live locks. If reporting fails, retain the report locally and alert dispatch before any further action.
+## Evidence and closure
+
+Require `ok: true`. The saved worker record contains the integration event,
+reviewed RESULT, exact revisions, Git preflight observations, command outcomes,
+and evidence paths. Check JSON files retain argv, status, return code, stdout,
+stderr, and exact revisions. Failure checkouts remain available for diagnosis.
+Evidence is under the saved record directory, outside worker worktrees.
+
+The command never stops workers, removes their worktrees, or changes Aven status.
+Continue with stop, archive, and cleanup using `integrated_worker_sha`,
+`verified_base_sha`, and `verification_evidence` from this event.
+After cleanup, before the completion note and status change, run:
+
+```sh
+python3 <skill-directory>/scripts/integrate.py APP-1234 --closure
+```
+
+This read-only gate rejects base movement. Keep repository serialization through
+closure; the gate is a snapshot, not a lock that survives command exit.
+Uncoordinated Git writers must be stopped or otherwise excluded.
+
+## Failure and interruption
+
+Any conflict or failed check stops the operation. Preserve the worker and any
+unfinished Git operation. Dispatch sends ambiguous conflicts or check failures
+to the worker for repair; there is no automatic conflict resolution.
+
+After a failure before the merge attempt, repair, review the new RESULT and
+commit, then use `--new-attempt` to authorize another attempt explicitly.
+Earlier events and evidence remain in the record.
+
+Once a merge was attempted, never repeat it blindly. Use the original review
+arguments with `--reconcile`. This mode never rebases or merges. It verifies
+current identity, actual ancestry, the current worker commit, and the integrated
+base with fresh checks. Thus a merge that succeeded before interruption can be
+recovered without a second merge. If ancestry or identity is uncertain, retain
+all resources and follow [recovery.md](recovery.md). Do not delete or edit intent
+fields to force another merge.
+
+Append a concise BLOCKED note with the error, evidence directory, repair owner,
+and next action. A failed Aven write remains a blocker; keep the report locally.

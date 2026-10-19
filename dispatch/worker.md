@@ -18,4 +18,4 @@ Implement the assigned task; dispatch owns scheduling and closure.
 
 ## Follow-up
 
-Resume repairs when instructed. Merge only after dispatch supplies explicit authorization and the merge procedure. Report every merge result or failure on the task, then leave verification, cleanup, and completion to dispatch.
+Resume repairs when instructed, including ambiguous rebase conflicts. Report the resolved changes and a new committed RESULT for review. Dispatch owns normal Git integration, independent base verification, cleanup, and completion. Do not run the normal merge operation from the worker.
