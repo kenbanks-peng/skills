@@ -97,14 +97,6 @@ def multiplexer(repo):
 
 def validate_assignment(args):
     require(args.base is not None, "A new launch requires --base")
-    require(bool(args.scope), "A new launch requires --scope")
-    for scope in args.scope:
-        require(
-            not Path(scope).is_absolute()
-            and ".." not in Path(scope).parts
-            and bool(scope.strip()),
-            "Use repository-relative write scopes",
-        )
     require(bool(args.check), "A new launch requires at least one --check JSON argv")
     checks = [json.loads(value) for value in args.check]
     require(
@@ -187,7 +179,6 @@ def create_record(args, identity, context, directory):
         "local_approved": args.allow_local,
         "origin": origin,
         "parent_session": parent,
-        "write_scope": args.scope,
         "acceptance_checks": checks,
         "routing": {
             key: getattr(args, key) for key in ("db", "workspace") if getattr(args, key)
@@ -529,7 +520,6 @@ def execute(args):
             )
             for option, field in (
                 ("base", "base"),
-                ("scope", "write_scope"),
                 ("runtime", "runtime"),
                 ("db", "routing"),
                 ("workspace", "routing"),
@@ -580,10 +570,7 @@ def execute(args):
                     base=record["base"],
                     launch_base=record["launch_base"],
                     branch=record["branch"],
-                    write_scope=record["write_scope"],
                     acceptance_checks=record["acceptance_checks"],
-                    routing=record["routing"],
-                    repo=record["repo"],
                 ))
             snapshot = directory / "config.yaml"
             snapshot.write_bytes(Path(record["config"]).read_bytes())
@@ -726,9 +713,6 @@ def main():
     parser.add_argument("--run-id", help="Stable startup run identity; defaults to the designated task ref")
     parser.add_argument("task", help="Aven task ref; configured routing defaults apply")
     parser.add_argument("--base", help="Explicit local base branch (new launch)")
-    parser.add_argument(
-        "--scope", action="append", help="Repository-relative write scope"
-    )
     parser.add_argument(
         "--check", action="append", help="Required check as a JSON argv array"
     )

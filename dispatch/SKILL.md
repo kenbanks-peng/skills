@@ -16,7 +16,7 @@ Coordinate implementation through verified completion or a durable handoff. Use 
 
 ## 1. Select and launch
 
-Reuse tasks with acceptance criteria and write scopes; express ordering with Aven dependencies. Ask before initializing a missing Git repository.
+Reuse tasks with clear requirements and acceptance criteria; express ordering with Aven dependencies. Ask before initializing a missing Git repository.
 
 ```sh
 aven list --ready
@@ -24,13 +24,13 @@ aven context APP-1234
 # Once dispatch is requested, in the original host terminal (never during intake):
 python3 <skill-directory>/scripts/dispatch.py startup APP-1234
 python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
-  --base main --scope src/ --scope tests/ \
+  --base main \
   --check '["python3", "-m", "unittest"]'
 ```
 
 Require startup `ok: true` before launching workers. Startup names the dispatcher and opens one run-owned Aven tab at the target repository's Git top-level, using the dispatcher's original database, workspace, and project. Use a designated run task (or `--run-id <stable-id>`) consistently on resume; repeat startup reuses the saved exact UI identity, not a matching label. Supply the same diagnosed `--db`/`--workspace` overrides as other dispatch commands. Preserve the returned `record_path`; interrupted startup requires [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
 
-Repeat `--scope` and `--check` for the assignment. The default uses `~/.config/workmux/agents.linux.yaml` with sandboxing, Apple `container` on macOS and Docker on Linux, and Herdr when `HERDR_ENV=1`, otherwise the active tmux session. Missing setup is a blocker, not permission to run locally.
+Repeat `--check` for required checks. The worker prompt contains work location, Aven context, and the worker contract with required checks. Task requirements belong in Aven, not separate prompt fields. The default uses `~/.config/workmux/agents.linux.yaml` with sandboxing, Apple `container` on macOS and Docker on Linux, and Herdr when `HERDR_ENV=1`, otherwise the active tmux session. Missing setup is a blocker, not permission to run locally.
 
 Require `ok: true` (confirmed launch), then mark active using `aven edit <task-ref> --status active`; read `aven context <task-ref> --json` with the same routing to confirm the write. Append a `DISPATCH:` note linking the returned handle and recovery record (use `tasks` for selective notes). A failed status write is a blocker to reconcile, not permission to relaunch. The observed `agent_type` is saved in the worker record, not an Aven agent field. Current Aven has no agent field or clear-agent option; on versions exposing one, clear it with supported CLI options when leaving active. Session identity belongs only in saved recovery evidence. If assignment metadata is needed, follow the `tasks` policy and use supported Aven metadata options. The launch command loads task context, pins the explicit local base, creates the prompt, and saves identity and evidence under `<common-git-dir>/dispatch-workers/APP-1234/worker.json`. The worker receives its actual guest path; caller-managed identity files are not needed. Keep this evidence outside worker worktrees for recovery.
 

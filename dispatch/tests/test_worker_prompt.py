@@ -24,24 +24,17 @@ class WorkerPromptTests(unittest.TestCase):
             "base": "main",
             "launch_base": "a" * 40,
             "branch": "dispatch/app-test",
-            "write_scope": ["src/file.py", "tests/test file.py"],
             "acceptance_checks": [["python3", "-m", "unittest"], ["git", "diff", "--check"]],
-            "routing": {},
-            "repo": "/example/repo",
         }
 
     def test_complete_readable_assignment(self):
         with patch("worker_prompt.run", return_value=self.context) as run:
             prompt = render("APP-TEST", **self.assignment())
-        run.assert_called_once_with(["aven", "context", "APP-TEST"], "/example/repo")
+        run.assert_called_once_with(["aven", "context", "APP-TEST"])
         for value in (
-            "# Worker assignment: APP-TEST",
-            "Complete the task below within the assigned write scope.",
             "Task ref: APP-TEST", "Base branch: main",
             "Launch-base commit: " + "a" * 40, "Worker branch: dispatch/app-test",
-            "- src/file.py\n- tests/test file.py",
             "    python3 -m unittest\n\n    git diff --check",
-            "- db: configured default\n- workspace: configured default",
             self.context,
         ):
             self.assertIn(value, prompt)
@@ -50,18 +43,18 @@ class WorkerPromptTests(unittest.TestCase):
         self.assertEqual(prompt.count("# Worker contract"), 1)
         self.assertIn("RESULT:", prompt)
         self.assertIn("BLOCKED:", prompt)
-        self.assertTrue(prompt.endswith((Path(__file__).resolve().parents[1] / "worker.md").read_text()))
+        self.assertIn((Path(__file__).resolve().parents[1] / "worker.md").read_text().rstrip(), prompt)
+        self.assertTrue(prompt.startswith("## Work location\n"))
+        self.assertLess(prompt.index("## Task context"), prompt.index("# Worker contract"))
+        self.assertLess(prompt.index("# Worker contract"), prompt.index("## Required checks"))
+        self.assertNotIn("## Write scope", prompt)
+        self.assertNotIn("## Aven reporting", prompt)
 
-    def test_task_reference_and_routing_are_passed_to_aven(self):
-        assignment = self.assignment()
-        assignment["routing"] = {"db": "/host/tasks db", "workspace": "explicit"}
+    def test_task_reference_is_passed_to_aven(self):
         with patch("worker_prompt.run", return_value=self.context) as run:
-            prompt = render("DSP-A7PE", **assignment)
-        run.assert_called_once_with(
-            ["aven", "context", "DSP-A7PE", "--db", "/host/tasks db", "--workspace", "explicit"],
-            "/example/repo",
-        )
-        self.assertIn("- db: /host/tasks db\n- workspace: explicit", prompt)
+            prompt = render("DSP-A7PE", **self.assignment())
+        run.assert_called_once_with(["aven", "context", "DSP-A7PE"])
+        self.assertIn("- Task ref: DSP-A7PE", prompt)
 
     def test_check_argument_fidelity_without_shell_execution(self):
         assignment = self.assignment()
@@ -76,7 +69,7 @@ class WorkerPromptTests(unittest.TestCase):
             with patch("worker_prompt.run", return_value=self.context):
                 prompt = render("APP-TEST", **assignment)
             block = prompt.split("Run each command exactly as shown, in this order:\n\n", 1)[1]
-            command = block.split("\n\n## Aven reporting", 1)[0]
+            command = block.rstrip("\n")
             command = "\n".join(line[4:] for line in command.splitlines())
             self.assertEqual(shlex.split(command), argv)
             self.assertFalse(sentinel.exists())

@@ -8,11 +8,11 @@ For a new launch, add only the diagnosed overrides:
 
 ```sh
 python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
-  --base main --scope src/ --check '["python3", "-m", "unittest"]' \
+  --base main --check '["python3", "-m", "unittest"]' \
   --db <correct-db> --workspace <correct-workspace>
 ```
 
-Overrides are saved and reused by task reference. `dispatch_cli.py report` also accepts `--db`/`--workspace` when needed. Already-saved conflicting identity or routing requires [recovery](recovery.md); do not edit a record to force continuation. Preserve report text locally on a failed Aven write and restore it to the correct durable record before the corresponding merge or completion gate.
+Dispatcher overrides are saved and reused by task reference. Worker prompt context reads use Aven defaults in the current directory; configure those defaults to select the correct task database and workspace. Dispatcher overrides are not passed to the prompt renderer or worker. `dispatch_cli.py report` also accepts `--db`/`--workspace` when needed. Already-saved conflicting identity or routing requires [recovery](recovery.md); do not edit a record to force continuation. Preserve report text locally on a failed Aven write and restore it to the correct durable record before the corresponding merge or completion gate.
 
 ## Capabilities
 

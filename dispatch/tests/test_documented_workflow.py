@@ -83,8 +83,6 @@ class DocumentedWorkflowTests(unittest.TestCase):
             "APP-TEST",
             "--base",
             "main",
-            "--scope",
-            "src/",
             "--check",
             '["git", "diff", "--check"]',
             # Select Docker explicitly to exercise the same adapter on all hosts.

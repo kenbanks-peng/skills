@@ -269,8 +269,6 @@ class LaunchTests(unittest.TestCase):
             "APP-TEST",
             "--base",
             "main",
-            "--scope",
-            "src/",
             "--check",
             '["python3", "-m", "unittest"]',
             *extra,
@@ -373,7 +371,9 @@ class LaunchTests(unittest.TestCase):
         self.assertIn("$(touch SENTINEL)", prompt)
         self.assertIn("`backticks`", prompt)
         self.assertIn("Keep this durable context", prompt)
-        self.assertIn("# Worker assignment: APP-TEST", prompt)
+        self.assertTrue(prompt.startswith("## Work location\n"))
+        self.assertNotIn("## Write scope", prompt)
+        self.assertNotIn("## Aven reporting", prompt)
         self.assertIn("APP-TEST: Literal", prompt)
         self.assertEqual(
             [call for call in self.calls() if call[:2] == ["aven", "context"]],
@@ -607,8 +607,8 @@ class LaunchTests(unittest.TestCase):
             self.calls(),
         )
         prompt = Path(data["prompt"]).read_text()
-        self.assertIn("db: /explicit tasks.db", prompt)
-        self.assertIn("workspace: explicit", prompt)
+        self.assertNotIn("## Aven reporting", prompt)
+        self.assertIn(["aven", "context", "APP-TEST"], self.calls())
         self.assertIn("--workspace", self.calls()[0])
         self.cli("inspect", "APP-TEST", "--resume")
         self.assertEqual(len(self.adds()), 1)

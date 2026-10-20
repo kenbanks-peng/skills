@@ -4,7 +4,7 @@ Load only after the user approves unsandboxed execution. A missing sandbox setup
 
 ```sh
 python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
-  --base main --scope src/ --check '["python3", "-m", "unittest"]' \
+  --base main --check '["python3", "-m", "unittest"]' \
   --runtime local --allow-local
 ```
 

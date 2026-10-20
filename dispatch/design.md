@@ -19,7 +19,7 @@ Keep review and conflict decisions with dispatch. Do not add an autonomous sched
 
 Store one versioned record outside all worker worktrees. Save updates atomically. It must retain:
 
-- Task ref, canonical repository/common Git directory, explicit local base and launch SHA; worker branch/handle; objective, write scope, required argv checks.
+- Task ref, canonical repository/common Git directory, explicit local base and launch SHA; worker branch/handle; required argv checks.
 - Selected config, actual agent/runtime; observed host and worker-visible roots; exact container ID/mount identity; exact pane/tab IDs and multiplexer context.
 - Prompt location/hash and generated prompt paths/hashes; review SHA/decision; integrated worker SHA, verified base SHA, and check results/evidence paths.
 - Last attempted action and outcome, partial resources, exit proof, archive and cleanup results, durable note references, and next action.
