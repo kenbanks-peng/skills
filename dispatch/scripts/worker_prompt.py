@@ -4,6 +4,8 @@ import re
 import shlex
 from pathlib import Path
 
+from worker_runtime import run
+
 
 def literal_block(text, language="text"):
     """Fence literal data even when it contains Markdown-like delimiters."""
@@ -13,6 +15,13 @@ def literal_block(text, language="text"):
 
 
 def render(record):
+    """Fetch the task context from Aven and render the worker assignment."""
+    argv = ["aven", "context", record["task_ref"]]
+    for key in ("db", "workspace"):
+        value = record["routing"].get(key)
+        if value:
+            argv.extend(["--" + key, value])
+    task_context = run(argv, record.get("repo"))
     contract = (Path(__file__).resolve().parent.parent / "worker.md").read_text()
     coordinates = "\n".join(
         label + ": " + record[key]
@@ -45,7 +54,7 @@ def render(record):
         + "\n\n## Supplied task context\n\n"
         "Human-readable output of `aven context <task-ref>` (without `--json`), "
         "using the routing above:\n\n"
-        + literal_block(record["task_context_text"])
+        + literal_block(task_context)
         + "\n\n"
         + contract
     )

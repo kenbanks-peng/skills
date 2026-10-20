@@ -177,7 +177,6 @@ def create_record(args, identity, context, directory):
         "task_ref": ref,
         "task_id": context["task"]["id"],
         "task_context": context,
-        "task_context_text": run(aven_context_command(args, ref), repo),
         "base": args.base,
         "launch_base": commit(repo, base_ref),
         "branch": branch,
