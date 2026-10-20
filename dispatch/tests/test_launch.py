@@ -54,6 +54,9 @@ elif name == "workmux":
     if args[0] == "add":
         (root / "sandboxed").write_text("yes" if "--sandbox" in args else "no")
         branch = args[1]
+        if "--target-name" in args:
+            (root / "label").write_text(args[args.index("--target-name") + 1])
+        (root / "created-label").write_text((root / "label").read_text())
         base = args[args.index("--base") + 1]
         git("worktree", "add", "-b", branch, str(worker), base)
         generated = worker / ".workmux"
@@ -322,6 +325,13 @@ class LaunchTests(unittest.TestCase):
         self.assertIn("original Herdr or tmux", result["error"])
         self.assertEqual(self.ui_calls, [])
 
+    def test_worker_is_created_with_task_reference_as_tab_name(self):
+        data = self.launch()
+        self.assertEqual((self.root / "created-label").read_text(), "APP-TEST")
+        self.assertEqual(data["handle"], "dispatch-app-test")
+        self.assertEqual(data["worker_tab"]["tab_id"], "tab-1")
+        self.assertEqual(self.label.read_text(), "APP-TEST")
+
     def test_literal_prompt_default_routing_and_saved_identity(self):
         data = self.launch()
         saved = json.loads(self.record.read_text())
@@ -350,7 +360,7 @@ class LaunchTests(unittest.TestCase):
         self.assertIn("--sandbox", self.adds()[0])
         self.assertIn("agents.linux.yaml", data["config"])
 
-    def test_exact_tab_name_and_resume_restores_without_replacement(self):
+    def test_created_tab_name_and_resume_preserve_identity(self):
         data = self.launch()
         self.assertEqual(self.label.read_text(), "APP-TEST")
         self.assertEqual(data["handle"], "dispatch-app-test")
@@ -362,12 +372,9 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.record.read_bytes(), before)
         self.assertEqual(self.label.read_text(), "✅ dispatch-app-test")
         resumed = self.cli("inspect", "APP-TEST", "--resume")
-        self.assertEqual(self.label.read_text(), "APP-TEST")
+        self.assertEqual(self.label.read_text(), "✅ dispatch-app-test")
         self.assertEqual(resumed["worker_tab"], data["worker_tab"])
         self.assertEqual(len(self.adds()), 1)
-        self.assertEqual([call["params"] for call in self.ui_calls
-                          if call["method"] == "tab.rename"],
-                         [{"tab_id": "tab-1", "label": "APP-TEST"}] * 2)
 
     def test_displayed_case_and_waiting_state_are_preserved(self):
         self.env.update(DISPLAY_REF="APP-TeST", MODE="waiting")
@@ -379,7 +386,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(data["branch"], "dispatch/app-test")
         self.label.write_text("💬 APP-TeST")
         self.cli("inspect", "APP-TeST", "--resume")
-        self.assertEqual(self.label.read_text(), "APP-TeST")
+        self.assertEqual(self.label.read_text(), "💬 APP-TeST")
         self.assertEqual(len(self.adds()), 1)
 
     def test_resume_rejects_moved_tab_even_with_correct_label(self):

@@ -207,12 +207,11 @@ def ui_identity(ui):
     ]}
 
 
-def name_worker(record, event, path):
-    identity = worker_tab(record["ui"], record["task_ref"],
-                          record.get("worker_tab"), rename=False)
+def record_worker_tab(record, event, path):
+    identity = worker_tab(record["ui"], record.get("worker_tab"))
     record["worker_tab"] = identity
     save(path, record)
-    event["worker_tab"] = worker_tab(record["ui"], record["task_ref"], identity)
+    event["worker_tab"] = identity
 
 
 def observe(record, event, directory, archive_prompts=True):
@@ -606,6 +605,8 @@ def execute(args):
                     record["launch_base"],
                     "--name",
                     record["handle"],
+                    "--target-name",
+                    record["task_ref"],
                     "-b",
                     "-P",
                     record["prompt"],
@@ -650,7 +651,7 @@ def execute(args):
                 "Creation was never attempted; reconcile the retained assignment",
             )
             observe(record, event, directory)
-            name_worker(record, event, path)
+            record_worker_tab(record, event, path)
             if "wait_error" in event:
                 require(
                     not any(
@@ -677,7 +678,7 @@ def execute(args):
             if "launch_error" in event:
                 try:
                     observe(record, event, directory)
-                    name_worker(record, event, path)
+                    record_worker_tab(record, event, path)
                 except ERRORS as observation_error:
                     event["observation_error"] = error_text(observation_error)
             record["error"] = error_text(error)

@@ -189,33 +189,25 @@ class WorkerTabTests(unittest.TestCase):
         self.tab["label"] = params["label"]
         return {}
 
-    def name(self, saved=None, rename=True):
+    def name(self, saved=None):
         with patch.object(ui.Herdr, "socket_identity", return_value=(1, 2)), \
              patch.object(ui.Herdr, "request", side_effect=self.request):
-            return ui.worker_tab(self.ui, "Dme-XaPY", saved, rename=rename)
+            return ui.worker_tab(self.ui, saved)
 
-    def test_exact_case_no_decoration_and_idempotence(self):
-        saved = self.name(rename=False)
-        self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
+    def test_identity_and_existing_label_are_preserved(self):
+        saved = self.name()
+        self.assertEqual(saved["tab_id"], "target")
         for status in ("working", "waiting", "done"):
             self.ui["agents"][0]["status"] = status
             self.assertEqual(self.name(saved), saved)
-            self.assertEqual(self.tab["label"], "Dme-XaPY")
-        self.assertEqual(sum(m == "tab.rename" for m, _ in self.calls), 1)
-        self.assertEqual(self.other["label"], "Dme-XaPY")
+            self.assertEqual(self.tab["label"], "old")
 
     def test_saved_identity_rejects_moved_pane_or_replaced_socket(self):
-        saved = self.name(rename=False)
+        saved = self.name()
         for key, value in (("tab_id", "unrelated"), ("workspace_id", "other"),
                            ("socket_identity", [9, 9]), ("workmux_pane", "new~terminal")):
             with self.subTest(key=key), self.assertRaisesRegex(ui.UIError, "identity changed"):
                 self.name(dict(saved, **{key: value}))
-        self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
-
-    def test_move_between_resolution_and_mutation_refuses(self):
-        self.move_at = 2
-        with self.assertRaisesRegex(ui.UIError, "moved"):
-            self.name()
         self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
 
     def test_missing_terminal_never_uses_matching_label(self):
@@ -228,27 +220,27 @@ class WorkerTabTests(unittest.TestCase):
         self.ui = {"context": {"backend": "tmux", "instance": "/host/tmux.sock"},
                    "agents": [{"pane_id": "%17", "session": "$3"}]}
         calls = []
+        label = "old-name"
 
         def command(argv):
+            nonlocal label
             calls.append(argv)
             self.assertEqual(argv[:3], ["tmux", "-S", "/host/tmux.sock"])
+            if argv[3] == "rename-window":
+                label = argv[-1]
             if argv[-1] == "#{pane_id}\t#{window_id}\t#{session_id}":
                 return "%17\t@31\t$3"
             if argv[-1] == "#{window_name}":
-                return "Dme-XaPY"
+                return label
             return ""
 
         with patch.object(ui, "command", side_effect=command):
-            saved = ui.worker_tab(self.ui, "Dme-XaPY", rename=False)
-            ui.worker_tab(self.ui, "Dme-XaPY", saved)
+            saved = ui.worker_tab(self.ui)
+            ui.worker_tab(self.ui, saved)
             with self.assertRaisesRegex(ui.UIError, "identity changed"):
-                ui.worker_tab(self.ui, "Dme-XaPY", dict(saved, tab_id="@99"))
-        mutations = [argv[3:] for argv in calls if argv[3] != "display-message"]
-        self.assertEqual(mutations, [
-            ["set-window-option", "-t", "@31", "automatic-rename", "off"],
-            ["set-window-option", "-t", "@31", "allow-rename", "off"],
-            ["rename-window", "-t", "@31", "Dme-XaPY"],
-        ])
+                ui.worker_tab(self.ui, dict(saved, tab_id="@99"))
+        self.assertEqual(saved, dict(backend="tmux", endpoint="/host/tmux.sock",
+                                     pane_id="%17", tab_id="@31", session="$3"))
 
 
 class AvenTabTests(unittest.TestCase):

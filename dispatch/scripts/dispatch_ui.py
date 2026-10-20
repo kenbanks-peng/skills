@@ -254,15 +254,12 @@ def aven_tab(repo, argv, record, persist, environ=None):
     return record
 
 
-def worker_tab(ui, name, saved=None, *, rename=True):
-    """Name only the observed worker, pinning its full tab identity before mutation.
+def worker_tab(ui, saved=None):
+    """Resolve the exact worker tab identity without changing its label.
 
     Workmux Herdr pane keys are server-lifetime~terminal_id, not native pane IDs.
-    Labels are display data, never selectors. Call with rename=False and persist
-    the returned identity before the first mutation so interrupted resume is safe.
+    Labels are display data, never selectors.
     """
-    require(re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", name),
-            "Invalid displayed worker task reference")
     require(len(ui["agents"]) == 1, "Expected one exact worker UI identity")
     pane = ui["agents"][0]["pane_id"]
     context = ui["context"]
@@ -290,14 +287,6 @@ def worker_tab(ui, name, saved=None, *, rename=True):
 
         identity, label = resolve()
         require(saved is None or identity == saved, "Saved worker tab identity changed")
-        if rename:
-            confirmed, _ = resolve()
-            require(confirmed == identity, "Worker pane moved before naming")
-            if label != name:
-                client.request("tab.rename", tab_id=identity["tab_id"], label=name)
-            confirmed, label = resolve()
-            require(confirmed == identity and label == name,
-                    "Worker tab naming could not be verified")
         return identity
     require(context["backend"] == "tmux", "Unsupported worker UI backend")
     require(re.fullmatch(r"%\d+", pane), "Invalid worker tmux pane")
@@ -319,13 +308,6 @@ def worker_tab(ui, name, saved=None, *, rename=True):
 
     identity = resolve()
     require(saved is None or identity == saved, "Saved worker tab identity changed")
-    if rename:
-        require(resolve() == identity, "Worker pane moved before naming")
-        for option in ("automatic-rename", "allow-rename"):
-            tmux("set-window-option", "-t", identity["tab_id"], option, "off")
-        tmux("rename-window", "-t", identity["tab_id"], name)
-        require(resolve() == identity and tmux("display-message", "-p", "-t", pane,
-                "#{window_name}") == name, "Worker tab naming could not be verified")
     return identity
 
 
