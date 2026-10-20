@@ -12,7 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from dispatch_ui import aven_tab, worker_tab
+from dispatch_ui import aven_tab, close_aven_tab, worker_tab
 from git_preflight import (
     CheckError,
     branch_ref,
@@ -474,6 +474,27 @@ def startup_run(args):
         return dict(record, ok=True, record_path=str(path))
 
 
+def close_run(args):
+    """Final run housekeeping, never invoked by individual worker cleanup."""
+    require(args.authorize_close,
+            "Close only after final SUMMARY and all run work/cleanup are finished; "
+            "then pass --authorize-close")
+    require(re.fullmatch(r"[A-Za-z0-9_-]+", args.run_id or args.task), "Invalid run ID")
+    identity = paths(Path.cwd())
+    common = Path(identity["common_dir"])
+    with (common / "dispatch.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError("Another dispatch operation owns this repository") from error
+        path = common / "dispatch-ui" / ((args.run_id or args.task) + ".json")
+        record = json.loads(path.read_text())
+        require(record["repo"] == identity["worktree"] and record["task"] == args.task,
+                "Saved dispatch run belongs to another repository/task")
+        close_aven_tab(record, lambda data: save(path, data))
+        return dict(record, ok=True, record_path=str(path))
+
+
 def execute(args):
     identity = paths(Path.cwd())
     repo = identity["worktree"]
@@ -691,7 +712,9 @@ def execute(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("startup", "launch", "inspect"))
+    parser.add_argument("command", choices=("startup", "close-run", "launch", "inspect"))
+    parser.add_argument("--authorize-close", action="store_true",
+                        help="Confirm all run work, cleanup, and final reporting are finished")
     parser.add_argument("--run-id", help="Stable startup run identity; defaults to the designated task ref")
     parser.add_argument("task", help="Aven task ref; configured routing defaults apply")
     parser.add_argument("--base", help="Explicit local base branch (new launch)")
@@ -722,6 +745,8 @@ def main():
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
     try:
+        if args.command == "close-run":
+            return emit(close_run(args))
         return emit(startup_run(args) if args.command == "startup" else execute(args))
     except ERRORS as error:
         return emit(

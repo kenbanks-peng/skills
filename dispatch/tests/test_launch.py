@@ -212,6 +212,11 @@ class LaunchTests(unittest.TestCase):
                                                        tab_id="aven-tab", workspace_id="ws-1"))
                         self.startup_tabs.append(dict(tab_id="aven-tab", workspace_id="ws-1", label="aven"))
                         result = {"tab": {"tab_id": "aven-tab"}}
+                    elif request["method"] == "tab.close":
+                        tab = request["params"]["tab_id"]
+                        self.startup_panes = [p for p in self.startup_panes if p["tab_id"] != tab]
+                        self.startup_tabs = [t for t in self.startup_tabs if t["tab_id"] != tab]
+                        result = {}
                     else:
                         self.label.write_text(request["params"]["label"])
                         result = {}
@@ -305,6 +310,23 @@ class LaunchTests(unittest.TestCase):
         self.assertFalse((self.repo / ".aven").exists())
         self.assertEqual(self.adds(), [])
         self.assertEqual(self.label.read_text(), "dispatcher")
+
+    def test_close_run_requires_authorization_and_preserves_dispatcher(self):
+        startup = self.cli("startup", "APP-TEST", "--run-id", "completed-run")
+        self.cli("close-run", "APP-TEST", "--run-id", "completed-run", ok=False)
+        self.assertEqual(len(self.startup_panes), 1)
+        for _ in range(2):
+            result = self.cli("close-run", "APP-TEST", "--run-id", "completed-run",
+                              "--authorize-close")
+            self.assertTrue(result["aven_closed"])
+        self.assertEqual(self.startup_panes, [])
+        self.assertEqual(self.startup_tabs, [])
+        self.assertEqual(self.label.read_text(), "dispatcher")
+        self.assertEqual(sum(c["method"] == "tab.close" for c in self.ui_calls), 1)
+        saved = json.loads(Path(startup["record_path"]).read_text())
+        self.assertTrue(saved["aven_closed"])
+        result = self.cli("startup", "APP-TEST", "--run-id", "completed-run", ok=False)
+        self.assertIn("closure has started", result["error"])
 
     def test_startup_missing_aven_has_clear_diagnostic_without_ui_changes(self):
         (self.root / "bin/aven").unlink()

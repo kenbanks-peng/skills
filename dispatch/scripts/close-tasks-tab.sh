@@ -2,10 +2,12 @@
 set -euo pipefail
 
 if [ "${1:-}" = --help ]; then
-  echo 'Startup Aven tabs are run-owned and survive worker cleanup.'
-  echo 'Review the dispatch-ui run record and close the verified tab manually in the original UI.'
+  echo 'Usage: close-tasks-tab.sh <run-task> [--run-id <id>] --authorize-close'
+  echo 'Close the saved run-owned Aven tab only after all work and final reporting finish.'
   exit 0
 fi
-echo 'Refusing legacy label/ID-only closure: Aven tabs are run-owned, not worker resources.' >&2
-echo 'Review the saved dispatch-ui JSON identity in the original UI before manual closure.' >&2
-exit 1
+if [ "$#" -eq 0 ] || [[ "$1" == *:* ]]; then
+  echo 'Aven tabs are run-owned; supply the run task and --authorize-close, not a label or pane ID.' >&2
+  exit 1
+fi
+exec python3 "$(dirname "$0")/dispatch.py" close-run "$@"

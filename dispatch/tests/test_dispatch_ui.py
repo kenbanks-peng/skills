@@ -273,6 +273,13 @@ class AvenTabTests(unittest.TestCase):
             self.inventory["panes"].append(self.aven)
             self.inventory["tabs"].append(dict(self.aven, label="aven"))
             return {"tab": {"tab_id": "aven-tab"}}
+        if method == "tab.close":
+            self.assertTrue(self.saved[-1]["aven_close_attempted"])
+            self.inventory["panes"] = [p for p in self.inventory["panes"]
+                                       if p["tab_id"] != params["tab_id"]]
+            self.inventory["tabs"] = [t for t in self.inventory["tabs"]
+                                      if t["tab_id"] != params["tab_id"]]
+            return {}
         self.fail(method)
 
     def open(self):
@@ -342,6 +349,71 @@ class AvenTabTests(unittest.TestCase):
         self.assertEqual(creates[0][-3:-1], ["-c", "/target repo"])
         self.assertIn("'/original tasks.db'", creates[0][-1])
         self.assertEqual(self.record["aven_tab"], dict(tab_id="@8", pane_id="%10"))
+
+    def close(self):
+        with patch.object(ui.Herdr, "socket_identity", return_value=(1, 2)), \
+             patch.object(ui.Herdr, "request", side_effect=self.request), \
+             patch.object(ui.os, "stat") as stat:
+            stat.return_value.st_dev = 1
+            stat.return_value.st_ino = 2
+            return ui.close_aven_tab(self.record,
+                                     lambda data: self.saved.append(json.loads(json.dumps(data))))
+
+    def test_run_end_closes_only_saved_aven_tab_and_is_repeatable(self):
+        self.open()
+        self.close()
+        self.close()
+        self.assertTrue(self.record["aven_closed"])
+        self.assertEqual([p for m, p in self.calls if m == "tab.close"],
+                         [dict(tab_id="aven-tab")])
+        self.assertEqual([t["tab_id"] for t in self.inventory["tabs"]],
+                         ["dispatcher-tab", "unrelated"])
+
+    def test_run_end_preserves_tab_with_extra_panes(self):
+        self.open()
+        self.inventory["panes"].append(dict(self.aven, pane_id="other",
+                                            terminal_id="other-terminal"))
+        with self.assertRaisesRegex(ui.UIError, "other panes"):
+            self.close()
+        self.assertFalse(any(m == "tab.close" for m, _ in self.calls))
+
+    def test_run_end_refuses_changed_socket(self):
+        self.open()
+        self.record["dispatcher"]["socket_identity"] = [9, 9]
+        with self.assertRaisesRegex(ui.UIError, "socket changed"):
+            self.close()
+        self.assertFalse(any(m == "tab.close" for m, _ in self.calls))
+
+    def test_tmux_run_end_uses_saved_socket_and_preserves_other_windows(self):
+        record = dict(dispatcher=dict(backend="tmux", endpoint="/host/tmux.sock",
+                                      socket_identity=[1, 2], session="$3",
+                                      tab_id="@7", pane_id="%9"),
+                      aven_tab=dict(tab_id="@8", pane_id="%10"))
+        rows = ["%9\t@7\t$3", "%10\t@8\t$3", "%11\t@9\t$3"]
+        calls = []
+
+        def command(argv):
+            calls.append(argv)
+            self.assertEqual(argv[:3], ["tmux", "-S", "/host/tmux.sock"])
+            if argv[3] == "kill-pane":
+                self.assertTrue(record["aven_close_attempted"])
+                self.assertEqual(argv[4:], ["-t", "%10"])
+                rows.remove("%10\t@8\t$3")
+                return ""
+            return "\n".join(rows)
+
+        with patch.object(ui, "command", side_effect=command), \
+             patch.object(ui.os, "stat") as stat:
+            stat.return_value.st_dev = 1
+            stat.return_value.st_ino = 2
+            rows.append("%12\t@8\t$3")
+            with self.assertRaisesRegex(ui.UIError, "other panes"):
+                ui.close_aven_tab(record, lambda data: None)
+            rows.pop()
+            ui.close_aven_tab(record, lambda data: None)
+            ui.close_aven_tab(record, lambda data: None)
+        self.assertEqual(rows, ["%9\t@7\t$3", "%11\t@9\t$3"])
+        self.assertEqual(sum(c[3] == "kill-pane" for c in calls), 1)
 
     def test_legacy_close_cannot_close_run_or_worker_tabs(self):
         result = subprocess.run(["bash", str(SCRIPT.with_name("close-tasks-tab.sh")),

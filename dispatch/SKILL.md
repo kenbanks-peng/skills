@@ -84,6 +84,14 @@ Before final handoff, reconcile every tracked task against saved records and Ave
 aven note <run-epic-or-designated-task> --file <handoff-file>
 ```
 
+When all run work, resource cleanup, and final SUMMARY reporting are finished, close the saved Aven tab before the final response:
+
+```sh
+python3 <skill-directory>/scripts/dispatch.py close-run <run-epic-or-designated-task> --authorize-close
+```
+
+Use the same `--run-id <stable-id>` as startup, if set. Require `ok: true` and `aven_closed: true`; otherwise report pending UI housekeeping. The dispatcher tab stays open. Keep Aven open during worker cleanup, resume, or a blocked/partial handoff. See [runtime.md](runtime.md#dispatch-startup-and-aven-tab) for safe closure and retry rules.
+
 ## Load only when triggered
 
 - **Resume or uncertain state:** [recovery.md](recovery.md), including completed tasks with pending cleanup. Reconcile the full tracked set after interruption.

@@ -26,7 +26,13 @@ The stable run ID defaults to the designated task ref; `--run-id <id>` distingui
 
 Repeated startup verifies the saved identity without creating a replacement or restarting Aven. Missing/moved panes, changed server/dispatcher identity, or interrupted creation stop for reconciliation. Creation intent is saved before mutation; even an interruption before the returned ID is saved never automatically repeats creation. Inspect `creation_attempted`, `created_tab_id` when present, and the original UI inventory. Preserve uncertain resources and reconcile the record manually; a label match alone is not ownership proof.
 
-Aven and dispatcher tabs are run-owned, never worker cleanup targets. Keep them open across worker cleanup and resume. The legacy [close-tasks-tab.sh](scripts/close-tasks-tab.sh) now refuses ID-only closure; close a run-owned tab manually only after verifying its full saved identity in the original UI. Closure remains separate housekeeping.
+Aven and dispatcher tabs are run-owned, never worker cleanup targets. Keep them open across worker cleanup and resume. When all run work, cleanup, and final SUMMARY reporting are finished, close the run's Aven tab:
+
+```sh
+python3 <skill-directory>/scripts/dispatch.py close-run <designated-task-ref> --authorize-close
+```
+
+Use the same `--run-id <id>` as startup, if set. [close-tasks-tab.sh](scripts/close-tasks-tab.sh) accepts the same task/run/authorization arguments; labels and pane IDs are not accepted. Closure uses the saved socket and exact pane/tab identity, refuses changed identities or extra panes, and confirms removal. The dispatcher and unrelated tabs stay open. Interrupted closure can be retried with the same command; saved intent permits reconciliation without a second close when the target is already absent. Do not close on a blocked or partial handoff. Report any closure failure as pending housekeeping. A closed run cannot be restarted; use a new run ID for new work.
 
 ### Host end-to-end check
 
@@ -41,4 +47,4 @@ herdr session snapshot
 aven context DSP-AR8K --db /Users/kenbanks/Software/Public/skills/dispatch/.aven/tasks.db --workspace default
 ```
 
-Record both JSON results and the UI snapshot in Git metadata. Confirm one new Aven tab in the dispatcher's workspace, unchanged Aven identity on repeat, dispatcher label `dispatcher`, Aven cwd `/Users/kenbanks/Software/Public/skills`, and task DSP-AR8K visible in project dispatch. Confirm no root `.aven/tasks.db` was created and existing worker/demo tabs remain unchanged. After normal worker cleanup, confirm Aven and dispatcher identities still exist. This check requires host access; worker tests with a controlled socket are not end-to-end UI evidence.
+Record both JSON results and the UI snapshot in Git metadata. Confirm one new Aven tab in the dispatcher's workspace, unchanged Aven identity on repeat, dispatcher label `dispatcher`, Aven cwd `/Users/kenbanks/Software/Public/skills`, and task DSP-AR8K visible in project dispatch. Confirm no root `.aven/tasks.db` was created and existing worker/demo tabs remain unchanged. After normal worker cleanup, confirm Aven and dispatcher identities still exist. After all work and reporting finish, run `python3 scripts/dispatch.py close-run DSP-AR8K --run-id dsp-ar8k-host-check --authorize-close`. Confirm only the saved Aven tab is removed and the dispatcher remains. This check requires host access; worker tests with a controlled socket are not end-to-end UI evidence.

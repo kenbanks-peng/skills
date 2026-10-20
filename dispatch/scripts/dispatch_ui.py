@@ -174,6 +174,8 @@ def aven_tab(repo, argv, record, persist, environ=None):
     never supply tab_id (that would replace an occupied tab).
     An interrupted create is deliberately not retried, even if no ID was saved.
     """
+    require(not record.get("aven_close_attempted") and not record.get("aven_closed"),
+            "Run closure has started; use a new run ID for new work")
     env = os.environ if environ is None else environ
     if env.get("HERDR_ENV") == "1":
         client = Herdr(env.get("HERDR_SOCKET_PATH"))
@@ -251,6 +253,84 @@ def aven_tab(repo, argv, record, persist, environ=None):
         record["aven_tab"] = dict(tab_id=row[0], pane_id=row[1])
     persist(record)
     verify()
+    return record
+
+
+def close_aven_tab(record, persist):
+    """Close only the saved run tab, after the dispatcher authorizes run closure."""
+    parent, saved = record["dispatcher"], record["aven_tab"]
+    require(saved["tab_id"] != parent["tab_id"]
+            and saved["pane_id"] != parent["pane_id"], "Aven tab overlaps dispatcher")
+    endpoint = parent["endpoint"]
+
+    def check_socket():
+        stat = os.stat(endpoint)
+        require([stat.st_dev, stat.st_ino] == parent["socket_identity"],
+                "Saved UI socket changed; preserve the Aven tab")
+
+    check_socket()
+    if parent["backend"] == "herdr":
+        client = Herdr(endpoint)
+
+        def inventory():
+            check_socket()
+            data = client.snapshot()
+            panes = [p for p in data["panes"]
+                     if p["tab_id"] == saved["tab_id"] or p["pane_id"] == saved["pane_id"]
+                     or p["terminal_id"] == saved["terminal_id"]]
+            tabs = [t for t in data["tabs"] if t["tab_id"] == saved["tab_id"]]
+            if not panes and not tabs:
+                return False
+            require(len(panes) == 1, "Aven tab contains other panes; preserve them")
+            require(all(panes[0].get(k) == v for k, v in saved.items()),
+                    "Saved Aven pane identity changed")
+            require(len(tabs) == 1
+                    and tabs[0]["workspace_id"] == saved["workspace_id"]
+                    == parent["workspace_id"], "Saved Aven tab identity changed")
+            return True
+
+        def close():
+            check_socket()
+            client.request("tab.close", tab_id=saved["tab_id"])
+    else:
+        require(parent["backend"] == "tmux", "Unsupported saved UI backend")
+        require(re.fullmatch(r"@\d+", saved["tab_id"])
+                and re.fullmatch(r"%\d+", saved["pane_id"])
+                and re.fullmatch(r"\$\d+", parent["session"]), "Invalid saved tmux identity")
+
+        def tmux(*args):
+            check_socket()
+            return command(["tmux", "-S", endpoint, *args])
+
+        def inventory():
+            rows = tmux("list-panes", "-a", "-F",
+                        "#{pane_id}\t#{window_id}\t#{session_id}").splitlines()
+            panes = [row.split("\t") for row in rows]
+            matches = [p for p in panes if len(p) == 3
+                       and (p[0] == saved["pane_id"] or p[1] == saved["tab_id"])]
+            if not matches:
+                return False
+            require(matches == [[saved["pane_id"], saved["tab_id"], parent["session"]]],
+                    "Saved Aven tmux identity changed or tab contains other panes")
+            return True
+
+        def close():
+            # Remove only the saved pane, never a window with unrelated panes.
+            tmux("kill-pane", "-t", saved["pane_id"])
+
+    present = inventory()
+    if not present:
+        require(record.get("aven_close_attempted"),
+                "Saved Aven tab disappeared before authorized closure")
+    else:
+        require(not record.get("aven_closed"), "Closed Aven identity reappeared; preserve it")
+        require(inventory(), "Aven tab disappeared before closure")
+        record["aven_close_attempted"] = True
+        persist(record)
+        close()
+        require(not inventory(), "Aven tab closure not confirmed")
+    record["aven_closed"] = True
+    persist(record)
     return record
 
 
