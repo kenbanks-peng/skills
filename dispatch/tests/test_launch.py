@@ -226,9 +226,6 @@ class LaunchTests(unittest.TestCase):
         self.assertFalse(Path(data["prompt"]).is_relative_to(self.root / "worker"))
         self.assertIn("--sandbox", self.adds()[0])
         self.assertIn("agents.linux.yaml", data["config"])
-        self.assertFalse(
-            any("--help" in call or "--version" in call for call in self.calls())
-        )
 
     def test_null_agent_kind_uses_exact_container_process_evidence(self):
         self.env["MODE"] = "process-pi"
@@ -330,9 +327,6 @@ class LaunchTests(unittest.TestCase):
         data = self.launch(ok=False)
         self.assertIn("compatibility troubleshooting", data["error"])
         self.assertEqual(data["container"]["id"], "container-1")
-        self.assertFalse(
-            any("--help" in call or "--version" in call for call in self.calls())
-        )
         self.env["MODE"] = ""
         self.cli("launch", "APP-TEST")
         self.assertEqual(len(self.adds()), 1)

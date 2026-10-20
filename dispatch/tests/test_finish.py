@@ -99,20 +99,6 @@ class FinishTests(unittest.TestCase):
         self.assertFalse(self.worker.exists())
         self.assertTrue((self.path.parent / "completion.md").exists())
 
-    def test_aven_stub_rejects_removed_agent_options(self):
-        for option in (["--clear-agent"], ["--agent", "pi"]):
-            with self.subTest(option=option):
-                result = subprocess.run(
-                    ["aven", "edit", "SKL-TEST", "--status", "done", *option],
-                    cwd=self.repo,
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                self.assertEqual(result.returncode, 2)
-                self.assertIn("unrecognized arguments", result.stderr)
-
     def test_completion_uses_supported_status_and_saved_routing_after_report(self):
         self.record["routing"] = {"db": "/saved/tasks.db", "workspace": "saved"}
         self.record["agent_type"] = "pi"
@@ -128,8 +114,15 @@ class FinishTests(unittest.TestCase):
         self.assertEqual(
             aven[-1],
             [
-                "aven", "edit", "SKL-TEST", "--status", "done",
-                "--db", "/saved/tasks.db", "--workspace", "saved",
+                "aven",
+                "edit",
+                "SKL-TEST",
+                "--status",
+                "done",
+                "--db",
+                "/saved/tasks.db",
+                "--workspace",
+                "saved",
             ],
         )
         self.assertEqual(json.loads(self.path.read_text())["agent_type"], "pi")

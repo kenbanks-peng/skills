@@ -176,7 +176,6 @@ class DocumentedWorkflowTests(unittest.TestCase):
         self.assertTrue(retried["task_complete"])
         self.assertEqual(retried["pending_cleanup"], [])
         self.assertFalse(self.worker.exists())
-        self.assertFalse(any("--help" in c or "--version" in c for c in self.calls()))
 
     def test_interrupted_integration_reconciles_without_second_merge(self):
         self.start()

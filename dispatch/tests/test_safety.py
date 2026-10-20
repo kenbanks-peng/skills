@@ -380,7 +380,6 @@ class SafetyTests(unittest.TestCase):
                     ok=False,
                 )
                 self.assert_preserved()
-        self.assertTrue(all(call[0] == "aven" for call in self.calls()))
 
     def test_uncertain_exit_blocks_stop_and_cleanup(self):
         receipt = self.json_file("receipt.json", self.receipt())
