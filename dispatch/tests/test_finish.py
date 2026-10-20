@@ -27,7 +27,10 @@ class FinishTests(unittest.TestCase):
                     "tested_sha": self.base,
                     "worker_sha": self.base,
                     "base_ref": "refs/heads/main",
-                    "repo": {"common_dir": str(self.repo / ".git")},
+                    "repo": {
+                        "common_dir": str(self.repo / ".git"),
+                        "worktree": str(self.repo),
+                    },
                     "checks": [{"argv": ["true"], "status": "passed", "returncode": 0}],
                     "worker_is_ancestor": True,
                     "base_moved": False,
@@ -202,11 +205,64 @@ class FinishTests(unittest.TestCase):
         # The runtime mode is shared by the fake CLIs; retain a running container
         # is not useful here, so make only Aven fail after an exited observation.
         binary = self.root / "bin/aven"
-        binary.write_text("#!" + sys.executable + "\nimport sys\nsys.exit(7)\n")
+        original = binary.read_bytes()
+        binary.write_text(
+            "#!"
+            + sys.executable
+            + "\nimport sys\nsys.stderr.write('Aven unavailable')\nsys.exit(7)\n"
+        )
         self.env["CLI_MODE"] = "exited"
         result = self.cli("--authorize-finish", ok=False)
         self.assertFalse(result["task_complete"])
-        self.assertTrue((self.path.parent / "completion.md").exists())
+        self.assertFalse(result["delivered"])
+        self.assertIn("Aven unavailable", result["error"])
+        self.assertNotIn("task", result["actions"])
+        report = self.path.parent / "completion.md"
+        self.assertEqual(result["completion_report"], str(report))
+        self.assertIn("VERIFIED:", report.read_text())
+        self.assertIn(
+            self.git(self.repo, "rev-parse", "--short", "HEAD"), report.read_text()
+        )
+        binary.write_bytes(original)
+        self.assertTrue(self.cli()["task_complete"])
+
+    def test_failed_stale_wrong_or_missing_closure_evidence_blocks_actions(self):
+        original = self.verification.read_text()
+        for change in (
+            "failed",
+            "stale",
+            "wrong-repo",
+            "wrong-common",
+            "empty",
+            "moved",
+            "missing",
+        ):
+            with self.subTest(change=change):
+                data = json.loads(original)
+                if change == "failed":
+                    data["checks"][0].update(status="failed", returncode=3)
+                elif change == "stale":
+                    data["tested_sha"] = "0" * 40
+                elif change == "wrong-repo":
+                    data["repo"]["worktree"] = str(self.root)
+                elif change == "wrong-common":
+                    data["repo"]["common_dir"] = str(self.root)
+                elif change == "empty":
+                    data["checks"] = []
+                    self.record["acceptance_checks"] = []
+                    self.store()
+                elif change == "moved":
+                    data["base_moved"] = True
+                self.verification.write_text(json.dumps(data))
+                if change == "missing":
+                    self.verification.unlink()
+                self.cli("--authorize-finish", ok=False)
+                self.assertTrue(self.worker.exists())
+                self.assertFalse((self.path.parent / "completion.md").exists())
+                self.record["acceptance_checks"] = [["true"]]
+                self.store()
+        self.verification.write_text(original)
+        self.assertTrue(self.cli("--authorize-finish")["task_complete"])
 
     def test_mismatched_verification_blocks_actions(self):
         data = json.loads(self.verification.read_text())
@@ -339,7 +395,9 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
         log = self.root / "tmux-calls"
         binary = self.root / "bin/tmux"
         binary.write_text(
-            "#!" + sys.executable + "\nimport sys\nfrom pathlib import Path\n"
+            "#!"
+            + sys.executable
+            + "\nimport sys\nfrom pathlib import Path\n"
             + f"with Path({str(log)!r}).open('a') as out:\n"
             + "    out.write(repr(sys.argv[1:]) + '\\n')\n"
             + f"print({('%1' + chr(9) + '$1' + chr(9) + str(self.worker))!r})\n"
@@ -351,7 +409,10 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
         self.assertNotIn("kill-pane", log.read_text() if log.exists() else "")
 
     def test_tmux_closure_requires_matching_server_and_pane(self):
-        for socket, status in (("/original.sock", "closed"), ("/other.sock", "pending")):
+        for socket, status in (
+            ("/original.sock", "closed"),
+            ("/other.sock", "pending"),
+        ):
             with self.subTest(socket=socket):
                 self.record["ui"] = {
                     "context": {"backend": "tmux", "socket_path": "/original.sock"},
@@ -362,7 +423,9 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
                 binary = self.root / "bin/tmux"
                 actual = "\t".join((socket, "%1", "$1", str(self.worker)))
                 binary.write_text(
-                    "#!" + sys.executable + "\nimport sys\nfrom pathlib import Path\n"
+                    "#!"
+                    + sys.executable
+                    + "\nimport sys\nfrom pathlib import Path\n"
                     + f"with Path({str(log)!r}).open('a') as out:\n"
                     + "    out.write(repr(sys.argv[1:]) + '\\n')\n"
                     + f"print({actual!r})\n"
@@ -378,7 +441,9 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
 
     def test_completed_worktree_reappearing_requires_judgment(self):
         self.cli("--authorize-finish")
-        self.git(self.repo, "worktree", "add", "-b", "worker", str(self.worker), self.base)
+        self.git(
+            self.repo, "worktree", "add", "-b", "worker", str(self.worker), self.base
+        )
         result = self.cli(ok=False)
         self.assertIn("reappeared", result["error"])
         self.assertTrue(self.worker.exists())
@@ -394,7 +459,9 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
         binary = self.root / "bin/docker"
         marker = self.root / "changed-during-stop"
         binary.write_text(
-            "#!" + sys.executable + "\n"
+            "#!"
+            + sys.executable
+            + "\n"
             + "import json, subprocess\nfrom pathlib import Path\n"
             + f"marker = Path({str(marker)!r})\n"
             + "if not marker.exists():\n"

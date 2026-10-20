@@ -28,7 +28,7 @@ Use the `tasks` skill for Aven operations and `aven` CLI help for syntax.
 1. Query `aven list --ready` with the run's project/scope filters; read each selected task with `aven context <task-ref>`.
 2. Run [scripts/dispatch.py](scripts/dispatch.py) `launch <full-task-ref>` with the explicit local base, write scopes, and required argv checks, using the [runtime procedure](runtime.md). It loads Aven context, creates the prompt, and saves one worker record. No caller-managed prompt JSON or launch receipt is needed.
 3. Require a confirmed launch in the saved record, then mark the task `active` with the observed agent type. Repeated launch and `inspect --resume` only reconcile existing resources; they never start a replacement.
-4. Render and append a `DISPATCH` note using the evidence-note procedure below. For resumed workers, retain the original launch evidence. Record shared config, execution mode, UI resource IDs, and run-wide checks in one ACTIVITY: run-context note on the run epic or designated task; refer to that record from task notes and record task-specific overrides.
+4. Write and append a `DISPATCH` note with the worker handle and saved recovery-record link. For resumed workers, retain the original launch evidence. Use optional `ACTIVITY:` notes on the run epic or designated task for consequential shared decisions; the saved records already retain routine settings and coordinates.
 
 ## 3. Monitor and review
 
@@ -48,23 +48,18 @@ Use the `tasks` skill for Aven operations and `aven` CLI help for syntax.
 
 ## 5. Close the run
 
-1. Confirm all selected tasks are verified, merged, have confirmed worker exit, and have durable completion reports. List retained resources as pending cleanup, not removed. If acceptance requires identifying notes, require a committed manifest and persistent CI check for all exact notes using the [runtime procedure](runtime.md#persistent-identifying-note-checks). Use `verify_base.py` for the run-wide checks against the final base revision, supplying a retained verified worker commit. Passing task checks do not replace these.
+1. Confirm all selected tasks are verified, merged, have confirmed worker exit, and have durable completion reports. List retained resources as pending cleanup, not removed. Project-specific checks belong in explicit task acceptance criteria. Use `verify_base.py` for the run-wide checks against the final base revision, supplying a retained verified worker commit. Passing task checks do not replace these.
 2. Parent-directory removal is best-effort housekeeping. Use only `rmdir` on each recorded exact path; leave nonempty or unsafe directories intact. Report failures separately from task delivery and pending cleanup.
-3. Attempt to close this run's tasks view using its recorded resource ID and the [runtime cleanup procedure](runtime.md#dispatch-and-tasks-tabs). Closure failure is housekeeping, not a task or delivery gate. Keep its identity and next action in the handoff.
-4. Render and append one `SUMMARY` note on the run's epic, or a designated task when there is no epic. State delivered work, pending cleanup, and housekeeping separately. Completion does not imply that all resources are gone.
+3. If a tasks view was opened, attempt to close it using its recorded resource ID and the [runtime cleanup procedure](runtime.md#optional-tasks-views). Closure failure is housekeeping, not a task or delivery gate. Keep its identity and next action in the handoff.
+4. Write and append one `SUMMARY` note on the run's epic, or a designated task when there is no epic. State delivered work, pending cleanup, and housekeeping separately. Completion does not imply that all resources are gone.
 
 ## Evidence notes
 
-Every dispatch-written note or comment starts with a standard CAPS prefix followed by a colon. Use one lead sentence and at most three short bullets (normally under 80 words); recovery blockers may exceed this when necessary. Write plain, scannable text with one fact per bullet.
+Use the `tasks` selective-note policy and write notes directly. Helpers return recovery-record paths, revisions, and check evidence; no note parameters or formatter are required.
 
-Record only the new event. Keep recovery coordinates in DISPATCH and shared settings in one run-context note; refer back to them. Omit the attached task's own ref, unchanged state, routine commands, and lifecycle recaps. Summarize distinct checks by outcome; retain commands, logs, full SHAs, and resource identity in evidence files and link them. Display home paths with `~`.
+Three routine events:
+- `DISPATCH:` — worker handle and durable recovery-record link.
+- `RESULT:` — delivered change, Git-verified commit, check outcome, and relevant exceptions.
+- `VERIFIED:` — integrated revision, independent checks, confirmed worker exit, and remaining cleanup. Finish writes this from saved evidence before marking done.
 
-- `ACTIVITY:` — shared run context, a material decision, review/authorization, or recovery update. State what changed and why; routine polling needs no note.
-- `DISPATCH` — worker recovery coordinates and launch revision; reference shared run context.
-- `RESULT` — delivered change, commit, acceptance/check results, and exceptions.
-- `MERGE` — optional dispatch integration summary; link the saved integration event and exact checked revisions. No worker response is required.
-- `VERIFIED` — independently tested base revision, check results, confirmed writer exit, pending cleanup, and housekeeping. The finish operation writes this note directly from saved evidence. Do not claim retained resources are gone.
-- `BLOCKED` — blocker first, then recovery evidence, responsible party, and next action.
-- `SUMMARY` — delivered outcome, final verified revision, run-wide check results, and follow-up refs; leave lifecycle history in earlier notes.
-
-The finish operation writes its own completion report; it does not use the legacy cleanup-required `MERGE_VERIFIED` renderer. For other notes, use [render_note.py](scripts/render_note.py) and its `--help` to render transition notes from the [templates](templates). Review for relevance and add material decisions or exceptions before appending through `tasks`. Supply all required JSON input fields, including evidence fields omitted from display. The helper kinds `MERGE_PENDING` and `MERGE_VERIFIED` render `MERGE` and `VERIFIED` respectively. Use full Git SHAs for machine evidence and Git-generated unambiguous short SHAs for other prose. Keep failure details sufficient to resume; never replace evidence with a success claim.
+Use `BLOCKED:` for exceptions and optional `ACTIVITY:` notes for consequential decisions. Write one `SUMMARY:` per run. Preserve failed report text locally and surface Aven write failures; restore required durable reporting before merge or completion. Notes provide evidence, not authority to delete resources.

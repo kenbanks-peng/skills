@@ -29,4 +29,4 @@ Read before replacing workers, retrying uncertain operations, or resuming an int
 
 ## Leave a durable handoff
 
-Render `BLOCKED` with [scripts/render_note.py](scripts/render_note.py), referencing the recovery snapshot and retained verification/cleanup evidence, then append it through `tasks`. Keep unfinished tasks active and assigned unless explicitly handing ownership off. Prefix recovery updates with `ACTIVITY:` and record changed handles/configurations rather than repeating the original dispatch entry. Tell the user what needs attention and retain run-owned progress UI while the run is incomplete.
+Write `BLOCKED:` directly using the `tasks` selective-note policy, referencing retained recovery and verification evidence. Retain the text locally and surface any Aven write failure; restore required durable reporting before merge or completion. Keep unfinished tasks active and assigned unless explicitly handing ownership off. Use optional `ACTIVITY:` notes for consequential recovery decisions. Tell the user what needs attention. If an optional tasks view remains open, retain its exact ID for best-effort housekeeping; UI never gates completion.

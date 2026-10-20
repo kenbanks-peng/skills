@@ -10,9 +10,9 @@ Implement the assigned task; dispatch owns scheduling and closure.
 
 ## Implement and report
 
-1. Implement within the assigned scope and preserve unrelated changes. Record significant decisions and discovered work as ACTIVITY: notes (one sentence, only new facts); dispatch decides how to schedule follow-ups.
+1. Implement within the assigned scope and preserve unrelated changes. Use optional ACTIVITY: notes for significant decisions and discovered work under the tasks policy; dispatch decides how to schedule follow-ups.
 2. Run required checks, review the diff, and commit only intended changes using project conventions. Run checks and gated actions in fail-fast Bash blocks beginning with `set -euo pipefail`; write success reports only after the required checks pass.
-3. Append one `RESULT:` note following the `tasks` selective-note policy: delivered change and affected components, Git-verified commit SHA, compact acceptance/check results, and material decisions or exceptions. Use one lead sentence and at most three short bullets, normally under 80 words. Summarize distinct checks by outcome; link detailed evidence instead of copying commands. Use Git-generated unambiguous short SHAs in prose, full SHAs in evidence files, and `~` for home paths. Reference existing task context rather than repeating scope, launch metadata, task ref, or routine procedure. State skipped or unavailable checks explicitly as blockers, not passes.
+3. Append one `RESULT:` note following the `tasks` selective-note policy: delivered change and affected components, Git-verified commit SHA, compact acceptance/check results, and material decisions or exceptions. Reference detailed evidence and existing context rather than repeating commands or launch metadata. Include a Git-generated unambiguous commit SHA so dispatch can bind the report to the current work. State skipped or unavailable checks explicitly.
 4. On failure, append `BLOCKED:` leading with the blocker and next action, followed by the failed command, working directory, observed error, and retained work needed for recovery. If Aven is unavailable, retain the report locally and alert dispatch; restore the durable report before merge.
 5. End your turn after reporting. Keep the worktree and leave status/assignment unchanged. Dispatch retrieves results from Aven, not terminal prose.
 

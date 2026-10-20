@@ -66,7 +66,8 @@ elif name == "workmux":
     elif args[0] == "status":
         agent = {"worktree": "dispatch-app-test", "project_path": str(repo),
                  "pane_id": "pane-CHANGED" if mode == "changed-ui" else "pane-1",
-                 "agent_kind": "pi", "session": "session-1", "window_name": "worker",
+                 "agent_kind": None if mode.startswith("process-") else "pi",
+                 "session": "session-1", "window_name": "worker",
                  "workdir": str(worker) if (root / "sandboxed").read_text() == "no" else "/guest/worker",
                  "status": "done" if mode == "fast-done" else "working"}
         agents = [] if mode == "missing-ui" else [agent]
@@ -76,13 +77,25 @@ elif name == "workmux":
                           "agents": agents, "target_errors": []}))
     else:
         sys.exit(9)
-elif name in ("docker", "container"):
+elif name in ("docker", "container", "podman"):
     if args[0] in ("ps", "list"):
         ids = ["container-1", "container-2"] if mode == "ambiguous-container" else ["container-1"]
         if name == "container":
             print(json.dumps([{"configuration": {"id": identity}} for identity in ids]))
         else:
             print("\n".join(ids))
+    elif args[0] == "exec":
+        processes = [{"pid": 3, "start_ticks": "100", "exe": "/usr/bin/node",
+                      "argv": ["pi"], "cwd": "/guest/worker", "kind": "pi"}]
+        if mode == "process-missing":
+            processes = []
+        elif mode == "process-ambiguous":
+            processes.append(dict(processes[0], pid=4))
+        elif mode == "process-wrong-root":
+            processes[0]["cwd"] = "/other/worker"
+        elif mode == "process-error":
+            sys.exit(7)
+        print(json.dumps(processes))
     elif args[0] == "inspect":
         source = "/wrong-host" if mode == "wrong-mount" else str(worker)
         if name == "container":
@@ -124,7 +137,7 @@ class LaunchTests(unittest.TestCase):
         )
         binary = self.root / "bin"
         binary.mkdir()
-        for name in ("aven", "workmux", "docker", "container"):
+        for name in ("aven", "workmux", "docker", "container", "podman"):
             path = binary / name
             path.write_text(FAKE.replace("#!PYTHON", "#!" + sys.executable))
             path.chmod(0o755)
@@ -216,6 +229,48 @@ class LaunchTests(unittest.TestCase):
         self.assertFalse(
             any("--help" in call or "--version" in call for call in self.calls())
         )
+
+    def test_null_agent_kind_uses_exact_container_process_evidence(self):
+        self.env["MODE"] = "process-pi"
+        data = self.launch()
+        self.assertEqual(data["agent_type"], "pi")
+        event = data["events"][-1]
+        self.assertIsNone(event["workmux_status"]["agents"][0]["agent_kind"])
+        self.assertEqual(event["agent_processes"][0]["pid"], 3)
+        self.assertIn(["docker", "exec", "container-1"], [c[:3] for c in self.calls()])
+        self.env["MODE"] = ""
+        resumed = self.cli("inspect", "APP-TEST", "--resume")
+        self.assertEqual(resumed["agent_type"], "pi")
+
+    def test_null_kind_process_probe_uses_exact_apple_container(self):
+        self.env["MODE"] = "process-pi"
+        data = self.launch("--runtime", "apple-container")
+        self.assertEqual(data["agent_type"], "pi")
+        self.assertIn(
+            ["container", "exec", "container-1"], [c[:3] for c in self.calls()]
+        )
+
+    def test_null_kind_process_probe_uses_exact_podman_container(self):
+        self.env["MODE"] = "process-pi"
+        data = self.launch("--runtime", "podman")
+        self.assertEqual(data["agent_type"], "pi")
+        self.assertIn(["podman", "exec", "container-1"], [c[:3] for c in self.calls()])
+
+    def test_null_agent_kind_without_unique_process_fails_closed(self):
+        for mode in (
+            "process-missing",
+            "process-ambiguous",
+            "process-wrong-root",
+            "process-error",
+        ):
+            with self.subTest(mode=mode):
+                self.env["MODE"] = mode
+                if self.record.exists():
+                    self.cli("inspect", "APP-TEST", "--resume", ok=False)
+                else:
+                    self.launch(ok=False)
+                self.assertEqual(len(self.adds()), 1)
+                self.assertTrue((self.root / "worker").exists())
 
     def test_fast_completion_does_not_require_observing_working(self):
         self.env["MODE"] = "fast-done"

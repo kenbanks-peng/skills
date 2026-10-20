@@ -19,9 +19,16 @@ repo, worker = os.environ["REPO"], os.environ["WORKER"]
 def git(root, *argv):
     return subprocess.check_output(["git", "-C", root, *argv], text=True).strip()
 if Path(sys.argv[0]).name == "aven":
-    print(json.dumps({"task": {"ref": "SKL-TEST"}, "notes": [
-        {"id": os.environ.get("RESULT_ID", "result-1"), "body": "RESULT: ready",
-         "created_at": "2026-10-19T01:00:00Z"}]}))
+    sha = os.environ.get("RESULT_SHA", git(worker, "rev-parse", "HEAD"))
+    notes = [{"id": os.environ.get("RESULT_ID", "result-1"),
+              "body": "RESULT: ready " + sha,
+              "created_at": "2026-10-19T01:00:00Z"}]
+    if os.environ.get("LATEST_BAD"):
+        notes.append({"id": "result-2", "body": "RESULT: commit missing",
+                      "created_at": "2026-10-19T02:00:00Z"})
+    if os.environ.get("NO_RESULT"):
+        notes = []
+    print(json.dumps({"task": {"ref": "SKL-TEST"}, "notes": notes}))
 elif args[0] == "list":
     print(json.dumps([{"handle": "worker", "branch": "worker",
                       "path": worker, "is_main": False}]))
@@ -58,8 +65,10 @@ class IntegrationTests(unittest.TestCase):
         self.sha = self.git(self.worker, "rev-parse", "HEAD")
         self.path = self.repo / ".git/dispatch-workers/SKL-TEST/worker.json"
         self.path.parent.mkdir(parents=True)
+        self.env["RESULT_SHA"] = self.sha
         self.record = {
             "schema_version": 1,
+            "task_context": {"notes": []},
             "task_ref": "SKL-TEST",
             "repo": str(self.repo),
             "common_dir": str(self.repo / ".git"),
@@ -143,6 +152,81 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn("stale", self.cli(ok=False)["error"])
         self.assertFalse(self.merged())
 
+    def test_report_from_previous_worker_attempt_blocks_merge(self):
+        self.record["task_context"]["notes"] = [{"id": "result-1"}]
+        self.store()
+        self.assertIn("predates", self.cli(ok=False)["error"])
+        self.assertFalse(self.merged())
+
+    def test_missing_result_blocks_merge(self):
+        self.env["NO_RESULT"] = "1"
+        self.assertIn("No matching report", self.cli(ok=False)["error"])
+        self.assertFalse(self.merged())
+
+    def test_result_with_wrong_commit_blocks_merge(self):
+        self.env["RESULT_SHA"] = self.base
+        self.assertIn("commit evidence", self.cli(ok=False)["error"])
+        self.assertFalse(self.merged())
+
+    def test_result_accepts_git_generated_short_commit(self):
+        self.env["RESULT_SHA"] = self.git(self.worker, "rev-parse", "--short", "HEAD")
+        self.cli()
+
+    def report(self, *args, ok=True):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS / "dispatch_cli.py"),
+                "report",
+                "--task",
+                "SKL-TEST",
+                *args,
+            ],
+            cwd=self.repo,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            result.returncode, 0 if ok else 1, result.stdout + result.stderr
+        )
+        return json.loads(result.stdout)
+
+    def test_report_cli_returns_current_commit_and_record_without_extra_fields(self):
+        data = self.report()
+        self.assertEqual(data["worker_commit"], self.sha)
+        self.assertEqual(data["record_path"], str(self.path))
+        self.assertEqual(data["note"]["id"], "result-1")
+
+    def test_report_cli_retains_invalid_result_and_never_falls_back(self):
+        self.env["LATEST_BAD"] = "1"
+        snapshot = self.root / "reports.json"
+        self.assertIn(
+            "commit evidence", self.report("--save", str(snapshot), ok=False)["error"]
+        )
+        self.assertEqual(len(json.loads(snapshot.read_text())["notes"]), 2)
+        self.assertIn("commit evidence", self.cli(ok=False)["error"])
+        self.assertFalse(self.merged())
+
+    def test_report_cli_can_reuse_retained_aven_response(self):
+        snapshot = self.root / "reports.json"
+        self.report("--save", str(snapshot))
+        (self.root / "bin/aven").unlink()
+        self.assertEqual(
+            self.report("--input", str(snapshot))["worker_commit"], self.sha
+        )
+
+    def test_report_cli_rejects_previous_attempt_even_with_current_commit(self):
+        self.record["task_context"]["notes"] = [{"id": "result-1"}]
+        self.store()
+        self.assertIn("predates", self.report(ok=False)["error"])
+
+    def test_result_accepts_configured_short_unambiguous_commit(self):
+        self.git(self.repo, "config", "core.abbrev", "4")
+        self.env["RESULT_SHA"] = self.git(self.worker, "rev-parse", "--short", "HEAD")
+        self.cli()
+
     def test_stale_commit_blocks_merge(self):
         self.git(self.worker, "commit", "--allow-empty", "-qm", "later")
         self.assertIn("stale", self.cli(ok=False)["error"])
@@ -154,6 +238,7 @@ class IntegrationTests(unittest.TestCase):
         (self.worker / "file").write_text("worker change\n")
         self.git(self.worker, "commit", "-qam", "worker change")
         self.sha = self.git(self.worker, "rev-parse", "HEAD")
+        self.env["RESULT_SHA"] = self.sha
         self.cli(ok=False)
         self.assertTrue((self.repo / ".git/worktrees/worker/rebase-merge").exists())
         self.assertFalse(self.merged())

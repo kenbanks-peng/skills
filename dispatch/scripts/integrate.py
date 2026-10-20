@@ -16,7 +16,7 @@ from types import SimpleNamespace
 sys.dont_write_bytecode = True
 
 from dispatch import ERRORS, error_text, save
-from dispatch_cli import latest_report
+from dispatch_cli import worker_result
 from git_preflight import (
     branch_ref,
     commit,
@@ -63,13 +63,12 @@ def identity(record, evidence):
     )
 
 
-def result(record, note_id):
+def result(record, note_id, sha):
     argv = ["aven", "show", record["task_ref"], "--full", "--json"]
     for key, value in record["routing"].items():
         argv.extend(["--" + key, value])
     data = json.loads(run(argv, record["repo"], env=git_env()))
-    require(data["task"]["ref"] == record["task_ref"], "Result task identity mismatch")
-    note = latest_report(data, "RESULT")["note"]
+    note = worker_result(data, record, sha)
     require(note["id"] == note_id, "Reviewed RESULT is stale")
     return note
 
@@ -187,7 +186,7 @@ def execute(args):
         directory.mkdir(exist_ok=True)
         event["evidence_directory"] = str(directory)
         try:
-            event["result"] = result(record, args.result_id)
+            event["result"] = result(record, args.result_id, args.reviewed_commit)
             evidence = {}
             event["preflight"] = evidence
             identity(record, evidence)
@@ -227,7 +226,8 @@ def execute(args):
                 )
                 base_ready(record)
                 require(
-                    result(record, args.result_id) == event["result"],
+                    result(record, args.result_id, args.reviewed_commit)
+                    == event["result"],
                     "Reviewed RESULT changed during checks",
                 )
                 event["merge_argv"] = [

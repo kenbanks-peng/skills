@@ -137,6 +137,8 @@ repository lock. Tests exercise repeated finish, partial archive/removal, retain
 content, and separate delivery/cleanup/housekeeping outcomes. Unknown exit blocks
 completion. Local/Lima process evidence still requires review; it is not inferred
 from UI state. Herdr UI closure remains explicit best-effort housekeeping.
-Standalone helpers and the legacy cleanup-required VERIFIED renderer remain for
-diagnostics, not the normal completion path. They are not substitutes for finish.
+Standalone Git/runtime helpers remain for diagnostics, not as substitutes for finish.
+Closure evidence validation lives in the lifecycle implementation, independently of
+note presentation. Agents write notes directly under the tasks selective-note policy;
+UI and project-specific checks are opt-in.
 No command can exclude Git writers that do not honor the common repository lock.

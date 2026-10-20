@@ -59,7 +59,7 @@ host and worker-visible worktree paths, the exact container ID and mount mapping
 the branch, actual agent type, and exact UI pane and multiplexer context. It does
 not infer guest paths from host paths. A fast `done` status can confirm startup
 even when the bounded `working` wait missed it; this is not task completion.
-Missing or ambiguous identity remains an error with partial observations retained.
+When Workmux reports a null agent kind, dispatch probes Linux processes only inside the single container with the exact worker mount. One live pi process in the exact guest worktree can supply the actual type; PID, start time, executable, and command identity are retained. This fallback needs Python 3 in the container. It does not read agent config to guess the type; missing, unknown, or ambiguous processes fail closed. Missing or ambiguous identity remains an error with partial observations retained.
 
 Read current resources without changing the saved record:
 
@@ -143,22 +143,18 @@ Retain container inspection access while cleanup remains pending.
 
 ## Compact reports
 
-Use `dispatch_cli.py report --task <full-ref> --kind RESULT` for normal review. After review, use [guarded integration](merge.md); read its saved event and check evidence instead of polling for a worker merge response. Use `--after <ISO-timestamp>` when a fresh event is required. No matching note is a failure, not completion. Use `--save <new-file>` to retain the full response, and `--input <file>` to select another report without another Aven call. Explicit `--db` and `--workspace` are available only for diagnosed routing overrides.
+Use `dispatch_cli.py report --task <full-ref>` for normal RESULT review. It rejects notes already present in the saved launch context and requires commit evidence resolving to the current worker tip. Integration repeats this check against the reviewed commit and latest note ID. A newer invalid report blocks review rather than falling back to an older success. Reports need no extra worker/attempt fields: saved context and exact Git identity bind the result to this launch.
 
-## Persistent identifying-note checks
-
-Use [check_identifying_notes.py](scripts/check_identifying_notes.py) with a JSON manifest containing `file` (relative to the manifest) and `notes` (at least two distinct exact strings). Each note must occur exactly once. Add the manifest and check command to the target repository's CI before closing a dispatch that must preserve identifying notes; one-time verification is not persistent protection.
-
-Set the target manifest to the actual file and note text.
+After review, use [guarded integration](merge.md); read its saved event and checks instead of polling for a merge response. `--kind` selects other routine events; `--after <ISO-timestamp>` narrows by time. Missing reports are failures, never inferred from Workmux `done`. Use `--save <new-file>` to retain full JSON and `--input <file>` to reuse it. Explicit `--db` and `--workspace` are for diagnosed routing overrides. Project-specific checks are explicit task acceptance criteria; dispatch imposes no identifying-note manifest or CI policy.
 
 ## Mechanical gates and evidence
 
-Run helpers on the dispatcher; `python3 <skill-directory>/scripts/<script> --help` owns arguments and schemas. Write JSON inputs with the file-write tool, keeping content as data rather than shell source. Keep prompts, parameters, and evidence outside worker worktrees. Use the same canonical repository root throughout verification and cleanup. Persist JSON stdout even on failure so retained-resource paths remain recoverable.
+Run helpers on the dispatcher; `python3 <skill-directory>/scripts/<script> --help` owns arguments and schemas. Write JSON inputs with the file-write tool, keeping content as data rather than shell source. Keep durable prompts and evidence outside worker worktrees. Use the same canonical repository root throughout verification and cleanup. Persist JSON stdout even on failure so retained-resource paths remain recoverable.
 
 Arrange the environment and dependencies for verification checks; they execute on the dispatcher, not in the worker sandbox. Reconcile retained verification checkouts and partial cleanup using [recovery.md](recovery.md) before retrying. Git cleanup does not manage Workmux sessions.
 
 Helpers require Python 3 and Git; verification and recovery require POSIX.
 
-## Dispatch and tasks tabs
+## Optional tasks views
 
-During preparation, rename the dispatcher's current tab/window to `dispatch`, then run [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh) to open Aven. Consult each script's `--help` for arguments. Record its returned resource ID and original multiplexer session/workspace in the run's Aven notes, including any ID emitted before a startup failure. On recovery, reuse that resource if it still exists; reconcile failed startup before retrying. After successful run completion, use [scripts/close-tasks-tab.sh](scripts/close-tasks-tab.sh) with the recorded ID in the original multiplexer. Retain it on handoff; never select a resource for closure by label.
+Open a tasks view only when requested or useful; naming, opening, and closing views never gate code acceptance or task completion. [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh) is an optional convenience. Record its exact returned ID and original multiplexer session/workspace, including IDs emitted before startup failure. Reuse that resource on recovery when present. If opened, best-effort closure uses [scripts/close-tasks-tab.sh](scripts/close-tasks-tab.sh) with that recorded ID in the original context. Preserve unrelated UI; never select a resource by label.

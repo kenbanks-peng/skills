@@ -35,11 +35,17 @@ def verification(record):
         and data["worker_sha"] == integrated["integrated_worker_sha"]
         and data["base_ref"] == "refs/heads/" + record["base"]
         and data["repo"]["common_dir"] == record["common_dir"]
+        and data["repo"]["worktree"] == record["repo"]
         and data.get("worker_is_ancestor") is True
         and data.get("base_moved") is False
+        and bool(data["checks"])
         and [check["argv"] for check in data["checks"]] == record["acceptance_checks"]
         and all(
-            check["status"] == "passed" and check["returncode"] == 0
+            check["status"] == "passed"
+            and check["returncode"] == 0
+            and isinstance(check["argv"], list)
+            and bool(check["argv"])
+            and all(isinstance(arg, str) and arg for arg in check["argv"])
             for check in data["checks"]
         ),
         "Base verification does not match the saved assignment",
@@ -100,7 +106,8 @@ def observation(record):
             and Path((git_dir / "gitdir").read_text().strip()) == worker / ".git"
             and git(worker, "symbolic-ref", "-q", "HEAD").stdout.strip()
             == "refs/heads/" + record["branch"]
-            and commit(worker, "HEAD") == record["integration"]["integrated_worker_sha"],
+            and commit(worker, "HEAD")
+            == record["integration"]["integrated_worker_sha"],
             "Current worker Git identity changed; preserve the resource",
         )
     else:
@@ -326,7 +333,7 @@ def finish(record, path, authorize=False, inspect_only=False):
             "observation": state,
         }
     event["authorized"] = True
-    event.update(ok=False, delivered=False)
+    event.update(ok=False, delivered=False, task_complete=False)
     event.pop("error", None)
 
     def persist():
@@ -366,7 +373,6 @@ def finish(record, path, authorize=False, inspect_only=False):
         )
         event["exit_evidence"] = event["stop"]
         persist()
-        event["delivered"] = True
         # Stop may take time: do not archive against the pre-stop snapshot.
         state = guarded_state()
         for kind in ("worktree", "branch"):
@@ -459,16 +465,22 @@ def finish(record, path, authorize=False, inspect_only=False):
         confirm_exit(record, event)
         # Report is durable outside removed resources, then saved to Aven before status changes.
         report = path.parent / "completion.md"
+        event["completion_report"] = str(report)
+        short_sha = git(
+            record["repo"], "rev-parse", "--short", integrated["verified_base_sha"]
+        ).stdout.strip()
         body = (
-            "VERIFIED: Integrated work passed independent checks; exact worker exit confirmed.\n"
+            f"VERIFIED: Integrated at {short_sha}; independent checks passed and exact worker exit confirmed.\n"
             + "- Verification: "
             + integrated["verification_evidence"]
             + "\n"
             + "- Pending cleanup: "
-            + json.dumps(event["pending_cleanup"])
+            + str(len(event["pending_cleanup"]))
+            + " retained resources; see finish evidence"
             + "\n"
             + "- Housekeeping (not a delivery gate): "
-            + json.dumps(event["housekeeping"])
+            + str(sum(item["status"] == "pending" for item in event["housekeeping"]))
+            + " pending; see finish evidence"
             + "\n"
             + "- Finish evidence: "
             + str(path)
@@ -505,6 +517,11 @@ def finish(record, path, authorize=False, inspect_only=False):
             )
             event["report_sha256"] = report_sha
             persist()
+        require(
+            event["actions"].get("report") == "complete",
+            "Durable completion report missing",
+        )
+        event["delivered"] = True
         current_base(record)
         confirm_exit(record, event)
         if event["actions"].get("task") != "complete":

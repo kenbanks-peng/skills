@@ -7,6 +7,7 @@ import re
 import shutil
 from pathlib import Path
 
+from git_preflight import CheckError, commit, paths, require
 from worker_runtime import emit, run
 
 COMMANDS = {
@@ -51,7 +52,7 @@ def discover(cache, refresh=False):
     return data
 
 
-def latest_report(data, kind, authorization=None, after=None):
+def latest_report(data, kind, after=None):
     notes = data.get("notes")
     if not isinstance(notes, list):
         raise TypeError("Expected aven show --full --json with a notes array")
@@ -62,11 +63,6 @@ def latest_report(data, kind, authorization=None, after=None):
             raise TypeError("Invalid note schema")
         if not body.startswith(kind + ":"):
             continue
-        if authorization and not re.search(
-            r"(?<![A-Za-z0-9_-])" + re.escape(authorization) + r"(?![A-Za-z0-9_-])",
-            body,
-        ):
-            continue
         if after and note["created_at"] <= after:
             continue
         selected.append(note)
@@ -74,6 +70,25 @@ def latest_report(data, kind, authorization=None, after=None):
         raise ValueError("No matching report; inspect worker state or use recovery")
     selected.sort(key=lambda n: (n["created_at"], n["id"]))
     return {"ok": True, "kind": kind, "note": selected[-1]}
+
+
+def worker_result(data, record, sha):
+    """Select newest RESULT, then bind it to this launch and reviewed Git commit."""
+    require(data["task"]["ref"] == record["task_ref"], "Result task identity mismatch")
+    note = latest_report(data, "RESULT")["note"]
+    prior = {item["id"] for item in record["task_context"]["notes"]}
+    require(note["id"] not in prior, "RESULT predates the current worker attempt")
+    tokens = re.findall(r"(?<![A-Za-z0-9])[0-9a-f]{4,64}(?![A-Za-z0-9])", note["body"])
+    for token in tokens:
+        if not sha.startswith(token):
+            continue
+        try:
+            if commit(record["repo"], token) == sha:
+                return note
+        except CheckError:
+            # An ambiguous abbreviation is not evidence; another token may be full.
+            continue
+    raise ValueError("RESULT lacks matching current worker commit evidence")
 
 
 def main():
@@ -89,10 +104,9 @@ def main():
     report.add_argument("--task", required=True)
     report.add_argument(
         "--kind",
-        required=True,
-        choices=("RESULT", "MERGE", "BLOCKED", "VERIFIED", "DISPATCH", "SUMMARY"),
+        default="RESULT",
+        choices=("RESULT", "BLOCKED", "VERIFIED", "DISPATCH", "SUMMARY"),
     )
-    report.add_argument("--authorization")
     report.add_argument(
         "--after", help="Exclusive ISO timestamp from the previous event"
     )
@@ -126,8 +140,23 @@ def main():
             if args.save:
                 with args.save.open("x") as output:
                     output.write(text)
-            result = latest_report(data, args.kind, args.authorization, args.after)
-    except (ValueError, OSError, KeyError, TypeError) as error:
+            result = latest_report(data, args.kind, args.after)
+            if args.kind == "RESULT":
+                common = Path(paths(Path.cwd())["common_dir"])
+                record = json.loads(
+                    (
+                        common / "dispatch-workers" / args.task / "worker.json"
+                    ).read_text()
+                )
+                sha = commit(record["worktree"], "HEAD")
+                result["note"] = worker_result(data, record, sha)
+                result.update(
+                    worker_commit=sha,
+                    record_path=str(
+                        common / "dispatch-workers" / args.task / "worker.json"
+                    ),
+                )
+    except (ValueError, OSError, KeyError, TypeError, CheckError) as error:
         result = {"ok": False, "error": str(error)}
     return emit(result)
 

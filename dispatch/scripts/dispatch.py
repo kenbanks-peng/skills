@@ -262,8 +262,8 @@ def observe(record, event, directory, archive_prompts=True):
     )
     agent = agents[0]
     require(
-        bool(agent["pane_id"]) and bool(agent["agent_kind"]),
-        "Worker pane or actual agent type unavailable",
+        bool(agent["pane_id"]),
+        "Worker pane unavailable",
     )
     require(
         status["context"]["backend"] == record["origin"]["backend"],
@@ -290,6 +290,7 @@ def observe(record, event, directory, archive_prompts=True):
     }
     event["agent_type"] = agent["agent_kind"]
     if record["runtime"] == "local":
+        require(bool(event["agent_type"]), "Actual local agent type unavailable")
         require(
             agent.get("workdir") == str(worktree),
             "Local worker root must be observed in UI status; check runtime/config",
@@ -310,6 +311,44 @@ def observe(record, event, directory, archive_prompts=True):
                 matches.append((container, guest))
         require(len(matches) == 1, "Expected one container with the exact worker mount")
         event["container"], event["worker_worktree"] = matches[0]
+        if not event["agent_type"]:
+            require(
+                event["container"]["status"] == "running",
+                "No live agent process evidence",
+            )
+            binary = (
+                "container"
+                if record["runtime"] == "apple-container"
+                else record["runtime"]
+            )
+            probe = Path(__file__).with_name("agent_processes.py").read_text()
+            event["agent_processes"] = json.loads(
+                run(
+                    [
+                        binary,
+                        "exec",
+                        event["container"]["id"],
+                        "python3",
+                        "-c",
+                        probe,
+                        event["worker_worktree"],
+                    ],
+                    repo,
+                )
+            )
+            processes = event["agent_processes"]
+            require(
+                isinstance(processes, list)
+                and len(processes) == 1
+                and processes[0]["cwd"] == event["worker_worktree"]
+                and processes[0]["kind"] == "pi"
+                and isinstance(processes[0]["pid"], int)
+                and processes[0]["pid"] > 0
+                and bool(processes[0]["start_ticks"]),
+                "Expected one actual agent process in the exact worker root",
+            )
+            event["agent_type"] = processes[0]["kind"]
+    event["ui"]["agents"][0]["agent_kind"] = event["agent_type"]
     require(
         git(
             repo,

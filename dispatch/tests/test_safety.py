@@ -351,11 +351,11 @@ class SafetyTests(unittest.TestCase):
                         {
                             "id": "1",
                             "created_at": "2026-01-01T00:00:00Z",
-                            "body": "MERGE: old-id",
+                            "body": "RESULT: old result",
                         }
                     ],
                 },
-                ["--authorization", "new-id"],
+                ["--after", "2026-01-02T00:00:00Z"],
             ),
         ):
             with self.subTest(mode=mode, data=data):
@@ -367,7 +367,7 @@ class SafetyTests(unittest.TestCase):
                     "--task",
                     "SKL-TEST",
                     "--kind",
-                    "MERGE",
+                    "RESULT",
                     *extra,
                     ok=False,
                 )
@@ -402,82 +402,6 @@ class SafetyTests(unittest.TestCase):
                     self.assertEqual(evidence["actions"], [])
                 self.assert_preserved()
         self.assertFalse(any(call[0] == "workmux" for call in self.calls()))
-
-    def test_closure_rejects_failed_checks_stale_identity_and_dry_run(self):
-        verification = self.verify([[sys.executable, "-c", "pass"]])
-        cleanup = self.cli(
-            "cleanup_worker.py",
-            "--repo",
-            self.repo,
-            "--worktree",
-            self.worker,
-            "--branch",
-            "worker",
-            "--base",
-            "main",
-            "--verified-base-sha",
-            self.base,
-            "--worker-commit",
-            self.base,
-        )
-        # A dry run must not be accepted as executed cleanup.
-        params = {
-            "base": "main",
-            "verified_base_sha": self.base,
-            "task_ref": "SKL-TEST",
-            "verification_evidence": self.json_file("verification.json", verification),
-            "cleanup_evidence": self.json_file("cleanup.json", cleanup),
-            "repo": str(self.repo),
-            "branch": "worker",
-            "worktree": str(self.worker),
-            "worker_commit": self.base,
-        }
-
-        def render(expected):
-            output = self.root / "closure.md"
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS / "render_note.py"),
-                    "--kind",
-                    "MERGE_VERIFIED",
-                    "--params",
-                    self.json_file("params.json", params),
-                    "--output",
-                    str(output),
-                ],
-                env=self.env,
-                capture_output=True,
-                text=True,
-                timeout=15,
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0 if expected else 1, result.stderr)
-            self.assertEqual(output.exists(), expected)
-            if expected:
-                self.assertIn("VERIFIED:", output.read_text())
-
-        render(False)
-        self.assert_preserved()
-        # Use actual executed cleanup for the positive control.
-        cleanup = self.cleanup()
-        self.json_file("cleanup.json", cleanup)
-        for change in ("failed-check", "stale-sha", "wrong-repo", "missing-evidence"):
-            with self.subTest(change=change):
-                changed = json.loads(json.dumps(verification))
-                if change == "failed-check":
-                    changed["checks"][0].update(status="failed", returncode=3)
-                elif change == "stale-sha":
-                    changed["tested_sha"] = "0" * 40
-                elif change == "wrong-repo":
-                    changed["repo"]["worktree"] = str(self.root)
-                self.json_file("verification.json", changed)
-                if change == "missing-evidence":
-                    Path(params["verification_evidence"]).unlink()
-                render(False)
-        self.json_file("verification.json", verification)
-        render(True)
-        self.assertEqual(self.calls(), [])  # Rendering never changes task status.
 
     def test_matching_stopped_container_allows_cleanup(self):
         self.env["CLI_MODE"] = "exited"
