@@ -100,8 +100,8 @@ class DocumentedWorkflowTests(unittest.TestCase):
             self.env["MODE"] = ""
             self.command("dispatch.py", "inspect", "APP-TEST", "--resume")
         self.worker = self.root / "worker"
-        # Match repositories that ignore Workmux artifacts: integration is clean,
-        # but finish must retain ignored prompts as pending cleanup.
+        # Match repositories that ignore Workmux artifacts: receipt-listed,
+        # unchanged prompts are still eligible for archival during finish.
         (self.repo / ".git/info/exclude").write_text(".workmux/\n")
         self.git("config", "user.name", "Workflow Test")
         self.git("config", "user.email", "workflow@example.invalid")
@@ -129,9 +129,6 @@ class DocumentedWorkflowTests(unittest.TestCase):
     def test_successful_no_retry_managed_inventory(self):
         self.start()
         integrated = self.command("integrate.py", *self.review)
-        # Owner setup: the unchanged generated source is non-ignored and eligible
-        # for strict archive before the first finish, with no unsafe artifacts.
-        (self.repo / ".git/info/exclude").write_text("")
         completed = self.finish()
         self.assertEqual(completed["pending_cleanup"], [])
         self.assertFalse(self.worker.exists())
@@ -172,8 +169,6 @@ class DocumentedWorkflowTests(unittest.TestCase):
         inspected = self.command("finish_worker.py", "APP-TEST", "--inspect")
         self.assertTrue(inspected["saved_finish"]["pending_cleanup"])
         unknown.unlink()  # Explicit test-owner actions, not automatic cleanup.
-        # Make the known unchanged prompt eligible for strict archive on retry.
-        (self.repo / ".git/info/exclude").write_text("")
         retried = self.command("finish_worker.py", "APP-TEST")
         self.assertTrue(retried["task_complete"])
         self.assertEqual(retried["pending_cleanup"], [])

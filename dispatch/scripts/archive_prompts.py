@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 
-from git_preflight import git
 from worker_runtime import canonical, emit, load_receipt, run
 
 
@@ -29,7 +28,10 @@ def archive(receipt, stop, destination, execute=False):
             and stop.get("container_id") == (receipt.get("container") or {}).get("id")
         ):
             raise ValueError("Matching confirmed worker-stop evidence is required")
-        result.update(worktree=str(worker), archive=str(destination))
+        result.update(
+            worktree=str(worker), archive=str(destination),
+            repo=receipt["repo"], handle=receipt["handle"],
+        )
         directory = worker / ".workmux"
         if directory.is_symlink():
             raise ValueError("Prompt directory is a symlink")
@@ -54,11 +56,8 @@ def archive(receipt, stop, destination, execute=False):
             tracked = run(["git", "ls-files", "--", str(relative)], worker).strip()
             if tracked:
                 raise ValueError(f"Tracked prompt must be retained: {source}")
-            ignored = git(
-                worker, "check-ignore", "-q", "--", str(relative), allowed=(0, 1)
-            )
-            if ignored.returncode == 0:
-                raise ValueError(f"Ignored prompt must be retained: {source}")
+            # Ignore rules express visibility, not ownership. The saved launch
+            # path, untracked status and exact hash establish generated ownership.
             data = source.read_bytes()
             if hashlib.sha256(data).hexdigest() != entry["sha256"]:
                 raise ValueError(f"Prompt changed since receipt: {source}")
@@ -90,6 +89,13 @@ def archive(receipt, stop, destination, execute=False):
                     os.fsync(output.fileno())
             if target.read_bytes() != data or source.read_bytes() != data:
                 raise ValueError("Archive verification failed; source retained")
+        # Persist archive directory entries before deleting any source. File
+        # fsync alone does not make a newly created archive name durable.
+        descriptor = os.open(destination, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
         for entry in result["files"]:
             source = Path(entry["source"])
             if (

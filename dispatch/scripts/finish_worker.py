@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from archive_prompts import archive
+from cleanup_ui import close_worker_ui
 from cleanup_worker import validate
 from dispatch import ERRORS, error_text, save
 from git_preflight import branch_ref, commit, git, operations, paths, require
@@ -186,7 +187,7 @@ def pending(record, state, reason, evidence):
 
 
 def housekeeping(record, event, persist):
-    # UI is never used to establish writer exit. Do not guess unsupported UI commands.
+    # UI is never used to establish writer exit. Retained worker tabs stay usable.
     ui = record.get("ui", {})
     previous = event.get("housekeeping", [])
     event["housekeeping"] = []
@@ -197,6 +198,7 @@ def housekeeping(record, event, persist):
             "context": ui.get("context"),
             "owner": "dispatcher",
             "status": "pending",
+            "evidence": event.get("evidence"),
             "next_action": "Inspect exact saved UI identity in the original multiplexer",
         }
         completed = [
@@ -209,36 +211,21 @@ def housekeeping(record, event, persist):
         if completed:
             event["housekeeping"].append(completed[0])
             continue
+        # Preserve the exact close intent across interruption/lost responses.
+        prior = [old for old in previous
+                 if old["resource"] == "UI" and old["identity"] == agent]
+        if prior:
+            item.update(prior[0])
         event["housekeeping"].append(item)
-        if ui.get("context", {}).get("backend") == "tmux":
-            try:
-                pane = agent["pane_id"]
-                require(bool(re.fullmatch(r"%[0-9]+", pane)), "Invalid saved pane")
-                socket = ui["context"].get("socket_path")
-                require(
-                    bool(socket) and Path(socket).is_absolute(),
-                    "Original tmux server identity is unavailable; preserve the pane",
-                )
-                # A failed lookup may mean it is gone, but is not proof; preserve uncertainty.
-                actual = run(
-                    [
-                        "tmux",
-                        "display-message",
-                        "-p",
-                        "-t",
-                        pane,
-                        "#{socket_path}\t#{pane_id}\t#{session_id}\t#{pane_current_path}",
-                    ]
-                ).strip()
-                require(
-                    actual
-                    == "\t".join((socket, pane, agent["session"], record["worktree"])),
-                    "UI identity changed",
-                )
-                run(["tmux", "kill-pane", "-t", pane])
-                item.update(status="closed", next_action=None)
-            except ERRORS as exc:
-                item["error"] = error_text(exc)
+        try:
+            require(not event["pending_cleanup"],
+                    "Worker resources retained; preserve its usable work tab")
+            confirm_exit(record, event)
+            close_worker_ui(ui.get("context", {}), agent, record["worktree"], item, persist)
+            item.pop("error", None)
+            item.update(status="closed", next_action=None)
+        except ERRORS as exc:
+            item["error"] = error_text(exc)
         persist()
     parent = record.get("cleanup_parent")
     if parent and any(
@@ -255,6 +242,7 @@ def housekeeping(record, event, persist):
         item = {
             "resource": "empty-parent",
             "identity": parent,
+            "evidence": event.get("evidence"),
             "status": "pending",
             "owner": "dispatcher",
             "next_action": "Inspect and remove only if empty",
@@ -294,6 +282,11 @@ def finish(record, path, authorize=False, inspect_only=False):
             "then repeat finish using the saved authorization and evidence",
             "evidence": str(path),
             "report": str(report),
+            "resources": {
+                "worktree": record["worktree"],
+                "branch": "refs/heads/" + record["branch"],
+                "ui": record.get("ui"),
+            },
         }
         body = (
             "BLOCKED: Dispatch finish is not confirmed complete.\n"
@@ -302,6 +295,7 @@ def finish(record, path, authorize=False, inspect_only=False):
             + "- Next action: " + blocker["next_action"] + "\n"
             + "- Evidence: " + str(path) + "\n"
             + "- Cwd: " + record["repo"] + "\n"
+            + "- Resource identities: " + json.dumps(blocker["resources"]) + "\n"
             + "- Retain local completion/report evidence; restore Aven reporting "
             "before claiming completion.\n"
         )
@@ -377,7 +371,9 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             "observation": state,
         }
     event["authorized"] = True
-    event.update(ok=False, delivered=False, task_complete=False)
+    event["evidence"] = str(path)
+    event.update(ok=False, delivered=False, task_complete=False,
+                 cleanup_complete=False, finish_complete=False)
     event.pop("error", None)
 
     def persist():
@@ -505,6 +501,9 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         else:
             event.pop("cleanup_error", None)
         housekeeping(record, event, persist)
+        event["cleanup_complete"] = not event["pending_cleanup"] and all(
+            item["status"] in ("closed", "removed") for item in event["housekeeping"]
+        )
         current_base(record)
         confirm_exit(record, event)
         # Report is durable outside removed resources, then saved to Aven before status changes.
@@ -521,6 +520,9 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             + "- Pending cleanup: "
             + str(len(event["pending_cleanup"]))
             + " retained resources; see finish evidence"
+            + "\n"
+            + "- Resource cleanup: "
+            + ("complete" if event["cleanup_complete"] else "PENDING; dispatcher action required")
             + "\n"
             + "- Housekeeping (not a delivery gate): "
             + str(sum(item["status"] == "pending" for item in event["housekeeping"]))
@@ -601,7 +603,8 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 "Aven task not confirmed done after status write",
             )
         event["actions"]["task"] = "complete"
-        event.update(ok=True, task_complete=True)
+        event.update(ok=True, task_complete=True,
+                     finish_complete=event["cleanup_complete"])
     except ERRORS as exc:
         event.update(ok=False, error=error_text(exc))
     finally:

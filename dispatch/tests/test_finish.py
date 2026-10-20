@@ -2,9 +2,12 @@
 
 import hashlib
 import json
+import os
 import shutil
+import socket
 import subprocess
 import sys
+import threading
 import unittest
 from pathlib import Path
 
@@ -127,6 +130,97 @@ class FinishTests(unittest.TestCase):
         )
         return json.loads(result.stdout)
 
+    def herdr_finish(self, lose_response=False):
+        # Real Git + finish CLI + real local Unix transport. This is a protocol
+        # fixture, not a substitute for the host Workmux/Herdr acceptance check.
+        endpoint = str(self.root / "herdr.sock")
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(server.close)
+        server.bind(endpoint)
+        server.listen()
+        server.settimeout(0.1)
+        stat = os.stat(endpoint)
+        pid = os.getpid()
+        start = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
+        boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        boot = f"{stat.st_dev}-{stat.st_ino}-{pid}-{start}-{boot_id}"
+        self.record["ui"] = {
+            "context": {"backend": "herdr", "instance": endpoint},
+            "agents": [{"pane_id": boot + "~worker-terminal"}],
+        }
+        self.prompt()
+        (self.repo / ".git/info/exclude").write_text(".workmux/\n")
+        self.store()
+        closed = []
+        errors = []
+        done = threading.Event()
+
+        def serve():
+            try:
+                while not done.is_set():
+                    try:
+                        stream, _ = server.accept()
+                    except socket.timeout:
+                        continue
+                    with stream:
+                        with stream.makefile("rb") as reader:
+                            request = json.loads(reader.readline())
+                        method = request["method"]
+                        if method == "tab.close":
+                            self.assertEqual(request["params"], {"tab_id": "worker-tab"})
+                            closed.append("worker-tab")
+                            if lose_response:
+                                continue
+                            result = {}
+                        else:
+                            self.assertEqual(method, "session.snapshot")
+                            panes = [{"pane_id": "foreign", "terminal_id": "foreign",
+                                      "workspace_id": "ws", "tab_id": "unrelated",
+                                      "cwd": str(self.repo)}]
+                            tabs = [{"tab_id": "unrelated", "workspace_id": "ws"}]
+                            if not closed:
+                                panes.append({"pane_id": "worker-pane",
+                                              "terminal_id": "worker-terminal",
+                                              "workspace_id": "ws", "tab_id": "worker-tab",
+                                              "cwd": str(self.worker)})
+                                tabs.append({"tab_id": "worker-tab", "workspace_id": "ws"})
+                            result = {"snapshot": {"version": "0.9.0", "protocol": 22,
+                                                   "panes": panes, "tabs": tabs}}
+                        stream.sendall(json.dumps({"id": request["id"],
+                                                   "result": result}).encode() + b"\n")
+            except Exception as error:
+                errors.append(error)
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        try:
+            first = self.cli("--authorize-finish")
+            self.assertFalse(self.worker.exists())
+            self.assertNotIn(str(self.worker), self.git(self.repo, "worktree", "list"))
+            if lose_response:
+                self.assertFalse(first["cleanup_complete"])
+                self.assertEqual(first["housekeeping"][0]["status"], "pending")
+                self.assertTrue(first["housekeeping"][0]["evidence"])
+            else:
+                self.assertTrue(first["finish_complete"])
+            retried = self.cli()
+            self.assertTrue(retried["cleanup_complete"])
+            self.assertTrue(retried["finish_complete"])
+            self.assertEqual(retried["housekeeping"][0]["status"], "closed")
+            self.assertEqual(closed, ["worker-tab"])
+            self.assertEqual(errors, [])
+        finally:
+            done.set()
+            thread.join(timeout=5)
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux saved peer lifetime fixture")
+    def test_finish_removes_git_worktree_and_closes_exact_herdr_tab(self):
+        self.herdr_finish()
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux saved peer lifetime fixture")
+    def test_finish_reconciles_lost_herdr_close_after_worktree_removal(self):
+        self.herdr_finish(lose_response=True)
+
     def test_one_authorization_finishes_and_repeated_finish_never_recreates(self):
         plan = self.cli()
         self.assertTrue(plan["dry_run"])
@@ -210,6 +304,9 @@ class FinishTests(unittest.TestCase):
         result = self.cli("--authorize-finish")
         self.assertTrue(result["task_complete"])
         self.assertTrue(result["pending_cleanup"])
+        self.assertFalse(result["cleanup_complete"])
+        self.assertFalse(result["finish_complete"])
+        self.assertIn("PENDING", Path(result["completion_report"]).read_text())
         self.assertTrue((self.worker / "unknown").exists())
 
     def test_base_moved_blocks_cleanup_and_completion(self):
@@ -265,15 +362,38 @@ class FinishTests(unittest.TestCase):
         result = self.cli()
         self.assertTrue(result["task_complete"])
 
-    def test_ignored_generated_prompt_is_retained(self):
+    def test_ignored_generated_prompt_is_archived_and_worktree_removed(self):
         path = self.prompt()
         self.git(
             self.worker, "config", "core.excludesFile", str(self.root / "excludes")
         )
         (self.root / "excludes").write_text(".workmux/\n")
         result = self.cli("--authorize-finish")
-        self.assertTrue(result["pending_cleanup"])
-        self.assertTrue(path.exists())
+        self.assertEqual(result["pending_cleanup"], [])
+        self.assertFalse(path.exists())
+        self.assertFalse(self.worker.exists())
+        archived = self.path.parent / "archive" / path.name
+        self.assertEqual(archived.read_text(), "generated")
+        evidence = result["archives"]["archive:.workmux/" + path.name]
+        self.assertEqual(evidence["handle"], "worker")
+        self.assertEqual(evidence["files"][0]["sha256"],
+                         hashlib.sha256(archived.read_bytes()).hexdigest())
+
+    def test_unknown_ignored_prompt_preserved_after_known_prompt_archived(self):
+        known = self.prompt()
+        unknown = known.with_name("PROMPT-not-in-receipt.md")
+        unknown.write_text("preserve me")
+        (self.repo / ".git/info/exclude").write_text(".workmux/\n")
+        result = self.cli("--authorize-finish")
+        self.assertFalse(known.exists())
+        self.assertEqual(unknown.read_text(), "preserve me")
+        self.assertTrue(self.worker.exists())
+        self.assertFalse(result["cleanup_complete"])
+        self.assertFalse(result["finish_complete"])
+        self.assertTrue(any(item["identity"] == str(unknown)
+                            for item in result["pending_cleanup"]))
+        self.assertEqual(result["housekeeping"][0]["status"], "pending")
+        self.assertIn("preserve its usable work tab", result["housekeeping"][0]["error"])
 
     def test_failed_report_write_leaves_task_active(self):
         self.env["CLI_MODE"] = "report-error"
@@ -552,11 +672,11 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
         self.assertNotIn("kill-pane", log.read_text() if log.exists() else "")
 
     def test_tmux_closure_requires_matching_server_and_pane(self):
-        for socket, status in (
-            ("/original.sock", "closed"),
+        for endpoint, status in (
+            ("/original.sock", "pending"),
             ("/other.sock", "pending"),
         ):
-            with self.subTest(socket=socket):
+            with self.subTest(socket=endpoint):
                 self.record["ui"] = {
                     "context": {"backend": "tmux", "socket_path": "/original.sock"},
                     "agents": [{"pane_id": "%1", "session": "$1"}],
@@ -564,7 +684,7 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
                 self.store()
                 log = self.root / "tmux-calls"
                 binary = self.root / "bin/tmux"
-                actual = "\t".join((socket, "%1", "$1", str(self.worker)))
+                actual = "\t".join((endpoint, "%1", "$1", str(self.worker)))
                 binary.write_text(
                     "#!"
                     + sys.executable
@@ -579,8 +699,11 @@ os.execv(REAL, [REAL, *sys.argv[1:]])
                 result = self.cli("--authorize-finish")
                 self.assertTrue(result["task_complete"])
                 self.assertEqual(result["housekeeping"][0]["status"], status)
-                self.assertEqual("kill-pane" in log.read_text(), status == "closed")
-                log.unlink()
+                self.assertFalse(result["cleanup_complete"])
+                self.assertFalse(result["finish_complete"])
+                self.assertNotIn("kill-pane", log.read_text() if log.exists() else "")
+                if log.exists():
+                    log.unlink()
 
     def test_completed_worktree_reappearing_requires_judgment(self):
         self.cli("--authorize-finish")
