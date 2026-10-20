@@ -232,7 +232,7 @@ class LaunchTests(unittest.TestCase):
 
     def test_null_agent_kind_uses_exact_container_process_evidence(self):
         self.env["MODE"] = "process-pi"
-        data = self.launch()
+        data = self.launch("--runtime", "docker")
         self.assertEqual(data["agent_type"], "pi")
         event = data["events"][-1]
         self.assertIsNone(event["workmux_status"]["agents"][0]["agent_kind"])
