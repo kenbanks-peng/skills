@@ -17,9 +17,9 @@ aven add "Task title" --status todo
 aven add "Epic title" --epic
 aven epic add <child-ref> <epic-ref>
 aven dep add <blocked-ref> <blocker-ref>
-aven edit <ref> --status active --agent <type>
+aven edit <ref> --status active
 aven note <ref> --file <file>
-aven edit <ref> --status done --clear-agent
+aven edit <ref> --status done
 ```
 
 ## Workflow rules
