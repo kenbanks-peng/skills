@@ -26,6 +26,12 @@ with (root / "calls").open("a") as out:
 def git(*args):
     return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
 if name == "aven":
+    if args[0] == "doctor":
+        db = root / "original tasks.db"
+        print(json.dumps({"sections": [{"rows": [
+            {"code": "database.path", "value": str(db)},
+            {"code": "database.open", "status": "ok"}]}]}))
+        sys.exit(0)
     if "--json" not in args:
         if mode == "human-context-error":
             sys.stderr.write("cannot read human context")
@@ -166,6 +172,9 @@ class LaunchTests(unittest.TestCase):
         self.label = self.root / "label"
         self.label.write_text("dispatch-app-test")
         self.tab_id = "tab-1"
+        self.startup_panes = []
+        self.startup_tabs = []
+        (self.root / "original tasks.db").write_text("existing database")
         self.ui_calls = []
         self.socket_dir = tempfile.TemporaryDirectory(prefix="dsp-ui-")
         self.addCleanup(self.socket_dir.cleanup)
@@ -189,9 +198,17 @@ class LaunchTests(unittest.TestCase):
                     if request["method"] == "session.snapshot":
                         result = {"snapshot": {"version": "0.9.0", "protocol": 22,
                             "panes": [{"pane_id": "native-1", "terminal_id": "terminal-1",
-                                       "tab_id": self.tab_id, "workspace_id": "ws-1"}],
+                                       "tab_id": self.tab_id, "workspace_id": "ws-1"}] + self.startup_panes,
                             "tabs": [{"tab_id": self.tab_id, "workspace_id": "ws-1",
-                                      "label": self.label.read_text()}]}}
+                                      "label": self.label.read_text()}] + self.startup_tabs}}
+                    elif request["method"] == "pane.process_info":
+                        result = {"process_info": {"shell_pid": os.getpid() if
+                                  request["params"]["pane_id"] == "native-1" else 999999}}
+                    elif request["method"] == "layout.apply":
+                        self.startup_panes.append(dict(pane_id="aven-pane", terminal_id="aven-terminal",
+                                                       tab_id="aven-tab", workspace_id="ws-1"))
+                        self.startup_tabs.append(dict(tab_id="aven-tab", workspace_id="ws-1", label="aven"))
+                        result = {"tab": {"tab_id": "aven-tab"}}
                     else:
                         self.label.write_text(request["params"]["label"])
                         result = {}
@@ -259,6 +276,51 @@ class LaunchTests(unittest.TestCase):
 
     def adds(self):
         return [call for call in self.calls() if call[:2] == ["workmux", "add"]]
+
+    def test_startup_from_subdirectory_pins_original_routing_and_reuses_tab(self):
+        subdir = self.repo / "nested"
+        subdir.mkdir()
+        results = []
+        for cwd in (subdir, self.repo):
+            result = subprocess.run([sys.executable, str(SCRIPTS / "dispatch.py"),
+                                     "startup", "APP-TEST"], cwd=cwd, env=self.env,
+                                    text=True, capture_output=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            results.append(json.loads(result.stdout))
+        self.assertEqual(results[0]["aven_tab"], results[1]["aven_tab"])
+        self.assertEqual(results[0]["routing"], dict(db=str(self.root / "original tasks.db"),
+                                                  workspace="default", project="project"))
+        creates = [call["params"] for call in self.ui_calls if call["method"] == "layout.apply"]
+        self.assertEqual(len(creates), 1)
+        self.assertEqual(creates[0]["root"]["cwd"], str(self.repo))
+        self.assertEqual(creates[0]["root"]["command"][1:],
+                         ["tui", "--db", str(self.root / "original tasks.db"),
+                          "--workspace", "default", "--project", "project"])
+        self.assertIn(["aven", "context", "APP-TEST", "--json", "--db",
+                       str(self.root / "original tasks.db")], self.calls())
+        self.assertEqual(len([c for c in self.calls() if c[:2] == ["aven", "doctor"]]), 1)
+        self.assertFalse((self.repo / ".aven").exists())
+        self.assertEqual(self.adds(), [])
+        self.assertEqual(self.label.read_text(), "dispatcher")
+
+    def test_startup_missing_aven_has_clear_diagnostic_without_ui_changes(self):
+        (self.root / "bin/aven").unlink()
+        self.env["PATH"] = str(self.root / "bin")
+        result = self.cli("startup", "APP-TEST", ok=False)
+        self.assertIn("aven is missing from PATH", result["error"])
+        self.assertEqual(self.ui_calls, [])
+        self.assertEqual(self.calls(), [])
+
+    def test_startup_missing_database_or_ui_never_creates_tab(self):
+        (self.root / "original tasks.db").unlink()
+        self.cli("startup", "APP-TEST", ok=False)
+        self.assertEqual(self.ui_calls, [])
+        (self.root / "original tasks.db").write_text("existing")
+        self.env.pop("HERDR_ENV")
+        self.env.pop("TMUX", None)
+        result = self.cli("startup", "APP-TEST", ok=False)
+        self.assertIn("original Herdr or tmux", result["error"])
+        self.assertEqual(self.ui_calls, [])
 
     def test_literal_prompt_default_routing_and_saved_identity(self):
         data = self.launch()

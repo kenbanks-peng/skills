@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import socket
 import subprocess
 import sys
@@ -164,6 +165,93 @@ def startup(environ=None):
                      "#{window_id}\t#{window_name}"]) == window + "\tdispatcher",
             "Dispatcher tmux window naming could not be verified")
     return {"backend": "tmux", "pane_id": pane, "tab_id": window, "name": "dispatcher"}
+
+
+def aven_tab(repo, argv, record, persist, environ=None):
+    """Create once, retaining intent before mutation and exact identity afterward.
+
+    layout.apply's new-tab contract matches Workmux's pinned Herdr new_tab:
+    never supply tab_id (that would replace an occupied tab).
+    An interrupted create is deliberately not retried, even if no ID was saved.
+    """
+    env = os.environ if environ is None else environ
+    if env.get("HERDR_ENV") == "1":
+        client = Herdr(env.get("HERDR_SOCKET_PATH"))
+        pane, _ = current_herdr_tab(client, ancestors())
+        parent = dict(backend="herdr", endpoint=client.endpoint,
+                      socket_identity=list(client.identity),
+                      pane_id=pane[0], terminal_id=pane[1], tab_id=pane[2],
+                      workspace_id=pane[3])
+    else:
+        require(env.get("TMUX"), "Aven tab requires the original Herdr or tmux host context")
+        pane = env.get("TMUX_PANE", "")
+        require(re.fullmatch(r"%\d+", pane), "Missing exact dispatcher tmux pane")
+        row = command(["tmux", "display-message", "-p", "-t", pane,
+                       "#{socket_path}\t#{session_id}\t#{window_id}\t#{pane_id}"]).split("\t")
+        require(len(row) == 4 and row[3] == pane and Path(row[0]).is_absolute()
+                and re.fullmatch(r"\$\d+", row[1]) and re.fullmatch(r"@\d+", row[2]),
+                "Cannot identify exact dispatcher tmux server/session")
+        stat = os.stat(row[0])
+        parent = dict(backend="tmux", endpoint=row[0], session=row[1], tab_id=row[2],
+                      pane_id=pane, socket_identity=[stat.st_dev, stat.st_ino])
+
+    require(not record.get("dispatcher") or record["dispatcher"] == parent,
+            "Saved dispatcher UI identity changed; no replacement Aven tab will be opened")
+    record["dispatcher"] = parent
+
+    def tmux(*args):
+        return command(["tmux", "-S", parent["endpoint"], *args])
+
+    def verify():
+        saved = record["aven_tab"]
+        require(saved["tab_id"] != parent["tab_id"], "Aven tab overlaps dispatcher")
+        if parent["backend"] == "herdr":
+            inventory = client.snapshot()
+            matches = [p for p in inventory["panes"]
+                       if all(p.get(k) == saved[k] for k in
+                              ("pane_id", "terminal_id", "tab_id", "workspace_id"))]
+            require(len(matches) == 1, "Saved Aven pane identity changed or disappeared")
+            require(any(t["tab_id"] == saved["tab_id"] and
+                        t["workspace_id"] == parent["workspace_id"]
+                        for t in inventory["tabs"]), "Saved Aven tab disappeared")
+        else:
+            observed = tmux("display-message", "-p", "-t", saved["pane_id"],
+                            "#{pane_id}\t#{window_id}\t#{session_id}")
+            require(observed == "\t".join([saved["pane_id"], saved["tab_id"],
+                                          parent["session"]]), "Saved Aven tmux identity changed")
+
+    if record.get("aven_tab"):
+        verify()
+        return record
+    require(not record.get("creation_attempted"),
+            "Aven tab creation was interrupted; reconcile retained intent, never retry by label")
+    startup(env)
+    if parent["backend"] == "herdr":
+        confirmed, _ = current_herdr_tab(client, ancestors())
+        require(confirmed == pane, "Dispatcher moved before Aven tab creation")
+    record["creation_attempted"] = True
+    persist(record)
+    if parent["backend"] == "herdr":
+        result = client.request("layout.apply", workspace_id=parent["workspace_id"],
+                                tab_label="aven", focus=False,
+                                root={"type": "pane", "cwd": str(repo), "command": argv})
+        tab = result.get("tab", result.get("layout", {}))["tab_id"]
+        record["created_tab_id"] = tab
+        persist(record)
+        matches = [p for p in client.snapshot()["panes"] if p["tab_id"] == tab]
+        require(len(matches) == 1, "Cannot identify newly created Aven pane")
+        record["aven_tab"] = {k: matches[0][k] for k in
+                              ("pane_id", "terminal_id", "tab_id", "workspace_id")}
+    else:
+        row = tmux("new-window", "-d", "-P", "-F", "#{window_id}\t#{pane_id}",
+                   "-t", parent["session"] + ":", "-n", "aven", "-c", str(repo),
+                   "exec " + shlex.join(argv)).split("\t")
+        require(len(row) == 2 and re.fullmatch(r"@\d+", row[0])
+                and re.fullmatch(r"%\d+", row[1]), "Missing created Aven tmux identity")
+        record["aven_tab"] = dict(tab_id=row[0], pane_id=row[1])
+    persist(record)
+    verify()
+    return record
 
 
 def worker_tab(ui, name, saved=None, *, rename=True):

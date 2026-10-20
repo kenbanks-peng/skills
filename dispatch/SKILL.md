@@ -21,10 +21,14 @@ Reuse tasks with acceptance criteria and write scopes; express ordering with Ave
 ```sh
 aven list --ready
 aven context APP-1234
+# Once dispatch is requested, in the original host terminal (never during intake):
+python3 <skill-directory>/scripts/dispatch.py startup APP-1234
 python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
   --base main --scope src/ --scope tests/ \
   --check '["python3", "-m", "unittest"]'
 ```
+
+Require startup `ok: true` before launching workers. Startup names the dispatcher and opens one run-owned Aven tab at the target repository's Git top-level, using the dispatcher's original database, workspace, and project. Use a designated run task (or `--run-id <stable-id>`) consistently on resume; repeat startup reuses the saved exact UI identity, not a matching label. Supply the same diagnosed `--db`/`--workspace` overrides as other dispatch commands. Preserve the returned `record_path`; interrupted startup requires [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
 
 Repeat `--scope` and `--check` for the assignment. The default uses `~/.config/workmux/agents.linux.yaml` with sandboxing, Apple `container` on macOS and Docker on Linux, and Herdr when `HERDR_ENV=1`, otherwise the active tmux session. Missing setup is a blocker, not permission to run locally.
 
@@ -84,6 +88,6 @@ aven note <run-epic-or-designated-task> --file <handoff-file>
 
 - **Resume or uncertain state:** [recovery.md](recovery.md), including completed tasks with pending cleanup. Reconcile the full tracked set after interruption.
 - **Explicitly approved unsandboxed execution:** [local-worker.md](local-worker.md).
-- **Nondefault runtime or UI:** [runtime.md](runtime.md) for the relevant adapter; optional tasks views live there too.
+- **Nondefault runtime/UI or interrupted startup:** [runtime.md](runtime.md) for the relevant adapter and saved run-owned Aven tab.
 - **Diagnosed Aven routing failure:** [troubleshooting.md#routing](troubleshooting.md#routing).
 - **Unsupported CLI behavior or tool change:** [troubleshooting.md#capabilities](troubleshooting.md#capabilities).

@@ -7,11 +7,12 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
 
-from dispatch_ui import worker_tab
+from dispatch_ui import aven_tab, worker_tab
 from git_preflight import (
     CheckError,
     branch_ref,
@@ -421,6 +422,59 @@ def observe(record, event, directory, archive_prompts=True):
         record[key] = event[key]
 
 
+def startup_run(args):
+    """Resolve routing in the caller's directory before moving the UI to Git root."""
+    require(shutil.which("aven"), "aven is missing from PATH; no UI tabs were changed")
+    require(re.fullmatch(r"[A-Za-z0-9_-]+", args.run_id or args.task), "Invalid run ID")
+    identity = paths(Path.cwd())
+    repo, common = identity["worktree"], Path(identity["common_dir"])
+    with (common / "dispatch.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError("Another dispatch operation owns this repository") from error
+        directory = common / "dispatch-ui"
+        directory.mkdir(exist_ok=True)
+        path = directory / ((args.run_id or args.task) + ".json")
+        if path.exists():
+            record = json.loads(path.read_text())
+            require(record["repo"] == repo and record["task"] == args.task,
+                    "Saved dispatch run belongs to another repository/task")
+            for flag in ("db", "workspace"):
+                value = getattr(args, flag)
+                require(value is None or value == record["routing"][flag],
+                        "Routing override differs from saved " + flag)
+        else:
+            flags = []
+            for flag in ("db", "workspace"):
+                value = getattr(args, flag)
+                if value:
+                    flags.extend(["--" + flag, value])
+            # doctor opens read-only, unlike commands that may initialize a missing DB.
+            doctor = json.loads(run(["aven", "doctor", "--json", *flags], Path.cwd()))
+            rows = {row["code"]: row for section in doctor["sections"]
+                    for row in section["rows"]}
+            db = Path(rows["database.path"]["value"]).expanduser().resolve(strict=True)
+            require(db.is_file() and rows["database.open"]["status"] == "ok",
+                    "Aven database unavailable; refusing to initialize a new database")
+            context_flags = ["--workspace", args.workspace] if args.workspace else []
+            context = json.loads(run(["aven", "context", args.task, "--json",
+                                      "--db", str(db), *context_flags], Path.cwd()))
+            routing = dict(db=str(db), workspace=context["workspace"]["key"],
+                           project=context["project"]["key"])
+            require(all(isinstance(v, str) and v for v in routing.values()),
+                    "Missing Aven database/workspace/project routing")
+            record = dict(schema_version=1, repo=repo, task=args.task, routing=routing)
+            save(path, record)
+        routing = record["routing"]
+        require(Path(routing["db"]).is_file(), "Saved Aven database is missing")
+        argv = [shutil.which("aven"), "tui", "--db", routing["db"],
+                "--workspace", routing["workspace"], "--project", routing["project"]]
+        record["argv"] = argv
+        aven_tab(repo, argv, record, lambda data: save(path, data))
+        return dict(record, ok=True, record_path=str(path))
+
+
 def execute(args):
     identity = paths(Path.cwd())
     repo = identity["worktree"]
@@ -636,7 +690,8 @@ def execute(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("launch", "inspect"))
+    parser.add_argument("command", choices=("startup", "launch", "inspect"))
+    parser.add_argument("--run-id", help="Stable startup run identity; defaults to the designated task ref")
     parser.add_argument("task", help="Aven task ref; configured routing defaults apply")
     parser.add_argument("--base", help="Explicit local base branch (new launch)")
     parser.add_argument(
@@ -666,7 +721,7 @@ def main():
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
     try:
-        return emit(execute(args))
+        return emit(startup_run(args) if args.command == "startup" else execute(args))
     except ERRORS as error:
         return emit(
             {

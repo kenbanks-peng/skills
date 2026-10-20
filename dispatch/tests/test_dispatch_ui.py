@@ -251,6 +251,113 @@ class WorkerTabTests(unittest.TestCase):
         ])
 
 
+class AvenTabTests(unittest.TestCase):
+    def setUp(self):
+        self.parent = dict(pane_id="dispatcher-pane", terminal_id="dispatcher-terminal",
+                           tab_id="dispatcher-tab", workspace_id="workspace")
+        self.aven = dict(pane_id="aven-pane", terminal_id="aven-terminal",
+                         tab_id="aven-tab", workspace_id="workspace")
+        self.inventory = dict(version="0.9.0", protocol=22, panes=[self.parent],
+                              tabs=[dict(self.parent, label="dispatcher"),
+                                    dict(tab_id="unrelated", workspace_id="workspace",
+                                         label="aven")])
+        self.calls = []
+        self.saved = []
+        self.record = {}
+        self.env = dict(HERDR_ENV="1", HERDR_SOCKET_PATH="/host/api.sock")
+        self.argv = ["/bin/aven", "tui", "--db", "/original tasks.db", "--workspace",
+                     "default", "--project", "dispatch"]
+
+    def request(self, method, **params):
+        self.calls.append((method, params))
+        if method == "session.snapshot":
+            return {"snapshot": self.inventory}
+        if method == "pane.process_info":
+            return {"process_info": {"shell_pid": 42 if
+                    params["pane_id"] == "dispatcher-pane" else 900}}
+        if method == "layout.apply":
+            self.assertTrue(self.saved[-1]["creation_attempted"])
+            self.assertNotIn("tab_id", params)
+            self.inventory["panes"].append(self.aven)
+            self.inventory["tabs"].append(dict(self.aven, label="aven"))
+            return {"tab": {"tab_id": "aven-tab"}}
+        self.fail(method)
+
+    def open(self):
+        with patch.object(ui.Herdr, "socket_identity", return_value=(1, 2)), \
+             patch.object(ui.Herdr, "request", side_effect=self.request), \
+             patch.object(ui, "ancestors", return_value={42}), \
+             patch.object(ui, "startup"):
+            return ui.aven_tab("/target repo", self.argv, self.record,
+                               lambda data: self.saved.append(json.loads(json.dumps(data))), self.env)
+
+    def test_root_routing_and_exact_identity_repeat_ignores_labels(self):
+        self.open()
+        self.inventory["tabs"][-1]["label"] = "renamed by user"
+        self.open()
+        creates = [p for m, p in self.calls if m == "layout.apply"]
+        self.assertEqual(creates, [dict(workspace_id="workspace", tab_label="aven",
+                                       focus=False, root=dict(type="pane", cwd="/target repo",
+                                                              command=self.argv))])
+        self.assertEqual(self.record["aven_tab"], self.aven)
+        self.assertEqual(self.record["dispatcher"]["tab_id"], "dispatcher-tab")
+        self.assertFalse(any(m.endswith("close") for m, _ in self.calls))
+
+    def test_missing_or_moved_saved_pane_never_creates_replacement(self):
+        self.open()
+        self.aven["tab_id"] = "unrelated"
+        with self.assertRaisesRegex(ui.UIError, "identity changed"):
+            self.open()
+        self.assertEqual(sum(m == "layout.apply" for m, _ in self.calls), 1)
+
+    def test_interrupted_creation_never_retries_by_label(self):
+        self.record["creation_attempted"] = True
+        with self.assertRaisesRegex(ui.UIError, "interrupted"):
+            self.open()
+        self.assertFalse(any(m == "layout.apply" for m, _ in self.calls))
+
+    def test_replaced_socket_or_dispatcher_refuses(self):
+        self.open()
+        self.record["dispatcher"]["socket_identity"] = [9, 9]
+        with self.assertRaisesRegex(ui.UIError, "dispatcher UI identity changed"):
+            self.open()
+        self.assertEqual(sum(m == "layout.apply" for m, _ in self.calls), 1)
+
+    def test_tmux_creation_and_repeat_pin_server_session_window_and_pane(self):
+        calls = []
+
+        def command(argv):
+            calls.append(argv)
+            if argv[-1] == "#{socket_path}\t#{session_id}\t#{window_id}\t#{pane_id}":
+                return "/host/tmux.sock\t$3\t@7\t%9"
+            self.assertEqual(argv[:3], ["tmux", "-S", "/host/tmux.sock"])
+            if argv[3] == "new-window":
+                self.assertTrue(self.saved[-1]["creation_attempted"])
+                return "@8\t%10"
+            return "%10\t@8\t$3"
+
+        with patch.object(ui, "command", side_effect=command), \
+             patch.object(ui.os, "stat") as stat, patch.object(ui, "startup"):
+            stat.return_value.st_dev = 1
+            stat.return_value.st_ino = 2
+            for _ in range(2):
+                ui.aven_tab("/target repo", self.argv, self.record,
+                            lambda data: self.saved.append(json.loads(json.dumps(data))),
+                            {"TMUX": "context", "TMUX_PANE": "%9"})
+        creates = [c for c in calls if "new-window" in c]
+        self.assertEqual(len(creates), 1)
+        self.assertIn("$3:", creates[0])
+        self.assertEqual(creates[0][-3:-1], ["-c", "/target repo"])
+        self.assertIn("'/original tasks.db'", creates[0][-1])
+        self.assertEqual(self.record["aven_tab"], dict(tab_id="@8", pane_id="%10"))
+
+    def test_legacy_close_cannot_close_run_or_worker_tabs(self):
+        result = subprocess.run(["bash", str(SCRIPT.with_name("close-tasks-tab.sh")),
+                                 "herdr:aven-pane"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("run-owned", result.stderr)
+
+
 class SocketContractTests(unittest.TestCase):
     def test_line_protocol_and_api_error(self):
         for error in [False, True]:
