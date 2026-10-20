@@ -27,11 +27,11 @@ python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
   --check '["python3", "-m", "unittest"]'
 ```
 
-Require startup `ok: true` before launching workers. Use a designated run task (or `--run-id <stable-id>`) consistently on resume. Reuse the saved exact Aven tab identity rather than matching by label. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
+Startup and launch must use the same run ID. It defaults to the command's task ref; for multiple worker tasks, pass `--run-id <stable-id>` to startup and every launch. Launch verifies successful startup and the saved open Aven tab. Resume uses the worker's saved run ID. Reuse exact tab identity rather than matching by label. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
 
 Repeat `--check` for required checks. Put task requirements in Aven rather than separate prompt fields. Pass `--platform darwin` when macOS workers are requested; otherwise launch defaults to `linux`. Let the script manage configuration, runtime selection, and UI routing. Treat script failures as blockers.
 
-Require launch `ok: true`, then mark active using `aven edit <task-ref> --status active`. Read `aven context <task-ref> --json` to confirm the write. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes. Reconcile a failed status write before proceeding; do not relaunch.
+Require launch `ok: true`: the script confirms worker identity, sets active when needed, and reads Aven context to confirm the status. It saves the worker in the run index. If activation fails, use `dispatch.py inspect <task-ref> --resume`; it reads live status before any retry and never creates a replacement. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes.
 
 Keep session identity and the observed `agent_type` in saved recovery evidence. Use the `tasks` policy and supported Aven metadata options for assignment metadata. On Aven versions exposing an agent field, clear it with supported CLI options when leaving active. Preserve the launch-generated evidence at `<common-git-dir>/dispatch-workers/APP-1234/worker.json`, outside worker worktrees. Use the generated worker prompt and guest path rather than caller-managed identity files.
 
@@ -65,7 +65,7 @@ Review the first command's plan; authorize once. Inspect the separate `delivered
 
 ### Enforce status transitions
 
-- **Ready → active:** Require confirmed launch, then successful status write and readback.
+- **Ready → active:** Launch/resume enforces confirmed launch, status write when needed, and readback.
 - **Active → active during review, integration, or a blocker:** Record the blocker, owner, and next action. Record `BLOCKED:` as a report, not an Aven status.
 - **Active → done:** Enforce the finish requirements above.
 - **Done with pending cleanup → done:** Retry safe cleanup separately; retain resource identity, evidence, owner, and next action. Include automatic cleanup in normal finish.
@@ -98,7 +98,7 @@ When all run work, resource cleanup, and final SUMMARY reporting are finished, c
 python3 <skill-directory>/scripts/dispatch.py close-run <run-epic-or-designated-task> --authorize-close
 ```
 
-Use the same `--run-id <stable-id>` as startup, if set. Require `ok: true` and `aven_closed: true`; otherwise report pending UI housekeeping. Leave the dispatcher tab open. Keep Aven open during worker cleanup, resume, or a blocked/partial handoff. See [runtime.md](runtime.md#dispatch-startup-and-aven-tab) for safe closure and retry rules.
+Use the same `--run-id <stable-id>` as startup, if set. Closure checks the run index and saved workers, live done status, retained delivery ancestry, absent worker resources, completed cleanup/housekeeping, and a SUMMARY note added since startup. Missing evidence blocks closure. Final SUMMARY content and work outside the saved run remain dispatcher review decisions. Require `ok: true` and `aven_closed: true`; otherwise report pending UI housekeeping. Leave the dispatcher tab open. Keep Aven open during worker cleanup, resume, or a blocked/partial handoff. See [runtime.md](runtime.md#dispatch-startup-and-aven-tab) for safe closure and retry rules.
 
 ## Load only when triggered
 

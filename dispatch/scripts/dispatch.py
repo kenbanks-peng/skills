@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from dispatch_cli import latest_report
 from dispatch_ui import aven_tab, close_aven_tab, worker_tab
 from git_preflight import (
     CheckError,
@@ -100,7 +101,8 @@ def validate_assignment(args):
         all(
             isinstance(check, list)
             and check
-            and isinstance(check[0], str) and bool(check[0])
+            and isinstance(check[0], str)
+            and bool(check[0])
             and all(isinstance(arg, str) and "\0" not in arg for arg in check)
             for check in checks
         ),
@@ -443,8 +445,10 @@ def launch_run(args, common, repo, record=None):
     require(path.is_file(), "Run startup first; pass the same --run-id to launch")
     data = json.loads(path.read_text())
     require(
-        data["schema_version"] == 1 and data["repo"] == repo
-        and data.get("ok") is True and data.get("aven_tab"),
+        data["schema_version"] == 1
+        and data["repo"] == repo
+        and data.get("ok") is True
+        and data.get("aven_tab"),
         "Run startup is not confirmed; resume startup before launch",
     )
     require(
@@ -463,9 +467,9 @@ def activate(record, event, path):
     evidence = event["activation"] = {}
 
     def current():
-        data = json.loads(run(
-            ["aven", "context", record["task_ref"], "--json"], record["repo"]
-        ))
+        data = json.loads(
+            run(["aven", "context", record["task_ref"], "--json"], record["repo"])
+        )
         task = data["task"]
         require(
             task["id"] == record["task_id"]
@@ -482,7 +486,9 @@ def activate(record, event, path):
         evidence["write_attempted"] = True
         save(path, record)
         run(["aven", "edit", record["task_ref"], "--status", "active"], record["repo"])
-        require(current() == "active", "Aven task not confirmed active after status write")
+        require(
+            current() == "active", "Aven task not confirmed active after status write"
+        )
     evidence["ok"] = True
     save(path, record)
 
@@ -496,7 +502,9 @@ def run_workers(common, run_id, registered):
             refs.add(path.parent.name)
     evidence = []
     for ref in sorted(refs):
-        require(re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", ref), "Invalid saved task ref")
+        require(
+            re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", ref), "Invalid saved task ref"
+        )
         path = common / "dispatch-workers" / ref / "worker.json"
         worker = json.loads(path.read_text())
         require(
@@ -512,33 +520,56 @@ def run_workers(common, run_id, registered):
             and finished.get("task_complete") is True
             and finished.get("cleanup_complete") is True
             and not finished.get("pending_cleanup")
-            and all(item["status"] in ("closed", "removed")
-                    for item in finished.get("housekeeping", [])),
+            and all(
+                item["status"] in ("closed", "removed")
+                for item in finished.get("housekeeping", [])
+            ),
             "Run worker is unfinished or has pending cleanup: " + worker["task_ref"],
         )
-        task = json.loads(run(
-            ["aven", "context", worker["task_ref"], "--json"], worker["repo"]
-        ))["task"]
+        task = json.loads(
+            run(["aven", "context", worker["task_ref"], "--json"], worker["repo"])
+        )["task"]
         require(
             task["id"] == worker["task_id"]
             and task["display_ref"] == worker["task_ref"]
-            and task["status"] == "done" and not task.get("deleted", False),
+            and task["status"] == "done"
+            and not task.get("deleted", False),
             "Run worker is not confirmed done: " + worker["task_ref"],
         )
         require(
             not Path(worker["worktree"]).exists()
             and not Path(worker["worktree"]).is_symlink()
-            and git(worker["repo"], "show-ref", "--verify", "--quiet",
-                    "refs/heads/" + worker["branch"], allowed=(0, 1)).returncode == 1
-            and "worktree " + worker["worktree"] not in
-                git(worker["repo"], "worktree", "list", "--porcelain", "-z").stdout.split("\0"),
+            and git(
+                worker["repo"],
+                "show-ref",
+                "--verify",
+                "--quiet",
+                "refs/heads/" + worker["branch"],
+                allowed=(0, 1),
+            ).returncode
+            == 1
+            and "worktree " + worker["worktree"]
+            not in git(
+                worker["repo"], "worktree", "list", "--porcelain", "-z"
+            ).stdout.split("\0"),
             "Run worker resource reappeared; preserve it: " + worker["task_ref"],
         )
         base = commit(worker["repo"], branch_ref(worker["repo"], worker["base"]))
-        git(worker["repo"], "merge-base", "--is-ancestor",
-            worker["integration"]["verified_base_sha"], base)
-        evidence.append({"task_ref": worker["task_ref"], "record_path": str(path),
-                         "status": "done", "cleanup_complete": True})
+        git(
+            worker["repo"],
+            "merge-base",
+            "--is-ancestor",
+            worker["integration"]["verified_base_sha"],
+            base,
+        )
+        evidence.append(
+            {
+                "task_ref": worker["task_ref"],
+                "record_path": str(path),
+                "status": "done",
+                "cleanup_complete": True,
+            }
+        )
     return evidence
 
 
@@ -588,7 +619,15 @@ def startup_run(args):
                 all(isinstance(v, str) and v for v in routing.values()),
                 "Missing Aven database/workspace/project routing",
             )
-            record = dict(schema_version=1, repo=repo, task=args.task, routing=routing)
+            record = dict(
+                schema_version=1,
+                repo=repo,
+                task=args.task,
+                routing=routing,
+                task_id=context["task"]["id"],
+                task_ref=context["task"]["display_ref"],
+                prior_note_ids=[note["id"] for note in context["notes"]],
+            )
             save(path, record)
         routing = record["routing"]
         require(Path(routing["db"]).is_file(), "Saved Aven database is missing")
@@ -626,6 +665,20 @@ def close_run(args):
         record["worker_reconciliation"] = run_workers(
             common, args.run_id or args.task, record.get("worker_refs", [])
         )
+        context = json.loads(
+            run(["aven", "context", record["task_ref"], "--json"], record["repo"])
+        )
+        require(
+            context["task"]["id"] == record["task_id"]
+            and context["task"]["display_ref"] == record["task_ref"],
+            "Run reporting task identity changed",
+        )
+        summary = latest_report(context, "SUMMARY")["note"]
+        require(
+            summary["id"] not in record["prior_note_ids"],
+            "SUMMARY predates this run; save the final handoff first",
+        )
+        record["summary_note"] = summary
         save(path, record)
         close_aven_tab(record, lambda data: save(path, data))
         return dict(record, ok=True, record_path=str(path))

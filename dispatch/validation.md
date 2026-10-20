@@ -8,17 +8,19 @@ Use the baseline's single-task, single-worker, single-wait counting rule. Count 
 
 | Helper calls | Calls | Named value slots |
 | --- | ---: | ---: |
-| launch (task, base, scopes list, checks list) | 1 | 4 |
+| startup (designated task) | 1 | 1 |
+| launch (task, base, checks list) | 1 | 3 |
 | select RESULT (task) | 1 | 1 |
 | integrate (task, reviewed SHA, RESULT ID) | 1 | 3 |
 | finish plan; authorize finish (task each) | 2 | 2 |
-| **Default total** | **5** | **10** |
+| close-run (designated task) | 1 | 1 |
+| **Default total** | **7** | **11** |
 | Explicit extra final-run verification, if assigned (repo, base, worker SHA, checks file) | 1 | 4 |
-| **Baseline-equivalent with extra verification** | **6** | **14** |
+| **Baseline-equivalent with extra verification** | **8** | **15** |
 
-The same surrounding commands are ready/context (2), active/DISPATCH note (2), wait/status (2), ready again (1), SUMMARY note (1): **8**. Thus the default is **13 dispatcher commands**, or **15** for baseline parity with extra final-run verification and its final-base recheck. Baseline: **35 commands, 18 helper calls, 100 helper value slots**. This is a recipe comparison, not a minimum: polling, repairs, project-specific checks, and optional views add commands. A separate final-run gate is not imposed by dispatch; per-task integration already checks the pinned base independently.
+Surrounding commands are ready/context (2), DISPATCH note (1), wait/status (2), ready again (1), and SUMMARY note (1): **7**. Launch now owns active status and readback. Startup and closure are explicit helper calls. Thus the default is **14 dispatcher commands**, or **16** with extra final-run verification and its final-base recheck. The single-task count omits optional `--run-id`; multi-task runs supply it consistently. Baseline: **35 commands, 18 helper calls, 100 helper value slots**. This is a recipe comparison, not a minimum: polling, repairs, project-specific checks, and optional views add commands. A separate final-run gate is not imposed by dispatch; per-task integration already checks the pinned base independently.
 
-The baseline had **23 saved file instances**, of which **16** were caller-authored inputs or explicitly materialized helper outputs: capability cache (1), initial parameters/prompt/receipt (3), DISPATCH parameters/note (2), preflight JSON (1), merge parameters/prompt (2), checks input (1), verification JSON (2), and VERIFIED and SUMMARY parameters/notes (4). The remaining 7 were stop/archive/cleanup outputs and the archived prompt. The final normal interface requires **0 caller-managed file artifacts**; baseline-parity extra run verification requires **1 checks file** (and an optional retained output). Notes can be written directly through Aven; no note JSON/template files are required. The five baseline Aven events become **four**: DISPATCH, worker RESULT, automatic VERIFIED, SUMMARY; no MERGE report.
+The baseline had **23 saved file instances**, of which **16** were caller-authored inputs or explicitly materialized helper outputs: capability cache (1), initial parameters/prompt/receipt (3), DISPATCH parameters/note (2), preflight JSON (1), merge parameters/prompt (2), checks input (1), verification JSON (2), and VERIFIED and SUMMARY parameters/notes (4). The remaining 7 were stop/archive/cleanup outputs and the archived prompt. The run also saves one shared startup/UI/index record outside worker worktrees. The final normal interface requires **0 caller-managed file artifacts**; baseline-parity extra run verification requires **1 checks file** (and an optional retained output). Notes can be written directly through Aven; no note JSON/template files are required. The five baseline Aven events become **four**: DISPATCH, worker RESULT, automatic VERIFIED, SUMMARY; no MERGE report.
 
 ### Managed saved artifacts: like-for-like recipe count
 
@@ -44,8 +46,8 @@ This comparison does not claim fewer total files in every actual run. Evidence c
 ## Reproducible local checks
 
 ```sh
-env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s dispatch/tests -v
-ruff check --no-cache dispatch/scripts dispatch/tests
+env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+ruff check --no-cache scripts tests
 git diff --check
 ```
 
@@ -54,6 +56,12 @@ git diff --check
 The documented-path smoke also verifies uncertain exit blocks completion after successful integration. The full suite additionally verifies failed durable reporting blocks closure, changed identities/base/verification fail closed, strict archive/removal preserves unknown files, and tab/empty-parent failures do not block completion. Document checks resolve all local Markdown links/anchors and invoke help for the documented Python entry points. The controlled path asserts no normal capability discovery. No production lifecycle code or project CI policy changes are required for this documentation rewrite.
 
 Local result: **102 tests passed**, Ruff passed, and `git diff --check` passed. Detailed command output is retained with the worker's `.workmux/h99c-tests.log` and `.workmux/h99c-checks.log` for dispatch to preserve before integration. Ruff was initially absent from the worker and installed with `uv tool install ruff`; this is an environment dependency, not a repository change.
+
+## Determinism review checks
+
+Launch now enforces an open saved run, registers workers, and confirms active status with read-before-write/readback recovery. Run closure checks saved membership, live done status, delivery ancestry, absent worker resources, cleanup, and a new SUMMARY. Shared CLI calls remove inherited `GIT_*` overrides; argv validation accepts empty arguments and rejects NUL bytes.
+
+The final targeted run checked **79 tests: 78 passed, 1 platform skip** across launch, UI, and the documented lifecycle. Ruff and `git diff --check` passed. The earlier full run exposed stale UI-command and Markdown-anchor assertions; both are corrected and pass in the targeted run. The full suite was not repeated after those corrections. No live Aven, Workmux, container, or destructive UI check was performed.
 
 ## Live evidence and limits
 

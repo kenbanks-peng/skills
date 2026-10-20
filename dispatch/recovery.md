@@ -1,6 +1,6 @@
 # Recovery and handoff
 
-Load for resume, uncertain state, failed lifecycle operations, or pending cleanup. The [safety contract](SKILL.md#safety-contract) applies throughout.
+Load for resume, uncertain state, failed lifecycle operations, or pending cleanup. The [coordination rules](SKILL.md#coordination) applies throughout.
 
 ## Reconcile first
 
@@ -11,7 +11,7 @@ python3 <skill-directory>/scripts/dispatch.py inspect APP-1234
 python3 <skill-directory>/scripts/dispatch.py inspect APP-1234 --resume
 ```
 
-Inspection is read-only; `--resume` saves reconciled observations. Repeated launch also only reconciles the original assignment; neither starts a replacement. Use the saved record under `<common-git-dir>/dispatch-workers/<full-ref>/worker.json`, not a reconstructed identity document. Compare Git ancestry, actual worktree state, the reported commit and current tip, UI/container identity, and saved attempts. A missing window is not evidence of lost work or writer exit.
+Inspection is read-only. For a live worker, `--resume` verifies the saved open run, saves observations, and reconciles active status with Aven readback. Use plain inspection for completed workers. Repeated launch also only reconciles the original assignment; neither starts a replacement. Use the saved record under `<common-git-dir>/dispatch-workers/<full-ref>/worker.json`, not a reconstructed identity document. Compare Git ancestry, actual worktree state, the reported commit and current tip, UI/container identity, and saved attempts. A missing window is not evidence of lost work or writer exit.
 
 After integration, inspect finish state instead:
 
@@ -24,7 +24,7 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234 --inspect
 | Observed state                                                                      | Action                                                                                                                                                                                                                                                                                             |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Worker still running                                                                | Resume bounded monitoring; use the original handle.                                                                                                                                                                                                                                                |
-| Confirmed launch but active write failed/interrupted                                | Read live Aven context; retry active only for the confirmed original launch. Retain the blocker if Aven is unavailable; do not launch again.                                                                                                                                                       |
+| Confirmed launch but active write failed/interrupted                                | Use `dispatch.py inspect <ref> --resume` to reconcile active status for the confirmed original launch. It reads before writing and confirms active afterward; it never adds a replacement worker.                                                                                                                                                       |
 | Worker RESULT or Workmux done                                                       | Review the turn's report; keep active until every delivery gate passes.                                                                                                                                                                                                                            |
 | Worker needs input                                                                  | Answer or report the blocker to the user.                                                                                                                                                                                                                                                          |
 | Startup unconfirmed or partial launch                                               | Inspect resources and saved errors; use `dispatch.py inspect <ref> --resume`. Never remove the record to force another add.                                                                                                                                                                        |

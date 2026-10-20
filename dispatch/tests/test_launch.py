@@ -63,7 +63,11 @@ if name == "aven":
                  "deleted": False, "title": "Literal `code` $(touch SENTINEL) \\path\nnext",
                  "description": "Use $HOME and `backticks` literally\nsecond line"},
         "project": {"key": "project"}, "workspace": {"key": "default"},
-        "notes": [{"id": "launch-note", "body": "Keep this durable context"}]
+        "notes": [{"id": "launch-note", "body": "Keep this durable context",
+                   "created_at": "2026-01-01T00:00:00Z"}] +
+                 ([{"id": "summary-note", "body": "SUMMARY: Run complete.",
+                    "created_at": "2026-01-02T00:00:00Z"}]
+                  if os.environ.get("WRITE_SUMMARY") else [])
     }))
 elif name == "workmux":
     if args[0] == "add":
@@ -395,6 +399,7 @@ class LaunchTests(unittest.TestCase):
         startup = self.cli("startup", "APP-TEST", "--run-id", "completed-run")
         self.cli("close-run", "APP-TEST", "--run-id", "completed-run", ok=False)
         self.assertEqual(len(self.startup_panes), 1)
+        self.env["WRITE_SUMMARY"] = "1"
         for _ in range(2):
             result = self.cli(
                 "close-run",
@@ -685,8 +690,9 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(len(self.adds()), 1)
 
     def test_launch_requires_confirmed_open_run(self):
-        data = self.cli("launch", "APP-TEST", "--base", "main",
-                        "--check", '["true"]', ok=False)
+        data = self.cli(
+            "launch", "APP-TEST", "--base", "main", "--check", '["true"]', ok=False
+        )
         self.assertIn("Run startup first", data["error"])
         self.assertEqual(self.adds(), [])
         self.assertFalse(self.record.exists())
@@ -716,7 +722,11 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(len(self.adds()), 1)
 
     def test_active_write_failures_resume_without_relaunch(self):
-        for mode in ("active-write-fails", "active-readback-fails", "active-lost-response"):
+        for mode in (
+            "active-write-fails",
+            "active-readback-fails",
+            "active-lost-response",
+        ):
             with self.subTest(mode=mode):
                 self.env.update(AVEN_INITIAL_STATUS="todo", MODE=mode)
                 # Reuse the one worker across failures. Live status, not the
@@ -746,12 +756,23 @@ class LaunchTests(unittest.TestCase):
         self.prepare_run()
         self.record.parent.mkdir(parents=True)
         saved = dict(
-            schema_version=1, run_id="APP-TEST", task_ref="APP-TEST", task_id="task-id",
-            repo=str(self.repo), common_dir=str(self.repo / ".git"),
-            worktree=str(self.root / "removed-worker"), branch="dispatch/app-test",
-            base="main", integration={"verified_base_sha": self.base},
-            finish=dict(ok=True, task_complete=True, cleanup_complete=True,
-                        pending_cleanup=[], housekeeping=[]),
+            schema_version=1,
+            run_id="APP-TEST",
+            task_ref="APP-TEST",
+            task_id="task-id",
+            repo=str(self.repo),
+            common_dir=str(self.repo / ".git"),
+            worktree=str(self.root / "removed-worker"),
+            branch="dispatch/app-test",
+            base="main",
+            integration={"verified_base_sha": self.base},
+            finish=dict(
+                ok=True,
+                task_complete=True,
+                cleanup_complete=True,
+                pending_cleanup=[],
+                housekeeping=[],
+            ),
         )
         self.record.write_text(json.dumps(saved))
         return saved
@@ -765,6 +786,9 @@ class LaunchTests(unittest.TestCase):
         data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
         self.assertIn("resource reappeared", data["error"])
         self.git("branch", "-d", saved["branch"])
+        data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertIn("No matching report", data["error"])
+        self.env["WRITE_SUMMARY"] = "1"
         result = self.cli("close-run", "APP-TEST", "--authorize-close")
         self.assertEqual(result["worker_reconciliation"][0]["task_ref"], "APP-TEST")
         self.assertTrue(result["aven_closed"])
@@ -788,10 +812,25 @@ class LaunchTests(unittest.TestCase):
         self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
         self.assertFalse(any(c["method"] == "tab.close" for c in self.ui_calls))
 
+    def test_close_run_rejects_summary_from_before_startup(self):
+        self.env["WRITE_SUMMARY"] = "1"
+        self.prepare_run()
+        data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertIn("SUMMARY predates", data["error"])
+        self.assertFalse(any(c["method"] == "tab.close" for c in self.ui_calls))
+
     def test_explicit_run_id_is_saved_and_reused_on_resume(self):
         self.cli("startup", "APP-TEST", "--run-id", "shared-run")
-        data = self.cli("launch", "APP-TEST", "--run-id", "shared-run",
-                        "--base", "main", "--check", '["true"]')
+        data = self.cli(
+            "launch",
+            "APP-TEST",
+            "--run-id",
+            "shared-run",
+            "--base",
+            "main",
+            "--check",
+            '["true"]',
+        )
         self.assertEqual(data["run_id"], "shared-run")
         index = json.loads(Path(data["run_record_path"]).read_text())
         self.assertEqual(index["worker_refs"], ["APP-TEST"])
@@ -801,7 +840,9 @@ class LaunchTests(unittest.TestCase):
 
     def test_run_override_cannot_move_existing_worker_to_another_run(self):
         self.launch()
-        self.cli("startup", "APP-TEST", "--run-id", "another-run")
+        original = self.repo / ".git/dispatch-ui/APP-TEST.json"
+        other = original.with_name("another-run.json")
+        other.write_bytes(original.read_bytes())
         data = self.cli("launch", "APP-TEST", "--run-id", "another-run", ok=False)
         self.assertIn("Run override differs", data["error"])
         self.assertEqual(len(self.adds()), 1)
@@ -810,15 +851,23 @@ class LaunchTests(unittest.TestCase):
         self.prepare_run()
         for argv in (["echo", "bad\0argument"], ["", "argument"], ["echo", 1]):
             with self.subTest(argv=argv):
-                self.cli("launch", "APP-TEST", "--base", "main",
-                         "--check", json.dumps(argv), ok=False)
+                self.cli(
+                    "launch",
+                    "APP-TEST",
+                    "--base",
+                    "main",
+                    "--check",
+                    json.dumps(argv),
+                    ok=False,
+                )
         self.assertEqual(self.adds(), [])
         self.assertFalse(self.record.exists())
 
     def test_empty_check_argument_is_preserved(self):
         self.prepare_run()
-        data = self.cli("launch", "APP-TEST", "--base", "main",
-                        "--check", '["printf", ""]')
+        data = self.cli(
+            "launch", "APP-TEST", "--base", "main", "--check", '["printf", ""]'
+        )
         self.assertEqual(data["acceptance_checks"], [["printf", ""]])
 
     def test_git_environment_cannot_redirect_external_tools(self):

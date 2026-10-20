@@ -449,7 +449,7 @@ class AvenTabTests(unittest.TestCase):
         self.assertEqual(len(creates), 1)
         self.assertIn("$3:", creates[0])
         self.assertEqual(creates[0][-3:-1], ["-c", "/target repo"])
-        self.assertIn("'/original tasks.db'", creates[0][-1])
+        self.assertEqual(creates[0][-1], "exec /bin/aven tui --project dispatch")
         self.assertEqual(self.record["aven_tab"], dict(tab_id="@8", pane_id="%10"))
 
     def close(self):

@@ -55,7 +55,7 @@ Production assumes Python 3.10+, modern Git with `init -b` and `rev-parse --path
 Run from this repository:
 
 ```sh
-env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s dispatch/tests -v
+env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
 The suite needs only Python 3.10+, Git, and POSIX. It uses temporary repositories, controlled CLI responses, and no live Aven server, worker, multiplexer, or container. The stable safety seams are command exit/JSON results and actual retained Git/files: preflight identity/state, pinned verification, guarded cleanup, report selection, launch revision checks, and confirmed stop. These tests must move to the lifecycle interface as it replaces those commands; helper names and note schemas are not compatibility requirements. They do not prove live Workmux integration, UI behavior, conflict semantics, or serialization. Those need the later lifecycle tests.
