@@ -29,7 +29,7 @@ python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
 
 Require startup `ok: true` before launching workers. Use a designated run task (or `--run-id <stable-id>`) consistently on resume. Reuse the saved exact Aven tab identity rather than matching by label. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
 
-Repeat `--check` for required checks. Put task requirements in Aven rather than separate prompt fields. Use the default sandboxed configuration at `~/.config/workmux/agents.linux.yaml`: Apple `container` on macOS, Docker on Linux; Herdr when `HERDR_ENV=1`, otherwise the active tmux session. Treat missing setup as a blocker; require explicit approval before unsandboxed execution.
+Repeat `--check` for required checks. Put task requirements in Aven rather than separate prompt fields. Pass `--platform darwin` when macOS workers are requested; otherwise launch defaults to `linux`. Let the script manage configuration, runtime selection, and UI routing. Treat script failures as blockers.
 
 Require launch `ok: true`, then mark active using `aven edit <task-ref> --status active`. Read `aven context <task-ref> --json` to confirm the write. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes. Reconcile a failed status write before proceeding; do not relaunch.
 
@@ -103,7 +103,6 @@ Use the same `--run-id <stable-id>` as startup, if set. Require `ok: true` and `
 ## Load only when triggered
 
 - **Resume or uncertain state:** [recovery.md](recovery.md), including completed tasks with pending cleanup. Reconcile the full tracked set after interruption.
-- **Explicitly approved unsandboxed execution:** [local-worker.md](local-worker.md).
 - **Nondefault runtime/UI or interrupted startup:** [runtime.md](runtime.md) for the relevant adapter and saved run-owned Aven tab.
 - **Diagnosed Aven routing failure:** [troubleshooting.md#routing](troubleshooting.md#routing).
 - **Unsupported CLI behavior or tool change:** [troubleshooting.md#capabilities](troubleshooting.md#capabilities).

@@ -594,11 +594,25 @@ class LaunchTests(unittest.TestCase):
         self.cli("launch", "APP-TEST")
         self.assertEqual(len(self.adds()), 1)
 
-    def test_missing_default_config_never_falls_back(self):
-        (self.root / ".config/workmux/agents.linux.yaml").unlink()
-        self.launch(ok=False)
+    def test_missing_default_config_is_managed(self):
+        config = self.root / ".config/workmux/agents.linux.yaml"
+        config.unlink()
+        data = self.launch()
+        self.assertEqual(data["platform"], "linux")
+        self.assertEqual(config.read_text(), "agent: pi\nsandbox:\n  enabled: true\n")
+        self.assertEqual(len(self.adds()), 1)
+
+    def test_platform_override_on_resume_is_rejected(self):
+        self.launch()
+        data = self.cli("launch", "APP-TEST", "--platform", "darwin", ok=False)
+        self.assertIn("saved platform", data["error"])
+        self.assertEqual(len(self.adds()), 1)
+
+    @unittest.skipIf(sys.platform == "darwin", "Requires a non-macOS host")
+    def test_darwin_requires_macos_host(self):
+        data = self.launch("--platform", "darwin", ok=False)
+        self.assertIn("macOS host", data["error"])
         self.assertEqual(self.adds(), [])
-        self.assertFalse(self.record.exists())
 
     def test_partial_launch_keeps_both_ui_and_container_observations(self):
         self.env["MODE"] = "missing-ui"
@@ -625,23 +639,19 @@ class LaunchTests(unittest.TestCase):
         self.cli("launch", "APP-TEST", ok=False)
         self.assertEqual(self.adds(), [])
 
-    def test_local_requires_explicit_approval(self):
-        self.launch("--runtime", "local", ok=False)
-        self.assertEqual(self.adds(), [])
+    def test_local_runtime_launches_without_approval_flag(self):
         config = self.root / "local.yaml"
         config.write_text("agent: pi\nsandbox:\n  enabled: false\n")
-        data = self.launch(
-            "--runtime", "local", "--allow-local", "--config", str(config)
-        )
+        data = self.launch("--runtime", "local", "--config", str(config))
         self.assertIsNone(data["container"])
         self.assertEqual(data["worker_worktree"], str(self.root / "worker"))
         self.assertNotIn("--sandbox", self.adds()[0])
 
-    def test_macos_config_requires_approval_even_with_sandbox_runtime(self):
+    def test_config_filename_does_not_gate_launch(self):
         config = self.root / "agents.macos.yaml"
-        config.write_text("agent: pi")
-        self.launch("--config", str(config), ok=False)
-        self.assertEqual(self.adds(), [])
+        config.write_text("agent: pi\nsandbox:\n  enabled: true\n")
+        self.launch("--config", str(config))
+        self.assertEqual(len(self.adds()), 1)
 
     def test_serialization_blocks_creation(self):
         with (self.repo / ".git/dispatch.lock").open("a") as lock:

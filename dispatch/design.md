@@ -50,7 +50,7 @@ Target: three lifecycle mutations (launch, integrate, finish), with inspect only
 
 ## Runtime and local checks
 
-Production assumes Python 3.10+, modern Git with `init -b` and `rev-parse --path-format=absolute`, POSIX process groups, Aven, and Workmux. Default worker config is `~/.config/workmux/agents.linux.yaml`. macOS/local execution requires explicit approval. Supported container commands are Apple `container`, Docker, and Podman; no Lima or Windows adapter is planned. Use Herdr when `HERDR_ENV=1`, otherwise an active tmux session. Record the original context and exact IDs; never select a resource for deletion by label. A closed UI is not proof of writer exit. Checks are trusted local executables; process groups do not contain descendants that deliberately escape them.
+Production assumes Python 3.10+, modern Git with `init -b` and `rev-parse --path-format=absolute`, POSIX process groups, Aven, and Workmux. Default worker config is `~/.config/workmux/agents.linux.yaml`. `--platform linux|darwin` defaults to Linux workers. Launch creates missing platform configs and preserves existing files. Supported container commands are Apple `container`, Docker, and Podman; no Lima or Windows adapter is planned. Use Herdr when `HERDR_ENV=1`, otherwise an active tmux session. Record the original context and exact IDs; never select a resource for deletion by label. A closed UI is not proof of writer exit. Checks are trusted local executables; process groups do not contain descendants that deliberately escape them.
 
 Run from this repository:
 

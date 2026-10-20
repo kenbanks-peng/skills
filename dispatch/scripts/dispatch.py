@@ -137,26 +137,41 @@ def create_record(args, identity, context, directory):
         != 0,
         "Worker branch already exists without a saved record; reconcile ownership",
     )
+    platform = args.platform or "linux"
     runtime = args.runtime or (
-        "apple-container" if sys.platform == "darwin" else "docker"
+        "local"
+        if platform == "darwin"
+        else "apple-container"
+        if sys.platform == "darwin"
+        else "docker"
     )
     require(
-        args.allow_local or runtime != "local",
-        "Local/macOS execution requires --allow-local approval",
+        platform != "darwin" or runtime == "local",
+        "darwin workers require the local runtime",
     )
-    if runtime == "local":
-        require(
-            args.config or sys.platform == "darwin",
-            "Local execution on Linux requires an explicit sandbox-disabled --config",
-        )
-        default_config = "~/.config/workmux/agents.macos.yaml"
-    else:
-        default_config = "~/.config/workmux/agents.linux.yaml"
-    config = Path(args.config or default_config).expanduser().resolve(strict=True)
     require(
-        args.allow_local or "macos" not in config.name.lower(),
-        "Local/macOS execution requires --allow-local approval",
+        platform != "darwin" or sys.platform == "darwin",
+        "darwin workers require a macOS host",
     )
+    filename = "agents.macos.yaml" if platform == "darwin" else "agents.linux.yaml"
+    config = (
+        Path(args.config).expanduser()
+        if args.config
+        else Path.home() / ".config/workmux" / filename
+    )
+    if not args.config and not config.exists():
+        config.parent.mkdir(parents=True, exist_ok=True)
+        # Exclusive creation preserves configuration owned by another launch.
+        try:
+            with config.open("x") as output:
+                output.write(
+                    "agent: pi\nsandbox:\n  enabled: "
+                    + ("false" if runtime == "local" else "true")
+                    + "\n"
+                )
+        except FileExistsError:
+            pass
+    config = config.resolve(strict=True)
     origin, parent = multiplexer(repo)
     return {
         "schema_version": 1,
@@ -173,7 +188,7 @@ def create_record(args, identity, context, directory):
         "config": str(config),
         "config_sha256": digest(config),
         "runtime": runtime,
-        "local_approved": args.allow_local,
+        "platform": platform,
         "origin": origin,
         "parent_session": parent,
         "acceptance_checks": checks,
@@ -524,6 +539,7 @@ def execute(args):
             for option, field in (
                 ("base", "base"),
                 ("runtime", "runtime"),
+                ("platform", "platform"),
             ):
                 value = getattr(args, option)
                 if value:
@@ -723,14 +739,14 @@ def main():
     parser.add_argument(
         "--check", action="append", help="Required check as a JSON argv array"
     )
+    parser.add_argument(
+        "--platform",
+        choices=("linux", "darwin"),
+        help="Worker OS (new launch default: linux; resume: saved OS)",
+    )
     parser.add_argument("--config", help="Genuine Workmux config override")
     parser.add_argument(
         "--runtime", choices=("apple-container", "docker", "podman", "local")
-    )
-    parser.add_argument(
-        "--allow-local",
-        action="store_true",
-        help="Explicit approval for local/macOS execution",
     )
 
     parser.add_argument("--timeout", type=int, default=120)

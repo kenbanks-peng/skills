@@ -52,7 +52,7 @@ Missing/stale/failed verification, changed worker or assignment, nonancestor bas
 
 On lock errors pause lifecycle mutations. Inspect lock metadata, owning processes, Git/common directories, and partial resources. Remove only a confirmed stale lock. For legacy records, `recovery_snapshot.py --help` offers targeted diagnostics; missing identity needs investigation rather than automatic adoption.
 
-Use a live worker's original session for repair. Reopening a retained worktree with `--continue` requires the recorded config and original UI context; load [runtime.md](runtime.md) for adapter details, or [local-worker.md](local-worker.md) for approved local execution. Before reassignment, confirm the old writer cannot continue, preserve its changes, determine merge state, and record ownership. The normal finish operation confirms container exit from exact saved ID/mount identity; a missing container before a confirmed stop is uncertain. Local writer exit is not automatically supported. Obtain independent process evidence for review rather than inferring exit from UI closure.
+Use a live worker's original session for repair. Reopening a retained worktree with `--continue` requires the recorded config and original UI context; load [runtime.md](runtime.md) for adapter details (including local execution). Before reassignment, confirm the old writer cannot continue, preserve its changes, determine merge state, and record ownership. The normal finish operation confirms container exit from exact saved ID/mount identity; a missing container before a confirmed stop is uncertain. Local writer exit is not automatically supported. Obtain independent process evidence for review rather than inferring exit from UI closure.
 
 ## Durable handoff
 
