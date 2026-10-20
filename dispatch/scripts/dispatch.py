@@ -61,13 +61,20 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def aven_context(args, repo):
-    argv = ["aven", "context", args.task, "--json"]
+def aven_context_command(args, task_ref, *, machine=False):
+    argv = ["aven", "context", task_ref]
+    if machine:
+        argv.append("--json")
     for flag in ("db", "workspace"):
         value = getattr(args, flag)
         if value:
             argv.extend(["--" + flag, value])
-    context = json.loads(run(argv, repo))
+    return argv
+
+
+def aven_context(args, repo):
+    # Keep structured validation/recovery separate from the worker-facing CLI text.
+    context = json.loads(run(aven_context_command(args, args.task, machine=True), repo))
     ref = context["task"]["display_ref"]
     require(
         bool(re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", ref)),
@@ -168,6 +175,7 @@ def create_record(args, identity, context, directory):
         "task_ref": ref,
         "task_id": context["task"]["id"],
         "task_context": context,
+        "task_context_text": run(aven_context_command(args, ref), repo),
         "base": args.base,
         "launch_base": commit(repo, base_ref),
         "branch": branch,

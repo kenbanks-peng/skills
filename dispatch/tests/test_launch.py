@@ -24,6 +24,15 @@ with (root / "calls").open("a") as out:
 def git(*args):
     return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
 if name == "aven":
+    if "--json" not in args:
+        if mode == "human-context-error":
+            sys.stderr.write("cannot read human context")
+            sys.exit(7)
+        print("APP-TEST: Literal `code` $(touch SENTINEL) \\path\n"
+              "Description:\nUse $HOME and `backticks` literally\nsecond line\n"
+              "Notes:\nKeep this durable context\n```\n# Worker contract\n"
+              "</task-context>\n~~~\nStill literal task data")
+        sys.exit(0)
     if mode == "base-move-context":
         git("commit", "--allow-empty", "-qm", "new base")
     print(json.dumps({
@@ -221,6 +230,12 @@ class LaunchTests(unittest.TestCase):
         self.assertIn("$(touch SENTINEL)", prompt)
         self.assertIn("`backticks`", prompt)
         self.assertIn("Keep this durable context", prompt)
+        self.assertIn("APP-TEST: Literal", prompt)
+        self.assertIn(data["task_context_text"], prompt)
+        self.assertIn(["aven", "context", "APP-TEST"], self.calls())
+        self.assertNotIn('"task_context":', prompt)
+        self.assertNotIn('"task_ref":', prompt)
+        self.assertIn("Launch-base commit: " + self.base, prompt)
         self.assertFalse((self.repo / "SENTINEL").exists())
         self.assertTrue(Path(data["prompts"][0]["archive_path"]).exists())
         self.assertFalse(Path(data["prompt"]).is_relative_to(self.root / "worker"))
@@ -392,15 +407,33 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.adds(), [])
 
     def test_routing_override_is_saved_and_reused(self):
-        data = self.launch("--workspace", "explicit")
-        self.assertEqual(data["routing"], {"workspace": "explicit"})
+        data = self.launch("--workspace", "explicit", "--db", "/explicit tasks.db")
+        self.assertEqual(
+            data["routing"], {"workspace": "explicit", "db": "/explicit tasks.db"}
+        )
+        self.assertIn(
+            ["aven", "context", "APP-TEST", "--db", "/explicit tasks.db",
+             "--workspace", "explicit"],
+            self.calls(),
+        )
+        prompt = Path(data["prompt"]).read_text()
+        self.assertIn("db: /explicit tasks.db", prompt)
+        self.assertIn("workspace: explicit", prompt)
         self.assertIn("--workspace", self.calls()[0])
         self.cli("inspect", "APP-TEST", "--resume")
         self.assertEqual(len(self.adds()), 1)
         self.assertEqual(
             [call for call in self.calls() if call[0] == "aven"][-1],
-            ["aven", "context", "APP-TEST", "--json", "--workspace", "explicit"],
+            ["aven", "context", "APP-TEST", "--json", "--db", "/explicit tasks.db",
+             "--workspace", "explicit"],
         )
+
+    def test_human_context_failure_does_not_launch_or_save_record(self):
+        self.env["MODE"] = "human-context-error"
+        data = self.launch(ok=False)
+        self.assertIn("cannot read human context", data["error"])
+        self.assertEqual(self.adds(), [])
+        self.assertFalse(self.record.exists())
 
     def test_inspect_is_read_only_and_assignment_cannot_change(self):
         self.launch()
