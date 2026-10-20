@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 import test_launch as launch
 
@@ -114,6 +115,36 @@ class DocumentedWorkflowTests(unittest.TestCase):
         result = self.command("finish_worker.py", "APP-TEST", "--authorize-finish")
         self.assertTrue(result["task_complete"])
         return result
+
+    def test_successful_no_retry_managed_inventory(self):
+        self.start()
+        integrated = self.command("integrate.py", *self.review)
+        # Owner setup: the unchanged generated source is non-ignored and eligible
+        # for strict archive before the first finish, with no unsafe artifacts.
+        (self.repo / ".git/info/exclude").write_text("")
+        completed = self.finish()
+        self.assertEqual(completed["pending_cleanup"], [])
+        self.assertFalse(self.worker.exists())
+        directory = self.record.parent
+        record = json.loads(self.record.read_text())
+        prompt_copy = directory / ("prompt-" + record["prompts"][0]["sha256"] + ".md")
+        integration = Path(integrated["evidence_directory"])
+        expected = {
+            self.record,
+            directory / "assignment.md",
+            directory / "config.yaml",
+            prompt_copy,
+            integration / "checks.json",
+            integration / "worker-checks.json",
+            integration / "base-verification.json",
+            directory / "archive/PROMPT-test.md",
+            directory / "completion.md",
+        }
+        actual = {path for path in directory.rglob("*") if path.is_file()}
+        self.assertEqual(len(expected), 9)
+        self.assertEqual(actual, expected)
+        self.assertEqual(sum(c[:2] == ["workmux", "add"] for c in self.calls()), 1)
+        self.assertEqual(sum(c[:2] == ["workmux", "merge"] for c in self.calls()), 1)
 
     def test_launch_review_integrate_finish_cleanup_retry(self):
         self.start(partial=True)

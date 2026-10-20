@@ -42,10 +42,54 @@ file artifacts**; baseline-parity extra run verification requires **1 checks fil
 no note JSON/template files are required. The five baseline Aven events become
 **four**: DISPATCH, worker RESULT, automatic VERIFIED, SUMMARY; no MERGE report.
 
-This does **not** claim fewer total on-disk evidence files. The implementation
-manages a worker record, assignment/prompt/config snapshots, check logs, action
-journals, archives, and completion report; counts vary with prompts/checks/retries.
-The reduction is caller-owned artifacts and inputs, not evidence deletion.
+### Managed saved artifacts: like-for-like recipe count
+
+Under the baseline's successful one-worker/no-retry assumption, the final normal
+path saves **9 managed file instances**, versus the baseline's **23**. With the
+baseline-parity extra final verifier's checks input and retained output, the final
+count is **11**. These counts include managed outputs, not just caller inputs:
+
+| Final normal-path inventory (relative to the saved worker record directory) | Files |
+| --- | ---: |
+| `worker.json`, `assignment.md`, `config.yaml`, `prompt-<hash>.md` | 4 |
+| `integration-<event>/checks.json`, `worker-checks.json`, `base-verification.json` | 3 |
+| `archive/PROMPT-<name>.md`, `completion.md` | 2 |
+| **Normal managed total** | **9** |
+| Extra final verifier: checks input and retained verification output | **+2** |
+| **Baseline-parity total** | **11** |
+
+Code verification: `dispatch.py` creates the record, assignment/config snapshot,
+and hash-named copy of the one generated prompt; `integrate.py` saves the checks
+input, worker check result, and independent base result. `finish_worker.py` archives
+the eligible source prompt and writes the completion report. Preflight, process,
+stop, action-journal, and completion state are embedded in `worker.json`, not
+additional files. Atomic-write temporary files and removed detached verification
+checkouts are not retained artifacts. `test_successful_no_retry_managed_inventory`
+asserts the exact nine-file inventory after the public lifecycle completes.
+
+Assumptions: one generated prompt, no Workmux commit rewrite, no retries/reconcile,
+no additional report snapshots or UI artifacts, and no changed, tracked, ignored,
+or otherwise unsafe artifacts preventing strict archival/removal. In particular,
+a rewrite/reconcile can add `reconciled-worker-checks.json`, retries add integration
+logs, and extra distinct prompts add hash copies and archives. The nine-file count
+is illustrative, **not a promise for live pending-cleanup runs**.
+
+The baseline explicitly excludes source prompt copies, UI ID text, and optional
+retained full-report snapshots; apply those exclusions here too. The Workmux
+source `.workmux/PROMPT-*.md` is excluded as a source copy (and removed after safe
+archive in this successful case). However, the final hash-named launch-time copy
+**is included**, as is the separate finish archive, even though both contain the
+same prompt. That is a conservative asymmetry: the baseline inventory did not
+separately enumerate a launch-time backup of a generated source prompt. The final
+`assignment.md` is likewise counted, comparable to the baseline's initial rendered
+prompt. Git/worktree internals, the shared `dispatch.lock`, tool-owned runtime
+state, and Aven's database are infrastructure, not per-task evidence files in
+either inventory; Aven events are counted separately above.
+
+This comparison does not claim fewer total files in every actual run. Evidence
+counts vary with prompts/checks/retries and retained resources; the implementation
+keeps safety evidence rather than deleting it to meet a count. The separate
+caller-owned artifact/input reduction above remains the measure of manual plumbing.
 For context load, the baseline SKILL/runtime/merge documents contain 2,639
 whitespace-delimited words; the new default SKILL alone contains 772. Adapter and
 recovery documents now have explicit exceptional triggers rather than mandatory
@@ -83,7 +127,7 @@ help for the documented Python entry points. The controlled path asserts no norm
 capability discovery. No production lifecycle code or project CI policy changes
 are required for this documentation rewrite.
 
-Local result: **101 tests passed**, Ruff passed, and `git diff --check` passed.
+Local result: **102 tests passed**, Ruff passed, and `git diff --check` passed.
 Detailed command output is retained with the worker's `.workmux/h99c-tests.log`
 and `.workmux/h99c-checks.log` for dispatch to preserve before integration.
 Ruff was initially absent from the worker and installed with `uv tool install ruff`;
