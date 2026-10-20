@@ -203,7 +203,11 @@ class FinishTests(unittest.TestCase):
                 self.assertTrue(first["housekeeping"][0]["evidence"])
             else:
                 self.assertTrue(first["finish_complete"])
+            self.record = json.loads(self.path.read_text())
+            self.reverify_base()
             retried = self.cli()
+            self.assertEqual(retried["plan"], first["plan"])
+            self.assertEqual(len(retried["base_verifications"]), 1)
             self.assertTrue(retried["cleanup_complete"])
             self.assertTrue(retried["finish_complete"])
             self.assertEqual(retried["housekeeping"][0]["status"], "closed")
@@ -308,6 +312,177 @@ class FinishTests(unittest.TestCase):
         self.assertFalse(result["finish_complete"])
         self.assertIn("PENDING", Path(result["completion_report"]).read_text())
         self.assertTrue((self.worker / "unknown").exists())
+
+    def pending_finish(self):
+        prompt = self.prompt()
+        prompt.write_text("changed")
+        first = self.cli("--authorize-finish")
+        self.assertTrue(first["task_complete"])
+        self.assertTrue(first["pending_cleanup"])
+        self.record = json.loads(self.path.read_text())
+        return prompt, first
+
+    def reverify_base(self, message="advance base"):
+        self.git(self.repo, "commit", "--allow-empty", "-qm", message)
+        sha = self.git(self.repo, "rev-parse", "HEAD")
+        self.record["integration"]["verified_base_sha"] = sha
+        data = json.loads(self.verification.read_text())
+        data["tested_sha"] = sha
+        self.verification.write_text(json.dumps(data))
+        self.store()
+        return sha
+
+    def assert_cleanup_blocked(self, prompt):
+        result = self.cli(ok=False)
+        self.assertTrue(result["task_complete"])
+        self.assertTrue(result["delivered"])
+        self.assertFalse(result["finish_complete"])
+        self.assertFalse(result["cleanup_complete"])
+        self.assertTrue(prompt.exists())
+        self.assertTrue(self.worker.exists())
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "done")
+        return result
+
+    def test_completed_pending_cleanup_accepts_only_reverified_base_advance(self):
+        prompt, first = self.pending_finish()
+        sha = self.reverify_base()
+        before = self.path.read_bytes()
+        inspected = self.cli("--inspect")
+        self.assertTrue(inspected["ok"])
+        self.assertEqual(self.path.read_bytes(), before)
+        # Restore only the test fixture's generated prompt, not its saved plan.
+        prompt.write_text("generated")
+        result = self.cli()
+        self.assertFalse(result["finish_complete"])  # UI fixture stays pending
+        self.assertFalse(result["cleanup_complete"])
+        self.assertEqual(result["pending_cleanup"], [])
+        self.assertFalse(self.worker.exists())
+        self.assertEqual(result["plan"], first["plan"])
+        self.assertTrue(result["authorized"])
+        self.assertEqual(result["base_verifications"], [{
+            "previous_verified_base_sha": self.base,
+            "verified_base_sha": sha,
+            "worker_sha": self.base,
+            "verification_evidence": str(self.verification),
+        }])
+        self.cli()
+        saved = json.loads(self.path.read_text())["finish"]
+        self.assertEqual(saved["base_verifications"], result["base_verifications"])
+        edits = [call for call in self.aven_mutations() if call[1] == "edit"]
+        self.assertEqual(len(edits), 1)
+
+    def test_reverified_retry_rejects_stale_missing_or_wrong_verification(self):
+        prompt, first = self.pending_finish()
+        self.reverify_base()
+        original = self.verification.read_text()
+        for mode in ("stale", "missing", "worker", "checks", "failed"):
+            with self.subTest(mode=mode):
+                data = json.loads(original)
+                if mode == "stale":
+                    data["tested_sha"] = self.base
+                elif mode == "worker":
+                    data["worker_sha"] = "0" * 40
+                elif mode == "checks":
+                    data["checks"][0]["argv"] = ["different"]
+                elif mode == "failed":
+                    data["ok"] = False
+                self.verification.write_text(json.dumps(data))
+                if mode == "missing":
+                    self.verification.unlink()
+                self.assert_cleanup_blocked(prompt)
+                saved = json.loads(self.path.read_text())["finish"]
+                self.assertEqual(saved["plan"], first["plan"])
+                self.assertNotIn("base_verifications", saved)
+        self.verification.write_text(original)
+
+    def test_reverified_retry_rejects_changed_resource_or_assignment(self):
+        prompt, _ = self.pending_finish()
+        self.reverify_base()
+        original = json.dumps(self.record)
+        for key, value in (
+            ("container", {"id": "replacement"}),
+            ("ui", {"context": {"backend": "tmux"}, "agents": []}),
+            ("prompts", []),
+            ("cleanup_parent", str(self.root)),
+            ("worker_worktree", "/replacement"),
+            ("handle", "replacement"),
+        ):
+            with self.subTest(key=key):
+                self.record = json.loads(original)
+                self.record[key] = value
+                self.store()
+                self.assertIn("changed", self.assert_cleanup_blocked(prompt)["error"])
+        self.record = json.loads(original)
+        self.store()
+
+    def test_reverified_retry_rejects_changed_worker(self):
+        prompt, _ = self.pending_finish()
+        sha = self.reverify_base()
+        self.git(self.worker, "reset", "--hard", sha)
+        self.record["integration"]["integrated_worker_sha"] = sha
+        data = json.loads(self.verification.read_text())
+        data["worker_sha"] = sha
+        self.verification.write_text(json.dumps(data))
+        self.store()
+        self.assertIn("plan changed", self.assert_cleanup_blocked(prompt)["error"])
+
+    def test_reverified_retry_rejects_nonancestor_base(self):
+        prompt, _ = self.pending_finish()
+        # Sibling bases can both contain the worker without containing each other.
+        self.reverify_base()
+        self.cli()
+        self.record = json.loads(self.path.read_text())
+        self.git(self.repo, "reset", "--hard", self.base)
+        self.reverify_base("sibling base")
+        self.assertIn("not an ancestor", self.assert_cleanup_blocked(prompt)["error"])
+
+    def test_reverified_retry_unknown_exit_preserves_done_delivery(self):
+        prompt, _ = self.pending_finish()
+        self.reverify_base()
+        self.env["CLI_MODE"] = "wrong-id"
+        result = self.assert_cleanup_blocked(prompt)
+        self.assertIn("exit is uncertain", result["error"])
+        self.assertNotIn("base_verifications", result)
+
+    def test_reverified_retry_rejects_resource_reappearance(self):
+        self.cli("--authorize-finish")
+        self.record = json.loads(self.path.read_text())
+        self.reverify_base()
+        self.git(self.repo, "worktree", "add", "-b", "worker", str(self.worker), self.base)
+        prompt = self.worker / "evidence"
+        prompt.write_text("retain replacement")
+        self.assertIn("reappeared", self.assert_cleanup_blocked(prompt)["error"])
+
+    def test_reverified_retry_rejects_archived_prompt_reappearance(self):
+        prompt = self.prompt()
+        (self.worker / "unknown").write_text("retain")
+        self.cli("--authorize-finish")
+        self.assertFalse(prompt.exists())
+        self.record = json.loads(self.path.read_text())
+        self.reverify_base()
+        prompt.parent.mkdir(exist_ok=True)
+        prompt.write_text("generated")
+        self.assertIn("reappeared", self.assert_cleanup_blocked(prompt)["error"])
+
+    def test_reverified_retry_rejects_branch_reappearance(self):
+        self.cli("--authorize-finish")
+        self.record = json.loads(self.path.read_text())
+        self.reverify_base()
+        self.git(self.repo, "branch", "worker", self.base)
+        result = self.cli(ok=False)
+        self.assertIn("reappeared", result["error"])
+        self.assertTrue(result["task_complete"])
+        self.assertEqual(self.git(self.repo, "rev-parse", "worker"), self.base)
+
+    def test_blocked_retry_does_not_manufacture_task_completion(self):
+        self.env["CLI_MODE"] = "wrong-id"
+        self.cli("--authorize-finish", ok=False)
+        self.record = json.loads(self.path.read_text())
+        self.reverify_base()
+        result = self.cli(ok=False)
+        self.assertFalse(result["task_complete"])
+        self.assertFalse(result["delivered"])
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "active")
 
     def test_base_moved_blocks_cleanup_and_completion(self):
         self.git(self.repo, "commit", "--allow-empty", "-qm", "base moved")

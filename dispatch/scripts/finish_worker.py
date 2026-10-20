@@ -270,7 +270,15 @@ def finish(record, path, authorize=False, inspect_only=False):
     try:
         result = finish_attempt(record, path, authorize, inspect_only)
     except ERRORS as exc:
-        result = {"ok": False, "error": error_text(exc), "task_complete": False}
+        saved = record.get("finish", {})
+        result = {
+            "ok": False,
+            "error": error_text(exc),
+            "task_complete": saved.get("task_complete") is True,
+            "delivered": saved.get("delivered") is True,
+            "cleanup_complete": False,
+            "finish_complete": False,
+        }
     if inspect_only or not (authorize or record.get("finish", {}).get("authorized")):
         return result
     if result.get("ok") is False:
@@ -353,7 +361,33 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             "plan": plan,
         },
     )
-    require(event["plan"] == plan, "Saved finish plan changed; judgment is required")
+    # Authorization belongs to the original resource plan, never to a rewritten
+    # plan. Only independently verified descendant bases may extend that history.
+    original = event["plan"]
+    require(
+        dict(original, verified_base_sha=plan["verified_base_sha"]) == plan,
+        "Saved finish plan changed; judgment is required",
+    )
+    receipt = event.get("exit_evidence", {}).get("receipt")
+    if receipt:
+        require(
+            all(record.get(key) == receipt.get(key) for key in (
+                "task_ref", "common_dir", "worker_worktree", "handle",
+                "routing", "acceptance_checks",
+            )),
+            "Saved finish assignment changed; judgment is required",
+        )
+    history = event.get("base_verifications", [])
+    previous_base = (
+        history[-1]["verified_base_sha"] if history else original["verified_base_sha"]
+    )
+    advanced = previous_base != plan["verified_base_sha"]
+    if advanced:
+        require(
+            git(record["repo"], "merge-base", "--is-ancestor",
+                previous_base, plan["verified_base_sha"], allowed=(0, 1)).returncode == 0,
+            "Previously verified base is not an ancestor; judgment is required",
+        )
     if inspect_only:
         return {
             "ok": True,
@@ -372,7 +406,8 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         }
     event["authorized"] = True
     event["evidence"] = str(path)
-    event.update(ok=False, delivered=False, task_complete=False,
+    completed_delivery = event.get("delivered") is True and event.get("task_complete") is True
+    event.update(ok=False, delivered=completed_delivery, task_complete=completed_delivery,
                  cleanup_complete=False, finish_complete=False)
     event.pop("error", None)
 
@@ -398,6 +433,13 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 ),
                 "Completed " + kind + " reappeared; preserve it and request judgment",
             )
+        for entry in record["prompts"]:
+            source = Path(record["worktree"]) / entry["path"]
+            require(
+                not (event["actions"].get("archive:" + entry["path"]) == "complete"
+                     and (source.exists() or source.is_symlink())),
+                "Archived prompt reappeared; preserve it and request judgment",
+            )
         return observed
 
     persist()
@@ -420,6 +462,14 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 state[kind + "_present"] or kind in event["actions"],
                 "Unexpected missing " + kind + "; inspect saved identity",
             )
+        if advanced:
+            event.setdefault("base_verifications", []).append({
+                "previous_verified_base_sha": previous_base,
+                "verified_base_sha": integrated["verified_base_sha"],
+                "worker_sha": integrated["integrated_worker_sha"],
+                "verification_evidence": integrated["verification_evidence"],
+            })
+            persist()
         cleanup_error = None
         try:
             if state["worktree_present"]:

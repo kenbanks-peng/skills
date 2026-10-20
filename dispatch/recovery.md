@@ -40,6 +40,14 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234 --inspect
 | Resource reappeared after recorded removal, unexpected absence, or changed identity | Preserve it for judgment; old authorization does not cover replacement resources. Never recreate removed resources merely to retry cleanup. |
 | Work, exit, or ownership uncertain | Preserve resources, record the discrepancy, and obtain the missing evidence. |
 
+## Cleanup retry after the base advances
+
+If finish is already authorized but the base moved, retain the saved worker record and all surviving resources. Have the dispatcher run independent verification with `integrate.py <ref> --reviewed-commit <original-worker-sha> --result-id <original-result-id> --reconcile`. This must verify the current base against the original assignment and integrated worker; merely updating a SHA is not verification.
+
+Then inspect and repeat `finish_worker.py <ref>` without another `--authorize-finish`. A retry may accept a changed verified base only when the former verified base is its ancestor and all saved destructive resource identities remain unchanged. The original authorized `finish.plan` stays immutable; accepted advances are appended to `finish.base_verifications` after exit and resource gates pass. Further retries must descend from the most recently accepted base, not just the original one. Inspection does not update that history.
+
+Missing/stale/failed verification, changed worker or assignment, nonancestor bases, unknown exit, and worktree/branch/archived-prompt reappearance block the retry. Preserve these resources for dispatcher judgment; do not edit plans, receipts, or action history to bypass the gate. A cleanup-only blocker preserves previously confirmed delivery and task completion while marking cleanup/finish incomplete. It does not turn an uncompleted task into a completed one. Keep the blocker and pending cleanup in the handoff even when the task is already done. Host cleanup remains dispatcher-owned; retained reproduction tabs are evidence, not permission to close them.
+
 ## Locks, repair, and reassignment
 
 On lock errors pause lifecycle mutations. Inspect lock metadata, owning processes, Git/common directories, and partial resources. Remove only a confirmed stale lock. For legacy records, `recovery_snapshot.py --help` offers targeted diagnostics; missing identity needs investigation rather than automatic adoption.
