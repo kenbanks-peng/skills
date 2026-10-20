@@ -9,7 +9,7 @@ Coordinate implementation through verified completion or a durable handoff. Use 
 
 ## Safety contract
 
-- Dispatch owns status, assignment, review, integration, and closure; workers own implementation and RESULT/BLOCKED reports. Workmux `done` only ends a turn.
+- Dispatch owns status, assignment, review, integration, and closure; workers own implementation and RESULT/BLOCKED reports. A worker RESULT or Workmux `done` ends a turn, not the Aven task.
 - Parallel implementation needs disjoint write scopes. Serialize repository lifecycle mutations; helpers share a common-Git-directory lock. Exclude other Git writers through integration and finish.
 - Review the actual diff and commits against acceptance criteria. Require independent checks of the integrated base, exact confirmed worker exit before destructive cleanup or completion, and durable reporting before closure.
 - Preserve resources on uncertainty. Task completion and resource removal are distinct outcomes: retained resources need identity, evidence, owner, and next action. Tabs and empty-parent removal are best-effort housekeeping.
@@ -28,7 +28,7 @@ python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
 
 Repeat `--scope` and `--check` for the assignment. The default uses `~/.config/workmux/agents.linux.yaml` with sandboxing, Apple `container` on macOS and Docker on Linux, and Herdr when `HERDR_ENV=1`, otherwise the active tmux session. Missing setup is a blocker, not permission to run locally.
 
-Require `ok: true`, then mark active using `aven edit <task-ref> --status active` and append a `DISPATCH:` note linking the returned handle and recovery record (use `tasks` for selective notes). The observed `agent_type` is saved in the worker record, not an Aven agent field. If assignment metadata is needed, follow the `tasks` policy and use supported Aven metadata options. The launch command loads task context, pins the explicit local base, creates the prompt, and saves identity and evidence under `<common-git-dir>/dispatch-workers/APP-1234/worker.json`. The worker receives its actual guest path; caller-managed identity files are not needed. Keep this evidence outside worker worktrees for recovery.
+Require `ok: true` (confirmed launch), then mark active using `aven edit <task-ref> --status active`; read `aven context <task-ref> --json` with the same routing to confirm the write. Append a `DISPATCH:` note linking the returned handle and recovery record (use `tasks` for selective notes). A failed status write is a blocker to reconcile, not permission to relaunch. The observed `agent_type` is saved in the worker record, not an Aven agent field. Current Aven has no agent field or clear-agent option; on versions exposing one, clear it with supported CLI options when leaving active. Session identity belongs only in saved recovery evidence. If assignment metadata is needed, follow the `tasks` policy and use supported Aven metadata options. The launch command loads task context, pins the explicit local base, creates the prompt, and saves identity and evidence under `<common-git-dir>/dispatch-workers/APP-1234/worker.json`. The worker receives its actual guest path; caller-managed identity files are not needed. Keep this evidence outside worker worktrees for recovery.
 
 ## 2. Monitor and review
 
@@ -56,13 +56,25 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234
 python3 <skill-directory>/scripts/finish_worker.py APP-1234 --authorize-finish
 ```
 
-Review the first command's plan; authorize once. Finish rechecks integration and verification, confirms exact worker exit, archives eligible generated prompts, attempts strict resource cleanup, saves a VERIFIED report in Aven, then marks done with `aven edit <task-ref> --status done`. The saved worker record retains the observed `agent_type` for recovery. Inspect the separate `delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` outcomes. Integrated, independently verified work with confirmed exit and durable reporting permits completion even when safe resources remain. Unknown exit, stale verification, or failed reporting blocks it.
+Review the first command's plan; authorize once. Finish rechecks integration and verification, confirms exact worker exit, archives eligible generated prompts, attempts strict resource cleanup, saves a VERIFIED report in Aven, then marks done with `aven edit <task-ref> --status done` and confirms live status through Aven context. The saved worker record retains the observed `agent_type` for recovery. Inspect the separate `delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` outcomes. Integrated, independently verified work with confirmed exit and durable reporting permits completion even when safe resources remain. Unknown exit, stale verification, failed reporting, or unconfirmed Aven status blocks it. Finish saves the error, dispatcher owner, recovery action, and local `finish-blocked.md`; restore failed Aven reporting before claiming closure.
+
+### Status transitions (dispatcher-owned)
+
+| Transition | Required evidence |
+| --- | --- |
+| Ready task → active | Confirmed successful launch, then successful status write and readback. |
+| Active → active during review/integration or a blocker | RESULT/Workmux turn completion alone is insufficient. Record blocker, owner, and next action; `BLOCKED:` is a report, not an Aven status. |
+| Active → done | Reviewed integration, independent acceptance verification, exact worker exit, durable VERIFIED report, successful status write and readback. |
+| Done with pending cleanup → done | Retry safe cleanup separately; retain resource identity, evidence, owner, and next action. Automatic cleanup remains part of normal finish. |
+| Explicit handoff/cancellation | Record delivery state, blocker, owner, and next action; use only supported Aven statuses and confirm any authorized write. |
+
+Retries reconcile live status against saved evidence. A saved successful action alone cannot prove current status; an interrupted write already observed done need not be repeated.
 
 ## 5. Close or hand off
 
 Query ready work again with the run's filters. Create or reuse follow-ups and separate current-run work from deferred backlog. Task checks need not be repeated as an extra run-wide gate; run any explicitly required final-run checks against the final pinned base (use `verify_base.py --help` if a separate check is needed).
 
-Append one `SUMMARY:` on the epic or designated task: delivered work and checked revision; unresolved work and owner/next action; pending resource cleanup; and housekeeping separately. Include saved record/evidence links so another dispatcher can resume, including cleanup for completed tasks. On a blocker, retain a BLOCKED report locally if Aven fails and restore durable reporting before integration or completion. Use the `tasks` policy rather than rendering note templates. For a file-backed handoff:
+Before final handoff, reconcile every tracked task against saved records and Aven context, including done tasks with pending cleanup; see [recovery.md](recovery.md). Never bulk-mark active tasks done. Append one `SUMMARY:` on the epic or designated task: delivered work and checked revision; unresolved work and owner/next action; every remaining active task with its blocker, owner, and next action (or explicitly none); pending resource cleanup; and housekeeping separately. Include saved record/evidence links so another dispatcher can resume, including cleanup for completed tasks. On a blocker, retain a BLOCKED report locally if Aven fails and restore durable reporting before integration or completion. Use the `tasks` policy rather than rendering note templates. For a file-backed handoff:
 
 ```sh
 aven note <run-epic-or-designated-task> --file <handoff-file>

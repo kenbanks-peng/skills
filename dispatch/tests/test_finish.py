@@ -10,6 +10,42 @@ from pathlib import Path
 
 import test_safety as safety
 
+FINISH_AVEN_CLI = r'''
+import argparse, json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+with open(os.environ["CALL_LOG"], "a") as out:
+    out.write(json.dumps(["aven", *args]) + "\n")
+path = Path(os.environ["FINISH_AVEN_STATE"])
+state = json.loads(path.read_text())
+mode = os.environ.get("FINISH_AVEN_MODE")
+if args[0] == "note":
+    state["notes"].append(Path(args[args.index("--file") + 1]).read_text())
+elif args[0] == "edit":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("task_ref")
+    parser.add_argument("--status", choices=["done"], required=True)
+    parser.add_argument("--db")
+    parser.add_argument("--workspace")
+    parser.parse_args(args[1:])
+    if mode == "status-error":
+        sys.stderr.write("status store unavailable")
+        sys.exit(7)
+    if mode != "status-noop":
+        state["status"] = "done"
+elif args[0] == "context":
+    if mode == "read-error":
+        sys.stderr.write("status read unavailable")
+        sys.exit(8)
+else:
+    sys.exit(9)
+path.write_text(json.dumps(state))
+if args[0] == "edit" and mode == "interrupted-write":
+    sys.stderr.write("connection lost after write")
+    sys.exit(7)
+print(json.dumps({"task": {"display_ref": "SKL-TEST", "status": state["status"]}}))
+'''
+
 
 class FinishTests(unittest.TestCase):
     git = safety.SafetyTests.git
@@ -17,6 +53,11 @@ class FinishTests(unittest.TestCase):
     def setUp(self):
         safety.SafetyTests.setUp(self)
         self.env["CLI_MODE"] = "exited"
+        self.aven_state = self.root / "aven-state.json"
+        self.aven_state.write_text(json.dumps({"status": "active", "notes": []}))
+        self.env["FINISH_AVEN_STATE"] = str(self.aven_state)
+        binary = self.root / "bin/aven"
+        binary.write_text("#!" + sys.executable + "\n" + FINISH_AVEN_CLI)
         self.path = self.repo / ".git/dispatch-workers/SKL-TEST/worker.json"
         self.path.parent.mkdir(parents=True)
         self.verification = self.path.parent / "base.json"
@@ -98,6 +139,9 @@ class FinishTests(unittest.TestCase):
         self.cli()
         self.assertFalse(self.worker.exists())
         self.assertTrue((self.path.parent / "completion.md").exists())
+        state = json.loads(self.aven_state.read_text())
+        self.assertEqual(state["status"], "done")
+        self.assertTrue(any("VERIFIED:" in note for note in state["notes"]))
 
     def test_completion_uses_supported_status_and_saved_routing_after_report(self):
         self.record["routing"] = {"db": "/saved/tasks.db", "workspace": "saved"}
@@ -110,9 +154,9 @@ class FinishTests(unittest.TestCase):
             for line in Path(self.env["CALL_LOG"]).read_text().splitlines()
         ]
         aven = [call for call in calls if call[0] == "aven"]
-        self.assertEqual([call[1] for call in aven], ["note", "edit"])
+        self.assertEqual([call[1] for call in aven], ["note", "context", "edit", "context"])
         self.assertEqual(
-            aven[-1],
+            aven[-2],
             [
                 "aven",
                 "edit",
@@ -156,6 +200,9 @@ class FinishTests(unittest.TestCase):
         self.assertEqual(path.read_text(), "changed")
         self.assertEqual(result["pending_cleanup"][0]["identity"], str(self.worker))
         self.assertEqual(result["pending_cleanup"][0]["owner"], "dispatcher")
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "done")
+        self.assertTrue(result["pending_cleanup"][0]["next_action"])
+        self.assertTrue(Path(result["pending_cleanup"][0]["evidence"]).exists())
 
     def test_dirty_and_unknown_files_remain_pending(self):
         (self.worker / "file").write_text("dirty")
@@ -285,6 +332,9 @@ class FinishTests(unittest.TestCase):
                 if change == "missing":
                     self.verification.unlink()
                 self.cli("--authorize-finish", ok=False)
+                saved = json.loads(self.path.read_text())
+                self.assertIn("finish_blocker", saved)
+                self.assertEqual(json.loads(self.aven_state.read_text())["status"], "active")
                 self.assertTrue(self.worker.exists())
                 self.assertFalse((self.path.parent / "completion.md").exists())
                 self.record["acceptance_checks"] = [["true"]]
@@ -351,11 +401,76 @@ class FinishTests(unittest.TestCase):
         result = self.cli()
         self.assertEqual(result["pending_cleanup"], [])
 
+    def aven_mutations(self):
+        return [
+            call for line in Path(self.env["CALL_LOG"]).read_text().splitlines()
+            if (call := json.loads(line))[0] == "aven" and call[1] != "context"
+        ]
+
     def test_repeated_finish_does_not_repeat_task_mutations(self):
         self.cli("--authorize-finish")
-        before = Path(self.env["CALL_LOG"]).read_text().count('"aven"')
+        before = self.aven_mutations()
         self.cli()
-        self.assertEqual(Path(self.env["CALL_LOG"]).read_text().count('"aven"'), before)
+        self.assertEqual(self.aven_mutations(), before)
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "done")
+
+    def test_failed_status_write_is_visible_and_recoverable(self):
+        self.env["FINISH_AVEN_MODE"] = "status-error"
+        result = self.cli("--authorize-finish", ok=False)
+        self.assertTrue(result["delivered"])
+        self.assertFalse(result["task_complete"])
+        self.assertEqual(result["actions"]["task"], "attempted")
+        self.assertIn("status store unavailable", result["error"])
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "active")
+        self.assertTrue((self.path.parent / "completion.md").exists())
+        blocker = json.loads(self.path.read_text())["finish_blocker"]
+        self.assertEqual(blocker["owner"], "dispatcher")
+        self.assertTrue(blocker["next_action"])
+        self.assertIn("BLOCKED:", Path(blocker["report"]).read_text())
+        del self.env["FINISH_AVEN_MODE"]
+        self.assertTrue(self.cli()["task_complete"])
+        self.assertNotIn("finish_blocker", json.loads(self.path.read_text()))
+
+    def test_status_write_requires_readback_confirmation(self):
+        self.env["FINISH_AVEN_MODE"] = "status-noop"
+        result = self.cli("--authorize-finish", ok=False)
+        self.assertFalse(result["task_complete"])
+        self.assertIn("not confirmed done", result["error"])
+        del self.env["FINISH_AVEN_MODE"]
+        self.assertTrue(self.cli()["task_complete"])
+
+    def test_completed_record_reconciles_actual_active_status(self):
+        self.cli("--authorize-finish")
+        state = json.loads(self.aven_state.read_text())
+        state["status"] = "active"
+        self.aven_state.write_text(json.dumps(state))
+        self.assertTrue(self.cli()["task_complete"])
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "done")
+
+    def test_interrupted_status_write_reconciles_without_duplicate_mutation(self):
+        self.env["FINISH_AVEN_MODE"] = "interrupted-write"
+        self.cli("--authorize-finish", ok=False)
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "done")
+        before = self.aven_mutations()
+        del self.env["FINISH_AVEN_MODE"]
+        self.assertTrue(self.cli()["task_complete"])
+        self.assertEqual(self.aven_mutations(), before)
+
+    def test_canceled_task_requires_dispatcher_judgment(self):
+        self.aven_state.write_text(json.dumps({"status": "canceled", "notes": []}))
+        result = self.cli("--authorize-finish", ok=False)
+        self.assertFalse(result["task_complete"])
+        self.assertIn("judgment required", result["error"])
+        self.assertEqual(json.loads(self.aven_state.read_text())["status"], "canceled")
+        self.assertFalse(any(call[1] == "edit" for call in self.aven_mutations()))
+
+    def test_status_read_failure_never_claims_completion(self):
+        self.env["FINISH_AVEN_MODE"] = "read-error"
+        result = self.cli("--authorize-finish", ok=False)
+        self.assertFalse(result["task_complete"])
+        self.assertIn("status read unavailable", result["error"])
+        del self.env["FINISH_AVEN_MODE"]
+        self.assertTrue(self.cli()["task_complete"])
 
     def test_auto_removal_after_stop_is_confirmed_and_saved(self):
         binary = self.root / "bin/docker"

@@ -4,7 +4,7 @@ Load for resume, uncertain state, failed lifecycle operations, or pending cleanu
 
 ## Reconcile first
 
-Query `aven list --open` with the run's filters and read relevant context/notes. Also include completed tasks listed with pending cleanup in the prior SUMMARY or saved records; an open-task query alone cannot find these.
+On resume and before final handoff, enumerate every tracked task from the prior SUMMARY and saved worker records. Query `aven list --open` with the run's filters and read each tracked task's context/notes with its saved routing. Include completed tasks with pending cleanup; an open-task query alone cannot find these. Reconcile launch confirmation, reviewed integration, independent checks, exact worker exit, durable reports, live Aven status, and cleanup separately. Terminal appearance or elapsed time establishes none of these gates.
 
 ```sh
 python3 <skill-directory>/scripts/dispatch.py inspect APP-1234
@@ -24,6 +24,8 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234 --inspect
 | Observed state | Action |
 | --- | --- |
 | Worker still running | Resume bounded monitoring; use the original handle. |
+| Confirmed launch but active write failed/interrupted | Read live Aven context; retry active only for the confirmed original launch. Retain the blocker if Aven is unavailable; do not launch again. |
+| Worker RESULT or Workmux done | Review the turn's report; keep active until every delivery gate passes. |
 | Worker needs input | Answer or report the blocker to the user. |
 | Startup unconfirmed or partial launch | Inspect resources and saved errors; use `dispatch.py inspect <ref> --resume`. Never remove the record to force another add. |
 | Report missing or invalid | Diagnose worker state and restore a current RESULT in Aven before integration. |
@@ -33,6 +35,8 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234 --inspect
 | Integrated, not independently verified | Inspect integration evidence and reconcile; repair failed checks without repeating the old merge. |
 | Verified, finish not authorized | Review `finish_worker.py <ref>` and authorize its plan once with `--authorize-finish`. |
 | Finish interrupted or cleanup pending, including task already done | Inspect finish, then repeat `finish_worker.py <ref>` without new authorization. It rechecks the saved verification, base, exit and surviving resources and attempts remaining actions only. Keep pending identity/evidence/owner/next action visible in the handoff. |
+| VERIFIED report saved, done write failed/interrupted or live task still active | Inspect `completion.md`, `finish-blocked.md`, and saved actions. Repair Aven access, restore any locally retained report, then repeat authorized finish. It reads live status, retries an incomplete transition, and requires readback of done. A saved task-action receipt alone is insufficient. |
+| Failed checks, unknown exit, or missing durable report | Retain the current supported status and resources. Record BLOCKED with evidence, owner, and next action; repair the failed gate before completion. |
 | Resource reappeared after recorded removal, unexpected absence, or changed identity | Preserve it for judgment; old authorization does not cover replacement resources. Never recreate removed resources merely to retry cleanup. |
 | Work, exit, or ownership uncertain | Preserve resources, record the discrepancy, and obtain the missing evidence. |
 
@@ -44,6 +48,8 @@ Use a live worker's original session for repair. Reopening a retained worktree w
 
 ## Durable handoff
 
-Use `tasks` selective notes for BLOCKED/ACTIVITY and SUMMARY. Record the blocker, evidence directory, repair owner, and next action. Failed Aven writes retain local report text and block the corresponding integration/completion gate. Keep unfinished tasks assigned unless explicitly handing off. Retained prompts, ignored files, dirty content, and unknown artifacts are pending cleanup, even after task completion. Known unchanged eligible prompts alone may be archived automatically. Keep the common Git evidence and container inspection access while cleanup is pending.
+Use `tasks` selective notes for BLOCKED/ACTIVITY and SUMMARY. Record the blocker, evidence directory, repair owner, and next action. Failed Aven writes retain local report text and block the corresponding integration/completion gate. Keep unfinished tasks assigned unless explicitly handing off. `BLOCKED:` is a report, not a supported task status. On an authorized transition out of active, clear an agent field only if the installed CLI supports it; current Aven has neither that field nor a clear-agent flag. Keep session identities in the saved worker record. Retained prompts, ignored files, dirty content, and unknown artifacts are pending cleanup, even after task completion. Known unchanged eligible prompts alone may be archived automatically. Keep the common Git evidence and container inspection access while cleanup is pending.
+
+Before final handoff, list every remaining active task with its blocker, owner, and next action (or explicitly state none), and list done tasks' pending cleanup separately. Confirm status writes individually from evidence rather than bulk-closing active tasks. If Aven is unavailable, keep the handoff locally, surface that failure, and restore the durable note before claiming success.
 
 UI closure and exact empty-parent `rmdir` failures remain housekeeping. Retain exact UI ID and original server/session context; use [runtime.md](runtime.md#ui-adapters) if manual closure is needed. Never target a tab by label or recursively delete a parent directory.

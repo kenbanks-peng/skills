@@ -278,6 +278,50 @@ def housekeeping(record, event, persist):
 
 
 def finish(record, path, authorize=False, inspect_only=False):
+    """Keep failed gates recoverable, including failures before a plan is built."""
+    try:
+        result = finish_attempt(record, path, authorize, inspect_only)
+    except ERRORS as exc:
+        result = {"ok": False, "error": error_text(exc), "task_complete": False}
+    if inspect_only or not (authorize or record.get("finish", {}).get("authorized")):
+        return result
+    if result.get("ok") is False:
+        report = path.parent / "finish-blocked.md"
+        blocker = {
+            "error": result["error"],
+            "owner": "dispatcher",
+            "next_action": "Inspect saved gates and Aven status; repair the blocker, "
+            "then repeat finish using the saved authorization and evidence",
+            "evidence": str(path),
+            "report": str(report),
+        }
+        body = (
+            "BLOCKED: Dispatch finish is not confirmed complete.\n"
+            + "- Error: " + blocker["error"] + "\n"
+            + "- Owner: dispatcher\n"
+            + "- Next action: " + blocker["next_action"] + "\n"
+            + "- Evidence: " + str(path) + "\n"
+            + "- Cwd: " + record["repo"] + "\n"
+            + "- Retain local completion/report evidence; restore Aven reporting "
+            "before claiming completion.\n"
+        )
+        with report.open("w") as output:
+            output.write(body)
+            output.flush()
+            os.fsync(output.fileno())
+        record["finish_blocker"] = blocker
+        if "finish" in record:
+            record["finish"].update(result)
+        result["blocker"] = blocker
+        save(path, record)
+    elif result.get("task_complete"):
+        record.pop("finish_blocker", None)
+        result.pop("blocker", None)
+        save(path, record)
+    return result
+
+
+def finish_attempt(record, path, authorize=False, inspect_only=False):
     require(record["branch"] != record["base"], "Worker and base branches must differ")
     integrated = verification(record)
     state = observation(record)
@@ -524,21 +568,39 @@ def finish(record, path, authorize=False, inspect_only=False):
         event["delivered"] = True
         current_base(record)
         confirm_exit(record, event)
-        if event["actions"].get("task") != "complete":
-            action(
-                "task",
-                lambda: run(
-                    [
-                        "aven",
-                        "edit",
-                        record["task_ref"],
-                        "--status",
-                        "done",
-                        *routing,
-                    ],
+
+        def task_status():
+            data = json.loads(
+                run(
+                    ["aven", "context", record["task_ref"], "--json", *routing],
                     record["repo"],
-                ),
+                )
             )
+            task = data["task"]
+            require(
+                task["display_ref"] == record["task_ref"]
+                and not task.get("deleted", False)
+                and task["status"] in ("inbox", "backlog", "todo", "active", "done"),
+                "Aven task identity/status changed; dispatcher judgment required",
+            )
+            event["aven_status"] = task["status"]
+            persist()
+            return task["status"]
+
+        # Saved action receipts are not live status. Read first so a lost response
+        # can be reconciled without a duplicate write; recheck after every write.
+        if task_status() != "done":
+            event["actions"]["task"] = "attempted"
+            persist()
+            run(
+                ["aven", "edit", record["task_ref"], "--status", "done", *routing],
+                record["repo"],
+            )
+            require(
+                task_status() == "done",
+                "Aven task not confirmed done after status write",
+            )
+        event["actions"]["task"] = "complete"
         event.update(ok=True, task_complete=True)
     except ERRORS as exc:
         event.update(ok=False, error=error_text(exc))
