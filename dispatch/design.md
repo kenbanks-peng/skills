@@ -2,10 +2,10 @@
 
 Task: SKL-641J. Baseline: `41298fe3db351c6c2a7aa4b0688740b426e141c1`.
 The task-start revision, `876664bc395a3320e334029e2353815cb5bb348c`,
-has the same tracked code and instructions. This brief is a refactor target,
-not a new run procedure. Launch and inspection are now implemented by
-`scripts/dispatch.py` (SKL-WY57); integration and finish remain design targets.
-The runtime procedure owns current usage.
+has the same tracked code and instructions. This brief records the original refactor target and baseline,
+not a run procedure. Launch, inspection, integration, and finish are implemented.
+[SKILL.md](SKILL.md) owns current usage; [validation.md](validation.md) records the
+final interface counts and validation limits.
 
 ## Ownership and target interface
 
@@ -102,7 +102,7 @@ when needed. The implemented launch accepts assignment fields directly and deriv
 the record under the common Git directory. Later verbs can locate it by full task
 reference. Integration also needs one reviewed SHA. The record replaces repeated fields;
 artifacts are managed evidence, not manual plumbing. Measure final after-counts
-in SKL-H99C; do not claim a reduction before implementation.
+in [validation.md](validation.md) (SKL-H99C).
 
 ## Runtime and local checks
 
@@ -119,7 +119,7 @@ process groups do not contain descendants that deliberately escape them.
 Run from this repository:
 
 ```sh
-python3 -m unittest discover -s tests -v
+env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s dispatch/tests -v
 ```
 
 The suite needs only Python 3.10+, Git, and POSIX. It uses temporary repositories,

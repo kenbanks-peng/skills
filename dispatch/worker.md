@@ -1,21 +1,28 @@
 # Worker contract
 
-Implement the assigned task; dispatch owns scheduling and closure.
+Implement the assignment in your actual current worktree; dispatch owns scheduling,
+status, assignment, integration, and closure.
 
-## Start
+1. Use `tasks` for Aven mechanics and selective notes. Read `aven context <task-ref>`
+   with configured defaults or dispatch's explicit routing. Confirm the branch,
+   base, write scope, dependencies, and acceptance checks against the literal JSON
+   assignment. Report inconsistencies before editing; work here, without spawning
+   more workers.
+2. Implement within scope, preserving unrelated changes. Run required checks and
+   gated actions in fail-fast Bash blocks beginning `set -euo pipefail`. Review the
+   actual diff and commit only intended changes using project conventions.
+3. Append one `RESULT:` with delivered change/components, a Git-generated unambiguous
+   commit SHA, compact check outcomes, and material decisions/exceptions. Reference
+   detailed evidence; explicitly state unavailable/skipped checks. Write success
+   reports only after required checks pass.
+4. On failure, append `BLOCKED:` with blocker/next action, failed command, cwd,
+   observed error, and retained recovery work. If Aven is unavailable, keep the
+   report locally and alert dispatch; restore it durably before integration.
+5. End after reporting, leaving worktree and status/assignment unchanged. Dispatch
+   retrieves the durable report, reviews the actual work, independently verifies,
+   and handles cleanup/completion. Do not perform normal integration or finish.
 
-1. Read `aven context <task-ref>` from the assigned repository using configured Aven routing defaults, or explicit overrides supplied by dispatch. Confirm your worktree, branch, assigned write scope, base, and acceptance checks.
-2. Use the `tasks` skill for task mechanics. If it is unavailable, use `aven <command> --help`; task reports can be appended with `aven note <task-ref> --file <report-file>`.
-3. If context, dependencies, ownership, or acceptance criteria are inconsistent, report the blocker before changing code. Work directly in this worktree rather than dispatching more workers.
-
-## Implement and report
-
-1. Implement within the assigned scope and preserve unrelated changes. Use optional ACTIVITY: notes for significant decisions and discovered work under the tasks policy; dispatch decides how to schedule follow-ups.
-2. Run required checks, review the diff, and commit only intended changes using project conventions. Run checks and gated actions in fail-fast Bash blocks beginning with `set -euo pipefail`; write success reports only after the required checks pass.
-3. Append one `RESULT:` note following the `tasks` selective-note policy: delivered change and affected components, Git-verified commit SHA, compact acceptance/check results, and material decisions or exceptions. Reference detailed evidence and existing context rather than repeating commands or launch metadata. Include a Git-generated unambiguous commit SHA so dispatch can bind the report to the current work. State skipped or unavailable checks explicitly.
-4. On failure, append `BLOCKED:` leading with the blocker and next action, followed by the failed command, working directory, observed error, and retained work needed for recovery. If Aven is unavailable, retain the report locally and alert dispatch; restore the durable report before merge.
-5. End your turn after reporting. Keep the worktree and leave status/assignment unchanged. Dispatch retrieves results from Aven, not terminal prose.
-
-## Follow-up
-
-Resume repairs when instructed, including ambiguous rebase conflicts. Report the resolved changes and a new committed RESULT for review. Dispatch owns normal Git integration, independent base verification, cleanup, and completion. Do not run the normal merge operation from the worker.
+Resume repairs when instructed, including ambiguous rebase conflicts. Commit the
+repair and report a new RESULT. Optional ACTIVITY notes follow the `tasks` policy;
+dispatch decides follow-up scheduling. If `tasks` is unavailable, consult
+`aven <command> --help`; long reports can use `aven note <ref> --file <report-file>`.

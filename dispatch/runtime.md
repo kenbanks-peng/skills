@@ -1,160 +1,49 @@
-# Worker runtime
+# Runtime and UI adapters
 
-Read before creating or reconnecting workers.
+Load only for a nondefault runtime/UI or an optional tasks view. The default
+sandboxed procedure is in [SKILL.md](SKILL.md); uncertain state belongs in
+[recovery.md](recovery.md).
 
-## Environment
+## Container adapters
 
-- Use `~/.config/workmux/agents.linux.yaml` by default. Use `~/.config/workmux/agents.macos.yaml` only when the user explicitly requests macOS or excludes sandboxing. Verify the selected file exists; a missing Linux setup is a blocker, not permission to fall back.
-- Pass the selected file with `--config` for creation/reopening. Repository and prompt paths must remain canonical. Let it select the agent; record the actual agent type in Aven rather than passing an `--agent` override.
-- Use Herdr when `HERDR_ENV=1`, otherwise the active tmux session when `TMUX` is set. In Herdr omit `--parent-session`. In tmux identify the dispatcher's actual session and pass it when placement matters; ask if ambiguous rather than deriving it from a repository name.
-- Run Workmux lifecycle commands in the target repository. Qualify agent handles as `project:handle` when cross-project names collide.
-- Preserve Aven's configured database/workspace defaults and project inference in worker prompts, including for sandboxed workers. Supply routing overrides only when diagnostics establish that the defaults select the wrong target.
-- Do not run capability discovery or create a capability cache on a normal run. After an unsupported command, flag, or response schema, or a diagnosed tool change, use `dispatch_cli.py discover --cache <evidence>/cli.json --refresh` and targeted subcommand help. Resolve the incompatibility before another mutation.
+Launch accepts `--runtime docker|podman|apple-container`. Override only for the
+actual installed runtime; the default is Apple `container` on macOS and Docker
+on Linux. `--config <path>` selects a genuine Workmux config override. Container
+configs must enable sandboxing. The config chooses the agent; launch records the
+observed type rather than overriding it. Local execution requires the approval
+procedure in [local-worker.md](local-worker.md).
 
-## Launch and reconcile
+Launch observes the exact container ID, host mount, guest worktree, and UI pane.
+When Workmux returns a null agent kind, it probes processes only inside that exact
+container; one live recognized process in the exact guest worktree supplies the
+agent type. This fallback needs Python 3 inside the container. Ambiguous identity
+fails closed. Host and guest paths are not interchangeable.
 
-Run from the target repository in the original multiplexer:
+Keep the selected config and canonical repository/prompt paths stable on reopen.
+Run lifecycle operations in the target repository. Use project-qualified Workmux
+handles when cross-project names collide. No Lima or Windows adapter is supported.
 
-```sh
-python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
-  --base main --scope src/ --scope tests/ \
-  --check '["python3", "-m", "unittest"]'
-```
+## UI adapters
 
-Supply the full task reference, explicit local base, repository-relative write scopes,
-and required checks as argv arrays. Repeat `--scope` and `--check` as needed.
-Do not supply prompt JSON, a project, a launch SHA, a branch, a handle, or receipt
-paths. The command reads `aven context <ref> --json` with configured defaults.
-Use `--db` or `--workspace` only for diagnosed routing overrides. Saved overrides
-are reused when the same full reference is supplied.
+Herdr is selected by `HERDR_ENV=1`; otherwise use the active tmux session. Launch
+retains the original context and exact pane identity. In Herdr omit
+`--parent-session`; in tmux, use the dispatcher's actual session when placement
+matters. Ask when ambiguous rather than deriving it from the repository name.
+For unsupported backend behavior, read
+[capability troubleshooting](troubleshooting.md#capabilities) before mutation.
 
-The command derives the canonical repository and common Git directory. It locks
-`<common-git-dir>/dispatch.lock` across linked worktrees, captures the explicit
-base SHA, renders the assignment as literal JSON data plus the worker contract,
-and saves launch intent before calling Workmux. Workmux receives the pinned SHA;
-the record retains the explicit local integration base. This prevents a moving
-base from changing the launch revision.
-
-The default config is `~/.config/workmux/agents.linux.yaml`, with sandboxing
-explicitly enabled. The default container CLI is Apple `container` on macOS and
-Docker on Linux. Use `--runtime docker|podman|apple-container` for an actual runtime
-override. Use `--config` only for a genuine config override. Local execution
-(`--runtime local`) and a macOS config require explicit user approval through
-`--allow-local`. Approved local execution on macOS defaults to
-`~/.config/workmux/agents.macos.yaml`. Local execution on Linux requires an explicit
-config override. The local config must disable sandboxing, and the UI must report
-the actual local worktree root. A missing Linux
-config is a blocker, not permission to fall back.
-The selected config chooses the agent; the observed agent type is saved.
-
-The saved record is `<common-git-dir>/dispatch-workers/<full-ref>/worker.json`.
-The assignment, config snapshot, generated prompt copies, hashes, command errors,
-and operation observations are retained beside it, outside worker worktrees.
-Workmux also writes its own prompt copy inside the worktree; the command copies
-it to evidence without deleting it. Follow the stop/archive guards before deleting
-that source. Keep the common Git directory and its evidence on handoff.
-
-Require `ok: true` before treating a launch as confirmed. The record contains
-host and worker-visible worktree paths, the exact container ID and mount mapping,
-the branch, actual agent type, and exact UI pane and multiplexer context. It does
-not infer guest paths from host paths. A fast `done` status can confirm startup
-even when the bounded `working` wait missed it; this is not task completion.
-When Workmux reports a null agent kind, dispatch probes Linux processes only inside the single container with the exact worker mount. One live pi process in the exact guest worktree can supply the actual type; PID, start time, executable, and command identity are retained. This fallback needs Python 3 in the container. It does not read agent config to guess the type; missing, unknown, or ambiguous processes fail closed. Missing or ambiguous identity remains an error with partial observations retained.
-
-Read current resources without changing the saved record:
-
-```sh
-python3 <skill-directory>/scripts/dispatch.py inspect APP-1234
-```
-
-Save reconciled observations with `inspect APP-1234 --resume`. The first confirmed
-observation also saves the explicit local base in Workmux branch metadata.
-Repeating `launch APP-1234` reconciles the existing assignment. Neither action
-creates, opens, replaces, or deletes a worker. Changed assignment inputs or saved
-identities block continuation. A missing UI, container, or branch is not permission
-to launch again. Keep the record and follow [recovery.md](recovery.md); do not delete
-it to force a retry. Legacy launches without a saved record need explicit recovery,
-not automatic adoption. Integration and closure still use the guarded procedures
-below and the saved-record finish operation.
-
-After confirmed launch, set Aven active/agent from the observed agent type, and
-append the DISPATCH note using the saved record. Dispatch retains task-status
-ownership. Monitor with bounded waits, such as
-`workmux wait <handles> --any --timeout 120`. Set enclosing tool timeouts longer
-than CLI timeouts. A timeout prompts inspection, not cancellation or completion.
-
-## Stop, archive, and clean up
-
-After successful integration, review one plan and authorize it once:
-
-```sh
-python3 <skill-directory>/scripts/finish_worker.py APP-1234
-python3 <skill-directory>/scripts/finish_worker.py APP-1234 --authorize-finish
-```
-
-Authorization covers stop, prompt archive, strict worktree and branch removal,
-best-effort housekeeping, a durable Aven report, and task completion. The command
-uses the saved assignment and integration evidence. It holds the common Git
-directory lock. Exclude writers that do not use this lock through completion.
-
-The operation requires matching successful independent checks and the current
-verified base. It confirms the exact recorded container and mount identity before
-archive, removal, and completion. UI closure is never exit evidence. A container
-missing before a confirmed stop is uncertain. A successful stop followed by an
-independent listing can confirm auto-removal. Local/Lima writer exit is not
-supported: preserve resources and obtain independent process evidence for review.
-
-Only receipt-listed, unchanged, untracked, non-ignored generated prompts are
-archived. Unknown, changed, tracked, ignored, dirty, or unsafe content remains.
-Every mutation has saved intent and completion state. Archives, stop evidence,
-the completion report, and the worker record remain in the common Git directory.
-
-Retry with the same reference and no new authorization:
-
-```sh
-python3 <skill-directory>/scripts/finish_worker.py APP-1234 --inspect
-python3 <skill-directory>/scripts/finish_worker.py APP-1234
-```
-
-Inspection does not change the record. Retry checks actual resources and performs
-only remaining actions. A resource that reappears after its removal was recorded
-complete requires judgment; the old authorization does not cover its deletion.
-A verified archive can account for a source removed
-before interruption. A saved removal attempt can account for an absent worktree
-or branch. Never recreate a deleted resource to rerun cleanup. Changed identity,
-an unexpected absence, a changed plan, base movement, or uncertain exit requires
-judgment; do not edit the record to force success.
-
-Completion requires integration, independent checks, confirmed exit, and a saved
-Aven report. Cleanup is not an extra completion gate. Safe retained resources
-are listed in `pending_cleanup` with exact identity, evidence, owner, and next
-action; they are not called complete. A failed Aven note or status command blocks
-completion. Keep `completion.md` on write failure.
-
-Housekeeping is separate. Exact tmux panes and the saved server `socket_path`
-are checked before closure; records without server identity retain pending UI
-housekeeping rather than targeting a possibly unrelated server. Other UI
-backends remain explicit housekeeping for the dispatcher to inspect in the
-original context; no unsupported closure command is guessed. An optional saved
-`cleanup_parent` permits only the exact immediate parent to be removed with
-`rmdir`. UI or empty-parent failure does not block delivery. Report
-`delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` separately.
-Retain container inspection access while cleanup remains pending.
-
-## Compact reports
-
-Use `dispatch_cli.py report --task <full-ref>` for normal RESULT review. It rejects notes already present in the saved launch context and requires commit evidence resolving to the current worker tip. Integration repeats this check against the reviewed commit and latest note ID. A newer invalid report blocks review rather than falling back to an older success. Reports need no extra worker/attempt fields: saved context and exact Git identity bind the result to this launch.
-
-After review, use [guarded integration](merge.md); read its saved event and checks instead of polling for a merge response. `--kind` selects other routine events; `--after <ISO-timestamp>` narrows by time. Missing reports are failures, never inferred from Workmux `done`. Use `--save <new-file>` to retain full JSON and `--input <file>` to reuse it. Explicit `--db` and `--workspace` are for diagnosed routing overrides. Project-specific checks are explicit task acceptance criteria; dispatch imposes no identifying-note manifest or CI policy.
-
-## Mechanical gates and evidence
-
-Run helpers on the dispatcher; `python3 <skill-directory>/scripts/<script> --help` owns arguments and schemas. Write JSON inputs with the file-write tool, keeping content as data rather than shell source. Keep durable prompts and evidence outside worker worktrees. Use the same canonical repository root throughout verification and cleanup. Persist JSON stdout even on failure so retained-resource paths remain recoverable.
-
-Arrange the environment and dependencies for verification checks; they execute on the dispatcher, not in the worker sandbox. Reconcile retained verification checkouts and partial cleanup using [recovery.md](recovery.md) before retrying. Git cleanup does not manage Workmux sessions.
-
-Helpers require Python 3 and Git; verification and recovery require POSIX.
+Finish can close only an exactly matched tmux pane on the saved server
+`socket_path`. Records without server identity leave UI housekeeping pending.
+Other backends require best-effort dispatcher closure in the original context;
+no unsupported command is guessed. UI closure never proves writer exit.
 
 ## Optional tasks views
 
-Open a tasks view only when requested or useful; naming, opening, and closing views never gate code acceptance or task completion. [scripts/open-tasks-tab.sh](scripts/open-tasks-tab.sh) is an optional convenience. Record its exact returned ID and original multiplexer session/workspace, including IDs emitted before startup failure. Reuse that resource on recovery when present. If opened, best-effort closure uses [scripts/close-tasks-tab.sh](scripts/close-tasks-tab.sh) with that recorded ID in the original context. Preserve unrelated UI; never select a resource by label.
+Open a view only when requested or useful. [open-tasks-tab.sh](scripts/open-tasks-tab.sh)
+is a convenience, not a workflow gate. Save its exact returned ID and original
+multiplexer session/workspace, including IDs emitted before a startup failure.
+Reuse that resource on recovery.
+
+[close-tasks-tab.sh](scripts/close-tasks-tab.sh) accepts the recorded ID in the
+original context. Preserve unrelated UI. Closure failure stays visible as
+housekeeping, separate from delivery and resource cleanup.
