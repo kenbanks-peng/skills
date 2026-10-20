@@ -227,7 +227,7 @@ def housekeeping(record, event, persist):
         except ERRORS as exc:
             item["error"] = error_text(exc)
         persist()
-    parent = record.get("cleanup_parent")
+    parent = record.get("cleanup_parent") or str(Path(record["worktree"]).parent)
     if parent and any(
         old["resource"] == "empty-parent"
         and old["identity"] == parent
@@ -255,6 +255,7 @@ def housekeeping(record, event, persist):
                 and path == Path(record["worktree"]).parent
                 and path != Path(record["repo"])
                 and path not in Path(record["repo"]).parents
+                and path != Path(record["common_dir"])
                 and path not in Path(record["common_dir"]).parents,
                 "Unsafe parent path",
             )
@@ -339,6 +340,7 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         "ui": record.get("ui"),
         "prompts": record["prompts"],
         "cleanup_parent": record.get("cleanup_parent"),
+        "worktree_parent": str(Path(record["worktree"]).parent),
         "sequence": [
             "stop",
             "archive",
