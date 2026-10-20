@@ -20,8 +20,10 @@ if name == "aven" and phase != "launch":
         parser.add_argument("--db")
         parser.add_argument("--workspace")
         parser.parse_args(args[1:])
+        (root / "aven-status").write_text("done")
+    status = (root / "aven-status").read_text() if (root / "aven-status").exists() else "active"
     sha = git("rev-parse", "refs/heads/dispatch/app-test") if worker.exists() else ""
-    print(json.dumps({"task": {"ref": "APP-TEST"}, "notes": [
+    print(json.dumps({"task": {"ref": "APP-TEST", "display_ref": "APP-TEST", "status": status}, "notes": [
         {"id": "result-1", "body": "RESULT: implemented " + sha,
          "created_at": "2026-10-20T00:00:00Z"}]}))
     sys.exit(0)
