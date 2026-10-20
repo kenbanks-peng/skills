@@ -76,7 +76,7 @@ def worker_result(data, record, sha):
     """Select newest RESULT, then bind it to this launch and reviewed Git commit."""
     require(data["task"]["ref"] == record["task_ref"], "Result task identity mismatch")
     note = latest_report(data, "RESULT")["note"]
-    prior = {item["id"] for item in record["task_context"]["notes"]}
+    prior = set(record["prior_note_ids"])
     require(note["id"] not in prior, "RESULT predates the current worker attempt")
     tokens = re.findall(r"(?<![A-Za-z0-9])[0-9a-f]{4,64}(?![A-Za-z0-9])", note["body"])
     for token in tokens:

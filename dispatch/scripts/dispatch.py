@@ -176,7 +176,7 @@ def create_record(args, identity, context, directory):
         "common_dir": identity["common_dir"],
         "task_ref": ref,
         "task_id": context["task"]["id"],
-        "task_context": context,
+        "prior_note_ids": [note["id"] for note in context["notes"]],
         "base": args.base,
         "launch_base": commit(repo, base_ref),
         "branch": branch,
@@ -575,7 +575,16 @@ def execute(args):
             directory.mkdir(parents=True, exist_ok=True)
             prompt = directory / "assignment.md"
             with prompt.open("x", encoding="utf-8") as output:
-                output.write(render(record))
+                output.write(render(
+                    record["task_ref"],
+                    base=record["base"],
+                    launch_base=record["launch_base"],
+                    branch=record["branch"],
+                    write_scope=record["write_scope"],
+                    acceptance_checks=record["acceptance_checks"],
+                    routing=record["routing"],
+                    repo=record["repo"],
+                ))
             snapshot = directory / "config.yaml"
             snapshot.write_bytes(Path(record["config"]).read_bytes())
             require(

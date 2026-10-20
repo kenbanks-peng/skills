@@ -68,7 +68,7 @@ class IntegrationTests(unittest.TestCase):
         self.env["RESULT_SHA"] = self.sha
         self.record = {
             "schema_version": 1,
-            "task_context": {"notes": []},
+            "prior_note_ids": [],
             "task_ref": "SKL-TEST",
             "repo": str(self.repo),
             "common_dir": str(self.repo / ".git"),
@@ -153,7 +153,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertFalse(self.merged())
 
     def test_report_from_previous_worker_attempt_blocks_merge(self):
-        self.record["task_context"]["notes"] = [{"id": "result-1"}]
+        self.record["prior_note_ids"] = ["result-1"]
         self.store()
         self.assertIn("predates", self.cli(ok=False)["error"])
         self.assertFalse(self.merged())
@@ -218,7 +218,7 @@ class IntegrationTests(unittest.TestCase):
         )
 
     def test_report_cli_rejects_previous_attempt_even_with_current_commit(self):
-        self.record["task_context"]["notes"] = [{"id": "result-1"}]
+        self.record["prior_note_ids"] = ["result-1"]
         self.store()
         self.assertIn("predates", self.report(ok=False)["error"])
 

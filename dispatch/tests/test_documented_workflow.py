@@ -69,10 +69,6 @@ class DocumentedWorkflowTests(unittest.TestCase):
             'if name == "aven":', EXTRA + '\nif name == "aven":', 1
         )
         fake = fake.replace(
-            '{"body": "Keep this durable context"}',
-            '{"id": "launch-note", "body": "Keep this durable context"}',
-        )
-        fake = fake.replace(
             '"Status": "running"',
             '"Status": "exited" if (root / "stopped").exists() else "running"',
         )

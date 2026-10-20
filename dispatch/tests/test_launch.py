@@ -32,6 +32,9 @@ if name == "aven":
             {"code": "database.path", "value": str(db)},
             {"code": "database.open", "status": "ok"}]}]}))
         sys.exit(0)
+    if mode == "context-error":
+        sys.stderr.write("cannot read task context")
+        sys.exit(7)
     if "--json" not in args:
         if mode == "human-context-error":
             sys.stderr.write("cannot read human context")
@@ -48,7 +51,7 @@ if name == "aven":
                  "deleted": False, "title": "Literal `code` $(touch SENTINEL) \\path\nnext",
                  "description": "Use $HOME and `backticks` literally\nsecond line"},
         "project": {"key": "project"}, "workspace": {"key": "default"},
-        "notes": [{"body": "Keep this durable context"}]
+        "notes": [{"id": "launch-note", "body": "Keep this durable context"}]
     }))
 elif name == "workmux":
     if args[0] == "add":
@@ -370,9 +373,16 @@ class LaunchTests(unittest.TestCase):
         self.assertIn("$(touch SENTINEL)", prompt)
         self.assertIn("`backticks`", prompt)
         self.assertIn("Keep this durable context", prompt)
+        self.assertIn("# Worker assignment: APP-TEST", prompt)
         self.assertIn("APP-TEST: Literal", prompt)
-        self.assertIn(data["task_context_text"], prompt)
-        self.assertIn(["aven", "context", "APP-TEST"], self.calls())
+        self.assertEqual(
+            [call for call in self.calls() if call[:2] == ["aven", "context"]],
+            [["aven", "context", "APP-TEST", "--json"],
+             ["aven", "context", "APP-TEST"]],
+        )
+        self.assertNotIn("task_context", saved)
+        self.assertEqual(saved["prior_note_ids"], ["launch-note"])
+        self.assertNotIn("```text", prompt)
         self.assertNotIn('"task_context":', prompt)
         self.assertNotIn('"task_ref":', prompt)
         self.assertIn("Launch-base commit: " + self.base, prompt)
@@ -592,7 +602,7 @@ class LaunchTests(unittest.TestCase):
             data["routing"], {"workspace": "explicit", "db": "/explicit tasks.db"}
         )
         self.assertIn(
-            ["aven", "context", "APP-TEST", "--db", "/explicit tasks.db",
+            ["aven", "context", "APP-TEST", "--json", "--db", "/explicit tasks.db",
              "--workspace", "explicit"],
             self.calls(),
         )
@@ -612,6 +622,13 @@ class LaunchTests(unittest.TestCase):
         self.env["MODE"] = "human-context-error"
         data = self.launch(ok=False)
         self.assertIn("cannot read human context", data["error"])
+        self.assertEqual(self.adds(), [])
+        self.assertFalse(self.record.exists())
+
+    def test_context_failure_does_not_launch_or_save_record(self):
+        self.env["MODE"] = "context-error"
+        data = self.launch(ok=False)
+        self.assertIn("cannot read task context", data["error"])
         self.assertEqual(self.adds(), [])
         self.assertFalse(self.record.exists())
 
