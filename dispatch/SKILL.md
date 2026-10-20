@@ -43,9 +43,12 @@ Repeat `--scope` and `--check` for the assignment. The default uses
 and Docker on Linux, and Herdr when `HERDR_ENV=1`, otherwise the active tmux
 session. Missing setup is a blocker, not permission to run locally.
 
-Require `ok: true`, then mark active with the returned `agent_type` and append a
-`DISPATCH:` note linking the returned handle and recovery record (use `tasks`
-for the Aven commands). The launch command loads task context, pins the explicit local base, creates the prompt, and saves
+Require `ok: true`, then mark active using `aven edit <task-ref> --status active`
+and append a `DISPATCH:` note linking the returned handle and recovery record
+(use `tasks` for selective notes). The observed `agent_type` is saved in the worker
+record, not an Aven agent field. If assignment metadata is needed, follow the
+`tasks` policy and use supported Aven metadata options. The launch command loads
+task context, pins the explicit local base, creates the prompt, and saves
 identity and evidence under `<common-git-dir>/dispatch-workers/APP-1234/worker.json`.
 The worker receives its actual guest path; caller-managed identity files are not
 needed. Keep this evidence outside worker worktrees for recovery.
@@ -88,7 +91,8 @@ python3 <skill-directory>/scripts/finish_worker.py APP-1234 --authorize-finish
 Review the first command's plan; authorize once. Finish rechecks integration and
 verification, confirms exact worker exit, archives eligible generated prompts,
 attempts strict resource cleanup, saves a VERIFIED report in Aven, then marks done
-and clears the agent. Inspect the separate `delivered`, `task_complete`,
+with `aven edit <task-ref> --status done`. The saved worker record retains the
+observed `agent_type` for recovery. Inspect the separate `delivered`, `task_complete`,
 `pending_cleanup`, and `housekeeping` outcomes. Integrated, independently verified
 work with confirmed exit and durable reporting permits completion even when safe
 resources remain. Unknown exit, stale verification, or failed reporting blocks it.

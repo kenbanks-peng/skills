@@ -534,7 +534,6 @@ def finish(record, path, authorize=False, inspect_only=False):
                         record["task_ref"],
                         "--status",
                         "done",
-                        "--clear-agent",
                         *routing,
                     ],
                     record["repo"],

@@ -12,6 +12,14 @@ import test_launch as launch
 EXTRA = r"""
 phase = os.environ.get("PHASE", "launch")
 if name == "aven" and phase != "launch":
+    if args[0] == "edit":
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("task_ref")
+        parser.add_argument("--status", choices=["done"], required=True)
+        parser.add_argument("--db")
+        parser.add_argument("--workspace")
+        parser.parse_args(args[1:])
     sha = git("rev-parse", "refs/heads/dispatch/app-test") if worker.exists() else ""
     print(json.dumps({"task": {"ref": "APP-TEST"}, "notes": [
         {"id": "result-1", "body": "RESULT: implemented " + sha,
@@ -127,6 +135,9 @@ class DocumentedWorkflowTests(unittest.TestCase):
         self.assertFalse(self.worker.exists())
         directory = self.record.parent
         record = json.loads(self.record.read_text())
+        self.assertEqual(record["agent_type"], "pi")
+        edits = [call for call in self.calls() if call[:2] == ["aven", "edit"]]
+        self.assertEqual(edits, [["aven", "edit", "APP-TEST", "--status", "done"]])
         prompt_copy = directory / ("prompt-" + record["prompts"][0]["sha256"] + ".md")
         integration = Path(integrated["evidence_directory"])
         expected = {

@@ -20,6 +20,14 @@ with open(os.environ["CALL_LOG"], "a") as out:
     out.write(json.dumps([name, *args]) + "\n")
 mode = os.environ.get("CLI_MODE", "")
 if name == "aven":
+    if args[0] == "edit":
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("task_ref")
+        parser.add_argument("--status", choices=["done"], required=True)
+        parser.add_argument("--db")
+        parser.add_argument("--workspace")
+        parser.parse_args(args[1:])
     if mode == "report-error":
         sys.stderr.write("report store unavailable")
         sys.exit(7)
