@@ -65,8 +65,7 @@ def identity(record, evidence):
 
 def result(record, note_id, sha):
     argv = ["aven", "show", record["task_ref"], "--full", "--json"]
-    for key, value in record["routing"].items():
-        argv.extend(["--" + key, value])
+
     data = json.loads(run(argv, record["repo"], env=git_env()))
     note = worker_result(data, record, sha)
     require(note["id"] == note_id, "Reviewed RESULT is stale")

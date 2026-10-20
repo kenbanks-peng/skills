@@ -202,29 +202,66 @@ class LaunchTests(unittest.TestCase):
                     request = json.loads(incoming.readline())
                     self.ui_calls.append(request)
                     if request["method"] == "session.snapshot":
-                        result = {"snapshot": {"version": "0.9.0", "protocol": 22,
-                            "panes": [{"pane_id": "native-1", "terminal_id": "terminal-1",
-                                       "tab_id": self.tab_id, "workspace_id": "ws-1"}] + self.startup_panes,
-                            "tabs": [{"tab_id": self.tab_id, "workspace_id": "ws-1",
-                                      "label": self.label.read_text()}] + self.startup_tabs}}
+                        result = {
+                            "snapshot": {
+                                "version": "0.9.0",
+                                "protocol": 22,
+                                "panes": [
+                                    {
+                                        "pane_id": "native-1",
+                                        "terminal_id": "terminal-1",
+                                        "tab_id": self.tab_id,
+                                        "workspace_id": "ws-1",
+                                    }
+                                ]
+                                + self.startup_panes,
+                                "tabs": [
+                                    {
+                                        "tab_id": self.tab_id,
+                                        "workspace_id": "ws-1",
+                                        "label": self.label.read_text(),
+                                    }
+                                ]
+                                + self.startup_tabs,
+                            }
+                        }
                     elif request["method"] == "pane.process_info":
-                        result = {"process_info": {"shell_pid": os.getpid() if
-                                  request["params"]["pane_id"] == "native-1" else 999999}}
+                        result = {
+                            "process_info": {
+                                "shell_pid": os.getpid()
+                                if request["params"]["pane_id"] == "native-1"
+                                else 999999
+                            }
+                        }
                     elif request["method"] == "layout.apply":
-                        self.startup_panes.append(dict(pane_id="aven-pane", terminal_id="aven-terminal",
-                                                       tab_id="aven-tab", workspace_id="ws-1"))
-                        self.startup_tabs.append(dict(tab_id="aven-tab", workspace_id="ws-1", label="aven"))
+                        self.startup_panes.append(
+                            dict(
+                                pane_id="aven-pane",
+                                terminal_id="aven-terminal",
+                                tab_id="aven-tab",
+                                workspace_id="ws-1",
+                            )
+                        )
+                        self.startup_tabs.append(
+                            dict(tab_id="aven-tab", workspace_id="ws-1", label="aven")
+                        )
                         result = {"tab": {"tab_id": "aven-tab"}}
                     elif request["method"] == "tab.close":
                         tab = request["params"]["tab_id"]
-                        self.startup_panes = [p for p in self.startup_panes if p["tab_id"] != tab]
-                        self.startup_tabs = [t for t in self.startup_tabs if t["tab_id"] != tab]
+                        self.startup_panes = [
+                            p for p in self.startup_panes if p["tab_id"] != tab
+                        ]
+                        self.startup_tabs = [
+                            t for t in self.startup_tabs if t["tab_id"] != tab
+                        ]
                         result = {}
                     else:
                         self.label.write_text(request["params"]["label"])
                         result = {}
-                    stream.sendall(json.dumps({"id": request["id"],
-                                               "result": result}).encode() + b"\n")
+                    stream.sendall(
+                        json.dumps({"id": request["id"], "result": result}).encode()
+                        + b"\n"
+                    )
 
         thread = threading.Thread(target=serve, daemon=True)
         thread.start()
@@ -286,28 +323,42 @@ class LaunchTests(unittest.TestCase):
     def adds(self):
         return [call for call in self.calls() if call[:2] == ["workmux", "add"]]
 
-    def test_startup_from_subdirectory_pins_original_routing_and_reuses_tab(self):
+    def test_startup_from_subdirectory_uses_defaults_and_reuses_tab(self):
         subdir = self.repo / "nested"
         subdir.mkdir()
         results = []
         for cwd in (subdir, self.repo):
-            result = subprocess.run([sys.executable, str(SCRIPTS / "dispatch.py"),
-                                     "startup", "APP-TEST"], cwd=cwd, env=self.env,
-                                    text=True, capture_output=True, timeout=15)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS / "dispatch.py"), "startup", "APP-TEST"],
+                cwd=cwd,
+                env=self.env,
+                text=True,
+                capture_output=True,
+                timeout=15,
+            )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             results.append(json.loads(result.stdout))
         self.assertEqual(results[0]["aven_tab"], results[1]["aven_tab"])
-        self.assertEqual(results[0]["routing"], dict(db=str(self.root / "original tasks.db"),
-                                                  workspace="default", project="project"))
-        creates = [call["params"] for call in self.ui_calls if call["method"] == "layout.apply"]
+        self.assertEqual(
+            results[0]["routing"],
+            dict(
+                db=str(self.root / "original tasks.db"),
+                workspace="default",
+                project="project",
+            ),
+        )
+        creates = [
+            call["params"] for call in self.ui_calls if call["method"] == "layout.apply"
+        ]
         self.assertEqual(len(creates), 1)
         self.assertEqual(creates[0]["root"]["cwd"], str(self.repo))
-        self.assertEqual(creates[0]["root"]["command"][1:],
-                         ["tui", "--db", str(self.root / "original tasks.db"),
-                          "--workspace", "default", "--project", "project"])
-        self.assertIn(["aven", "context", "APP-TEST", "--json", "--db",
-                       str(self.root / "original tasks.db")], self.calls())
-        self.assertEqual(len([c for c in self.calls() if c[:2] == ["aven", "doctor"]]), 1)
+        self.assertEqual(
+            creates[0]["root"]["command"][1:], ["tui", "--project", "project"]
+        )
+        self.assertIn(["aven", "context", "APP-TEST", "--json"], self.calls())
+        self.assertEqual(
+            len([c for c in self.calls() if c[:2] == ["aven", "doctor"]]), 1
+        )
         self.assertFalse((self.repo / ".aven").exists())
         self.assertEqual(self.adds(), [])
         self.assertEqual(self.label.read_text(), "dispatcher")
@@ -317,8 +368,13 @@ class LaunchTests(unittest.TestCase):
         self.cli("close-run", "APP-TEST", "--run-id", "completed-run", ok=False)
         self.assertEqual(len(self.startup_panes), 1)
         for _ in range(2):
-            result = self.cli("close-run", "APP-TEST", "--run-id", "completed-run",
-                              "--authorize-close")
+            result = self.cli(
+                "close-run",
+                "APP-TEST",
+                "--run-id",
+                "completed-run",
+                "--authorize-close",
+            )
             self.assertTrue(result["aven_closed"])
         self.assertEqual(self.startup_panes, [])
         self.assertEqual(self.startup_tabs, [])
@@ -377,8 +433,10 @@ class LaunchTests(unittest.TestCase):
         self.assertIn("APP-TEST: Literal", prompt)
         self.assertEqual(
             [call for call in self.calls() if call[:2] == ["aven", "context"]],
-            [["aven", "context", "APP-TEST", "--json"],
-             ["aven", "context", "APP-TEST"]],
+            [
+                ["aven", "context", "APP-TEST", "--json"],
+                ["aven", "context", "APP-TEST"],
+            ],
         )
         self.assertNotIn("task_context", saved)
         self.assertEqual(saved["prior_note_ids"], ["launch-note"])
@@ -596,26 +654,21 @@ class LaunchTests(unittest.TestCase):
         self.launch(ok=False)
         self.assertEqual(self.adds(), [])
 
-    def test_routing_override_is_saved_and_reused(self):
-        data = self.launch("--workspace", "explicit", "--db", "/explicit tasks.db")
-        self.assertEqual(
-            data["routing"], {"workspace": "explicit", "db": "/explicit tasks.db"}
-        )
-        self.assertIn(
-            ["aven", "context", "APP-TEST", "--json", "--db", "/explicit tasks.db",
-             "--workspace", "explicit"],
-            self.calls(),
-        )
+    def test_resume_uses_defaults_instead_of_legacy_routing(self):
+        data = self.launch()
+        self.assertEqual(data["routing"], {})
+        saved = json.loads(self.record.read_text())
+        saved["routing"] = {"workspace": "explicit", "db": "/explicit tasks.db"}
+        self.record.write_text(json.dumps(saved))
         prompt = Path(data["prompt"]).read_text()
         self.assertNotIn("## Aven reporting", prompt)
         self.assertIn(["aven", "context", "APP-TEST"], self.calls())
-        self.assertIn("--workspace", self.calls()[0])
+
         self.cli("inspect", "APP-TEST", "--resume")
         self.assertEqual(len(self.adds()), 1)
         self.assertEqual(
             [call for call in self.calls() if call[0] == "aven"][-1],
-            ["aven", "context", "APP-TEST", "--json", "--db", "/explicit tasks.db",
-             "--workspace", "explicit"],
+            ["aven", "context", "APP-TEST", "--json"],
         )
 
     def test_human_context_failure_does_not_launch_or_save_record(self):

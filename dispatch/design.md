@@ -24,21 +24,21 @@ Store one versioned record outside all worker worktrees. Save updates atomically
 - Prompt location/hash and generated prompt paths/hashes; review SHA/decision; integrated worker SHA, verified base SHA, and check results/evidence paths.
 - Last attempted action and outcome, partial resources, exit proof, archive and cleanup results, durable note references, and next action.
 
-Use configured Aven routing; save overrides only when needed. Derive repeated identity and evidence arguments from this record. Keep failure evidence. Do not treat a saved phase, success report, or missing resource as proof of current state.
+Derive repeated identity and evidence arguments from this record. Keep failure evidence. Do not treat a saved phase, success report, or missing resource as proof of current state.
 
 ## Before counts
 
 Counting rule: one task, one successful sandboxed worker, one wait per phase, one generated prompt, no retries, one final run verification, no special manifest. Count dispatcher commands, not worker implementation/check commands or read/write tool calls. Counts below describe the current documented recipe, not a universal lower bound. Dry run and execution are separate calls.
 
-| Helper calls (normal path) | Calls | Named value slots |
-| --- | ---: | ---: |
-| discover; initial prompt; launch | 3 | 1 + 10 + 8 |
-| render DISPATCH; select RESULT | 2 | 13 + 2 |
-| preflight; merge prompt; select MERGE | 3 | 4 + 9 + 3 |
-| verify task base; verify final run base | 2 | 4 + 4 |
-| stop dry/execute; archive dry/execute | 4 | 2 + 6 |
-| cleanup dry/execute; render VERIFIED; render SUMMARY | 4 | 16 + 11 + 7 |
-| **Total** | **18** | **100** |
+| Helper calls (normal path)                           |  Calls | Named value slots |
+| ---------------------------------------------------- | -----: | ----------------: |
+| discover; initial prompt; launch                     |      3 |        1 + 10 + 8 |
+| render DISPATCH; select RESULT                       |      2 |            13 + 2 |
+| preflight; merge prompt; select MERGE                |      3 |         4 + 9 + 3 |
+| verify task base; verify final run base              |      2 |             4 + 4 |
+| stop dry/execute; archive dry/execute                |      4 |             2 + 6 |
+| cleanup dry/execute; render VERIFIED; render SUMMARY |      4 |       16 + 11 + 7 |
+| **Total**                                            | **18** |           **100** |
 
 A value slot is a required named value supplied to a helper, including output paths, kind selectors, and container receipt/stop inputs. Expand JSON parameters instead of counting the `--params` wrapper; count checks lists as one value. Exclude boolean switches, optional overrides, and shell redirections. Repeated calls count repeated inputs. These are mechanical input occurrences, not 100 independent decisions.
 

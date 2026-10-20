@@ -2,17 +2,16 @@
 
 ## Routing
 
-Load after diagnostics establish that Aven defaults select the wrong database or workspace. Default runs use configured routing and project inference. Inspect the actual error/context before overriding: an inaccessible or read-only correct DB needs access repair, not a different task database.
+Load after diagnostics establish that Aven selects the wrong database or workspace. Inspect the actual error/context: an inaccessible or read-only correct database needs access repair, not a different task database.
 
-For a new launch, add only the diagnosed overrides:
+From the target repository root, check the existing database and task context:
 
 ```sh
-python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
-  --base main --check '["python3", "-m", "unittest"]' \
-  --db <correct-db> --workspace <correct-workspace>
+aven doctor --json
+aven context APP-1234 --json
 ```
 
-Dispatcher overrides are saved and reused by task reference. Worker prompt context reads use Aven defaults in the current directory; configure those defaults to select the correct task database and workspace. Dispatcher overrides are not passed to the prompt renderer or worker. `dispatch_cli.py report` also accepts `--db`/`--workspace` when needed. Already-saved conflicting identity or routing requires [recovery](recovery.md); do not edit a record to force continuation. Preserve report text locally on a failed Aven write and restore it to the correct durable record before the corresponding merge or completion gate.
+Repair Aven configuration or access and confirm the intended task context before retrying. Already-saved conflicting identity requires [recovery](recovery.md); do not edit a record to force continuation. Preserve report text locally on a failed Aven write and restore it to the correct durable record before the corresponding merge or completion gate.
 
 ## Capabilities
 

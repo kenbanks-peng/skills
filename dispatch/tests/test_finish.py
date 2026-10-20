@@ -13,7 +13,7 @@ from pathlib import Path
 
 import test_safety as safety
 
-FINISH_AVEN_CLI = r'''
+FINISH_AVEN_CLI = r"""
 import argparse, json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
@@ -28,8 +28,7 @@ elif args[0] == "edit":
     parser = argparse.ArgumentParser()
     parser.add_argument("task_ref")
     parser.add_argument("--status", choices=["done"], required=True)
-    parser.add_argument("--db")
-    parser.add_argument("--workspace")
+
     parser.parse_args(args[1:])
     if mode == "status-error":
         sys.stderr.write("status store unavailable")
@@ -47,7 +46,7 @@ if args[0] == "edit" and mode == "interrupted-write":
     sys.stderr.write("connection lost after write")
     sys.exit(7)
 print(json.dumps({"task": {"display_ref": "SKL-TEST", "status": state["status"]}}))
-'''
+"""
 
 
 class FinishTests(unittest.TestCase):
@@ -167,27 +166,50 @@ class FinishTests(unittest.TestCase):
                             request = json.loads(reader.readline())
                         method = request["method"]
                         if method == "tab.close":
-                            self.assertEqual(request["params"], {"tab_id": "worker-tab"})
+                            self.assertEqual(
+                                request["params"], {"tab_id": "worker-tab"}
+                            )
                             closed.append("worker-tab")
                             if lose_response:
                                 continue
                             result = {}
                         else:
                             self.assertEqual(method, "session.snapshot")
-                            panes = [{"pane_id": "foreign", "terminal_id": "foreign",
-                                      "workspace_id": "ws", "tab_id": "unrelated",
-                                      "cwd": str(self.repo)}]
+                            panes = [
+                                {
+                                    "pane_id": "foreign",
+                                    "terminal_id": "foreign",
+                                    "workspace_id": "ws",
+                                    "tab_id": "unrelated",
+                                    "cwd": str(self.repo),
+                                }
+                            ]
                             tabs = [{"tab_id": "unrelated", "workspace_id": "ws"}]
                             if not closed:
-                                panes.append({"pane_id": "worker-pane",
-                                              "terminal_id": "worker-terminal",
-                                              "workspace_id": "ws", "tab_id": "worker-tab",
-                                              "cwd": str(self.worker)})
-                                tabs.append({"tab_id": "worker-tab", "workspace_id": "ws"})
-                            result = {"snapshot": {"version": "0.9.0", "protocol": 22,
-                                                   "panes": panes, "tabs": tabs}}
-                        stream.sendall(json.dumps({"id": request["id"],
-                                                   "result": result}).encode() + b"\n")
+                                panes.append(
+                                    {
+                                        "pane_id": "worker-pane",
+                                        "terminal_id": "worker-terminal",
+                                        "workspace_id": "ws",
+                                        "tab_id": "worker-tab",
+                                        "cwd": str(self.worker),
+                                    }
+                                )
+                                tabs.append(
+                                    {"tab_id": "worker-tab", "workspace_id": "ws"}
+                                )
+                            result = {
+                                "snapshot": {
+                                    "version": "0.9.0",
+                                    "protocol": 22,
+                                    "panes": panes,
+                                    "tabs": tabs,
+                                }
+                            }
+                        stream.sendall(
+                            json.dumps({"id": request["id"], "result": result}).encode()
+                            + b"\n"
+                        )
             except Exception as error:
                 errors.append(error)
 
@@ -241,7 +263,7 @@ class FinishTests(unittest.TestCase):
         self.assertEqual(state["status"], "done")
         self.assertTrue(any("VERIFIED:" in note for note in state["notes"]))
 
-    def test_completion_uses_supported_status_and_saved_routing_after_report(self):
+    def test_completion_uses_defaults_despite_legacy_routing_after_report(self):
         self.record["routing"] = {"db": "/saved/tasks.db", "workspace": "saved"}
         self.record["agent_type"] = "pi"
         self.store()
@@ -252,7 +274,9 @@ class FinishTests(unittest.TestCase):
             for line in Path(self.env["CALL_LOG"]).read_text().splitlines()
         ]
         aven = [call for call in calls if call[0] == "aven"]
-        self.assertEqual([call[1] for call in aven], ["note", "context", "edit", "context"])
+        self.assertEqual(
+            [call[1] for call in aven], ["note", "context", "edit", "context"]
+        )
         self.assertEqual(
             aven[-2],
             [
@@ -261,10 +285,6 @@ class FinishTests(unittest.TestCase):
                 "SKL-TEST",
                 "--status",
                 "done",
-                "--db",
-                "/saved/tasks.db",
-                "--workspace",
-                "saved",
             ],
         )
         self.assertEqual(json.loads(self.path.read_text())["agent_type"], "pi")
@@ -359,12 +379,17 @@ class FinishTests(unittest.TestCase):
         self.assertFalse(self.worker.exists())
         self.assertEqual(result["plan"], first["plan"])
         self.assertTrue(result["authorized"])
-        self.assertEqual(result["base_verifications"], [{
-            "previous_verified_base_sha": self.base,
-            "verified_base_sha": sha,
-            "worker_sha": self.base,
-            "verification_evidence": str(self.verification),
-        }])
+        self.assertEqual(
+            result["base_verifications"],
+            [
+                {
+                    "previous_verified_base_sha": self.base,
+                    "verified_base_sha": sha,
+                    "worker_sha": self.base,
+                    "verification_evidence": str(self.verification),
+                }
+            ],
+        )
         self.cli()
         saved = json.loads(self.path.read_text())["finish"]
         self.assertEqual(saved["base_verifications"], result["base_verifications"])
@@ -448,7 +473,9 @@ class FinishTests(unittest.TestCase):
         self.cli("--authorize-finish")
         self.record = json.loads(self.path.read_text())
         self.reverify_base()
-        self.git(self.repo, "worktree", "add", "-b", "worker", str(self.worker), self.base)
+        self.git(
+            self.repo, "worktree", "add", "-b", "worker", str(self.worker), self.base
+        )
         prompt = self.worker / "evidence"
         prompt.write_text("retain replacement")
         self.assertIn("reappeared", self.assert_cleanup_blocked(prompt)["error"])
@@ -551,8 +578,10 @@ class FinishTests(unittest.TestCase):
         self.assertEqual(archived.read_text(), "generated")
         evidence = result["archives"]["archive:.workmux/" + path.name]
         self.assertEqual(evidence["handle"], "worker")
-        self.assertEqual(evidence["files"][0]["sha256"],
-                         hashlib.sha256(archived.read_bytes()).hexdigest())
+        self.assertEqual(
+            evidence["files"][0]["sha256"],
+            hashlib.sha256(archived.read_bytes()).hexdigest(),
+        )
 
     def test_unknown_ignored_prompt_preserved_after_known_prompt_archived(self):
         known = self.prompt()
@@ -565,10 +594,13 @@ class FinishTests(unittest.TestCase):
         self.assertTrue(self.worker.exists())
         self.assertFalse(result["cleanup_complete"])
         self.assertFalse(result["finish_complete"])
-        self.assertTrue(any(item["identity"] == str(unknown)
-                            for item in result["pending_cleanup"]))
+        self.assertTrue(
+            any(item["identity"] == str(unknown) for item in result["pending_cleanup"])
+        )
         self.assertEqual(result["housekeeping"][0]["status"], "pending")
-        self.assertIn("preserve its usable work tab", result["housekeeping"][0]["error"])
+        self.assertIn(
+            "preserve its usable work tab", result["housekeeping"][0]["error"]
+        )
 
     def test_failed_report_write_leaves_task_active(self):
         self.env["CLI_MODE"] = "report-error"
@@ -629,7 +661,9 @@ class FinishTests(unittest.TestCase):
                 self.cli("--authorize-finish", ok=False)
                 saved = json.loads(self.path.read_text())
                 self.assertIn("finish_blocker", saved)
-                self.assertEqual(json.loads(self.aven_state.read_text())["status"], "active")
+                self.assertEqual(
+                    json.loads(self.aven_state.read_text())["status"], "active"
+                )
                 self.assertTrue(self.worker.exists())
                 self.assertFalse((self.path.parent / "completion.md").exists())
                 self.record["acceptance_checks"] = [["true"]]
@@ -698,7 +732,8 @@ class FinishTests(unittest.TestCase):
 
     def aven_mutations(self):
         return [
-            call for line in Path(self.env["CALL_LOG"]).read_text().splitlines()
+            call
+            for line in Path(self.env["CALL_LOG"]).read_text().splitlines()
             if (call := json.loads(line))[0] == "aven" and call[1] != "context"
         ]
 

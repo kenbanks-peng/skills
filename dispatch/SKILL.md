@@ -27,11 +27,11 @@ python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
   --check '["python3", "-m", "unittest"]'
 ```
 
-Require startup `ok: true` before launching workers. Use a designated run task (or `--run-id <stable-id>`) consistently on resume. Reuse the saved exact Aven tab identity rather than matching by label. Supply the same diagnosed `--db`/`--workspace` overrides as other dispatch commands. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
+Require startup `ok: true` before launching workers. Use a designated run task (or `--run-id <stable-id>`) consistently on resume. Reuse the saved exact Aven tab identity rather than matching by label. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
 
 Repeat `--check` for required checks. Put task requirements in Aven rather than separate prompt fields. Use the default sandboxed configuration at `~/.config/workmux/agents.linux.yaml`: Apple `container` on macOS, Docker on Linux; Herdr when `HERDR_ENV=1`, otherwise the active tmux session. Treat missing setup as a blocker; require explicit approval before unsandboxed execution.
 
-Require launch `ok: true`, then mark active using `aven edit <task-ref> --status active`. Read `aven context <task-ref> --json` with the same routing to confirm the write. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes. Reconcile a failed status write before proceeding; do not relaunch.
+Require launch `ok: true`, then mark active using `aven edit <task-ref> --status active`. Read `aven context <task-ref> --json` to confirm the write. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes. Reconcile a failed status write before proceeding; do not relaunch.
 
 Keep session identity and the observed `agent_type` in saved recovery evidence. Use the `tasks` policy and supported Aven metadata options for assignment metadata. On Aven versions exposing an agent field, clear it with supported CLI options when leaving active. Preserve the launch-generated evidence at `<common-git-dir>/dispatch-workers/APP-1234/worker.json`, outside worker worktrees. Use the generated worker prompt and guest path rather than caller-managed identity files.
 

@@ -17,8 +17,7 @@ if name == "aven" and phase != "launch":
         parser = argparse.ArgumentParser()
         parser.add_argument("task_ref")
         parser.add_argument("--status", choices=["done"], required=True)
-        parser.add_argument("--db")
-        parser.add_argument("--workspace")
+
         parser.parse_args(args[1:])
         (root / "aven-status").write_text("done")
     status = (root / "aven-status").read_text() if (root / "aven-status").exists() else "active"

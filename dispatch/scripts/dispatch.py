@@ -67,10 +67,7 @@ def aven_context_command(args, task_ref, *, machine=False):
     argv = ["aven", "context", task_ref]
     if machine:
         argv.append("--json")
-    for flag in ("db", "workspace"):
-        value = getattr(args, flag)
-        if value:
-            argv.extend(["--" + flag, value])
+
     return argv
 
 
@@ -180,9 +177,7 @@ def create_record(args, identity, context, directory):
         "origin": origin,
         "parent_session": parent,
         "acceptance_checks": checks,
-        "routing": {
-            key: getattr(args, key) for key in ("db", "workspace") if getattr(args, key)
-        },
+        "routing": {},
         "record_path": str(directory / "worker.json"),
         "events": [],
         "next_action": "launch",
@@ -191,10 +186,13 @@ def create_record(args, identity, context, directory):
 
 def ui_identity(ui):
     """Window labels may drift; pane, session and server identity may not."""
-    return {**ui, "agents": [
-        {key: value for key, value in agent.items() if key != "window_name"}
-        for agent in ui["agents"]
-    ]}
+    return {
+        **ui,
+        "agents": [
+            {key: value for key, value in agent.items() if key != "window_name"}
+            for agent in ui["agents"]
+        ],
+    }
 
 
 def record_worker_tab(record, event, path):
@@ -379,8 +377,11 @@ def observe(record, event, directory, archive_prompts=True):
     for key in ("worktree", "worker_worktree", "ui", "agent_type"):
         if key in record:
             require(
-                (ui_identity(record[key]) == ui_identity(event[key])
-                 if key == "ui" else record[key] == event[key]),
+                (
+                    ui_identity(record[key]) == ui_identity(event[key])
+                    if key == "ui"
+                    else record[key] == event[key]
+                ),
                 "Saved " + key + " identity changed; reconcile before continuing",
             )
     if record.get("container"):
@@ -412,7 +413,7 @@ def observe(record, event, directory, archive_prompts=True):
 
 
 def startup_run(args):
-    """Resolve routing in the caller's directory before moving the UI to Git root."""
+    """Check Aven availability from the same Git root used by the UI."""
     require(shutil.which("aven"), "aven is missing from PATH; no UI tabs were changed")
     require(re.fullmatch(r"[A-Za-z0-9_-]+", args.run_id or args.task), "Invalid run ID")
     identity = paths(Path.cwd())
@@ -421,44 +422,47 @@ def startup_run(args):
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
-            raise ValueError("Another dispatch operation owns this repository") from error
+            raise ValueError(
+                "Another dispatch operation owns this repository"
+            ) from error
         directory = common / "dispatch-ui"
         directory.mkdir(exist_ok=True)
         path = directory / ((args.run_id or args.task) + ".json")
         if path.exists():
             record = json.loads(path.read_text())
-            require(record["repo"] == repo and record["task"] == args.task,
-                    "Saved dispatch run belongs to another repository/task")
-            for flag in ("db", "workspace"):
-                value = getattr(args, flag)
-                require(value is None or value == record["routing"][flag],
-                        "Routing override differs from saved " + flag)
+            require(
+                record["repo"] == repo and record["task"] == args.task,
+                "Saved dispatch run belongs to another repository/task",
+            )
+
         else:
-            flags = []
-            for flag in ("db", "workspace"):
-                value = getattr(args, flag)
-                if value:
-                    flags.extend(["--" + flag, value])
             # doctor opens read-only, unlike commands that may initialize a missing DB.
-            doctor = json.loads(run(["aven", "doctor", "--json", *flags], Path.cwd()))
-            rows = {row["code"]: row for section in doctor["sections"]
-                    for row in section["rows"]}
+            doctor = json.loads(run(["aven", "doctor", "--json"], repo))
+            rows = {
+                row["code"]: row
+                for section in doctor["sections"]
+                for row in section["rows"]
+            }
             db = Path(rows["database.path"]["value"]).expanduser().resolve(strict=True)
-            require(db.is_file() and rows["database.open"]["status"] == "ok",
-                    "Aven database unavailable; refusing to initialize a new database")
-            context_flags = ["--workspace", args.workspace] if args.workspace else []
-            context = json.loads(run(["aven", "context", args.task, "--json",
-                                      "--db", str(db), *context_flags], Path.cwd()))
-            routing = dict(db=str(db), workspace=context["workspace"]["key"],
-                           project=context["project"]["key"])
-            require(all(isinstance(v, str) and v for v in routing.values()),
-                    "Missing Aven database/workspace/project routing")
+            require(
+                db.is_file() and rows["database.open"]["status"] == "ok",
+                "Aven database unavailable; refusing to initialize a new database",
+            )
+            context = json.loads(run(["aven", "context", args.task, "--json"], repo))
+            routing = dict(
+                db=str(db),
+                workspace=context["workspace"]["key"],
+                project=context["project"]["key"],
+            )
+            require(
+                all(isinstance(v, str) and v for v in routing.values()),
+                "Missing Aven database/workspace/project routing",
+            )
             record = dict(schema_version=1, repo=repo, task=args.task, routing=routing)
             save(path, record)
         routing = record["routing"]
         require(Path(routing["db"]).is_file(), "Saved Aven database is missing")
-        argv = [shutil.which("aven"), "tui", "--db", routing["db"],
-                "--workspace", routing["workspace"], "--project", routing["project"]]
+        argv = [shutil.which("aven"), "tui", "--project", routing["project"]]
         record["argv"] = argv
         aven_tab(repo, argv, record, lambda data: save(path, data))
         return dict(record, ok=True, record_path=str(path))
@@ -466,9 +470,11 @@ def startup_run(args):
 
 def close_run(args):
     """Final run housekeeping, never invoked by individual worker cleanup."""
-    require(args.authorize_close,
-            "Close only after final SUMMARY and all run work/cleanup are finished; "
-            "then pass --authorize-close")
+    require(
+        args.authorize_close,
+        "Close only after final SUMMARY and all run work/cleanup are finished; "
+        "then pass --authorize-close",
+    )
     require(re.fullmatch(r"[A-Za-z0-9_-]+", args.run_id or args.task), "Invalid run ID")
     identity = paths(Path.cwd())
     common = Path(identity["common_dir"])
@@ -476,11 +482,15 @@ def close_run(args):
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
-            raise ValueError("Another dispatch operation owns this repository") from error
+            raise ValueError(
+                "Another dispatch operation owns this repository"
+            ) from error
         path = common / "dispatch-ui" / ((args.run_id or args.task) + ".json")
         record = json.loads(path.read_text())
-        require(record["repo"] == identity["worktree"] and record["task"] == args.task,
-                "Saved dispatch run belongs to another repository/task")
+        require(
+            record["repo"] == identity["worktree"] and record["task"] == args.task,
+            "Saved dispatch run belongs to another repository/task",
+        )
         close_aven_tab(record, lambda data: save(path, data))
         return dict(record, ok=True, record_path=str(path))
 
@@ -497,14 +507,7 @@ def execute(args):
             raise ValueError(
                 "Another dispatch operation owns this repository; retry after it exits"
             ) from error
-        # Full references also locate saved routing without another caller input.
-        if re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", args.task):
-            previous = common / "dispatch-workers" / args.task / "worker.json"
-            if previous.exists():
-                routing = json.loads(previous.read_text())["routing"]
-                for flag in ("db", "workspace"):
-                    if getattr(args, flag) is None and flag in routing:
-                        setattr(args, flag, routing[flag])
+
         context = aven_context(args, repo)
         directory = common / "dispatch-workers" / context["task"]["display_ref"]
         path = directory / "worker.json"
@@ -521,16 +524,10 @@ def execute(args):
             for option, field in (
                 ("base", "base"),
                 ("runtime", "runtime"),
-                ("db", "routing"),
-                ("workspace", "routing"),
             ):
                 value = getattr(args, option)
                 if value:
-                    saved = (
-                        record[field].get(option)
-                        if field == "routing"
-                        else record[field]
-                    )
+                    saved = record[field]
                     require(
                         value == saved,
                         "Assignment override differs from saved " + option,
@@ -565,13 +562,15 @@ def execute(args):
             directory.mkdir(parents=True, exist_ok=True)
             prompt = directory / "assignment.md"
             with prompt.open("x", encoding="utf-8") as output:
-                output.write(render(
-                    record["task_ref"],
-                    base=record["base"],
-                    launch_base=record["launch_base"],
-                    branch=record["branch"],
-                    acceptance_checks=record["acceptance_checks"],
-                ))
+                output.write(
+                    render(
+                        record["task_ref"],
+                        base=record["base"],
+                        launch_base=record["launch_base"],
+                        branch=record["branch"],
+                        acceptance_checks=record["acceptance_checks"],
+                    )
+                )
             snapshot = directory / "config.yaml"
             snapshot.write_bytes(Path(record["config"]).read_bytes())
             require(
@@ -707,11 +706,19 @@ def execute(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("startup", "close-run", "launch", "inspect"))
-    parser.add_argument("--authorize-close", action="store_true",
-                        help="Confirm all run work, cleanup, and final reporting are finished")
-    parser.add_argument("--run-id", help="Stable startup run identity; defaults to the designated task ref")
-    parser.add_argument("task", help="Aven task ref; configured routing defaults apply")
+    parser.add_argument(
+        "command", choices=("startup", "close-run", "launch", "inspect")
+    )
+    parser.add_argument(
+        "--authorize-close",
+        action="store_true",
+        help="Confirm all run work, cleanup, and final reporting are finished",
+    )
+    parser.add_argument(
+        "--run-id",
+        help="Stable startup run identity; defaults to the designated task ref",
+    )
+    parser.add_argument("task", help="Aven task ref")
     parser.add_argument("--base", help="Explicit local base branch (new launch)")
     parser.add_argument(
         "--check", action="append", help="Required check as a JSON argv array"
@@ -725,8 +732,7 @@ def main():
         action="store_true",
         help="Explicit approval for local/macOS execution",
     )
-    parser.add_argument("--db", help="Diagnosed Aven routing override")
-    parser.add_argument("--workspace", help="Diagnosed Aven routing override")
+
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument(
         "--resume",

@@ -25,8 +25,7 @@ if name == "aven":
         parser = argparse.ArgumentParser()
         parser.add_argument("task_ref")
         parser.add_argument("--status", choices=["done"], required=True)
-        parser.add_argument("--db")
-        parser.add_argument("--workspace")
+
         parser.parse_args(args[1:])
     if mode == "report-error":
         sys.stderr.write("report store unavailable")

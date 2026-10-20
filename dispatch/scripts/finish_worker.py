@@ -212,16 +212,23 @@ def housekeeping(record, event, persist):
             event["housekeeping"].append(completed[0])
             continue
         # Preserve the exact close intent across interruption/lost responses.
-        prior = [old for old in previous
-                 if old["resource"] == "UI" and old["identity"] == agent]
+        prior = [
+            old
+            for old in previous
+            if old["resource"] == "UI" and old["identity"] == agent
+        ]
         if prior:
             item.update(prior[0])
         event["housekeeping"].append(item)
         try:
-            require(not event["pending_cleanup"],
-                    "Worker resources retained; preserve its usable work tab")
+            require(
+                not event["pending_cleanup"],
+                "Worker resources retained; preserve its usable work tab",
+            )
             confirm_exit(record, event)
-            close_worker_ui(ui.get("context", {}), agent, record["worktree"], item, persist)
+            close_worker_ui(
+                ui.get("context", {}), agent, record["worktree"], item, persist
+            )
             item.pop("error", None)
             item.update(status="closed", next_action=None)
         except ERRORS as exc:
@@ -299,12 +306,22 @@ def finish(record, path, authorize=False, inspect_only=False):
         }
         body = (
             "BLOCKED: Dispatch finish is not confirmed complete.\n"
-            + "- Error: " + blocker["error"] + "\n"
+            + "- Error: "
+            + blocker["error"]
+            + "\n"
             + "- Owner: dispatcher\n"
-            + "- Next action: " + blocker["next_action"] + "\n"
-            + "- Evidence: " + str(path) + "\n"
-            + "- Cwd: " + record["repo"] + "\n"
-            + "- Resource identities: " + json.dumps(blocker["resources"]) + "\n"
+            + "- Next action: "
+            + blocker["next_action"]
+            + "\n"
+            + "- Evidence: "
+            + str(path)
+            + "\n"
+            + "- Cwd: "
+            + record["repo"]
+            + "\n"
+            + "- Resource identities: "
+            + json.dumps(blocker["resources"])
+            + "\n"
             + "- Retain local completion/report evidence; restore Aven reporting "
             "before claiming completion.\n"
         )
@@ -373,10 +390,17 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
     receipt = event.get("exit_evidence", {}).get("receipt")
     if receipt:
         require(
-            all(record.get(key) == receipt.get(key) for key in (
-                "task_ref", "common_dir", "worker_worktree", "handle",
-                "routing", "acceptance_checks",
-            )),
+            all(
+                record.get(key) == receipt.get(key)
+                for key in (
+                    "task_ref",
+                    "common_dir",
+                    "worker_worktree",
+                    "handle",
+                    "routing",
+                    "acceptance_checks",
+                )
+            ),
             "Saved finish assignment changed; judgment is required",
         )
     history = event.get("base_verifications", [])
@@ -386,8 +410,15 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
     advanced = previous_base != plan["verified_base_sha"]
     if advanced:
         require(
-            git(record["repo"], "merge-base", "--is-ancestor",
-                previous_base, plan["verified_base_sha"], allowed=(0, 1)).returncode == 0,
+            git(
+                record["repo"],
+                "merge-base",
+                "--is-ancestor",
+                previous_base,
+                plan["verified_base_sha"],
+                allowed=(0, 1),
+            ).returncode
+            == 0,
             "Previously verified base is not an ancestor; judgment is required",
         )
     if inspect_only:
@@ -408,9 +439,16 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         }
     event["authorized"] = True
     event["evidence"] = str(path)
-    completed_delivery = event.get("delivered") is True and event.get("task_complete") is True
-    event.update(ok=False, delivered=completed_delivery, task_complete=completed_delivery,
-                 cleanup_complete=False, finish_complete=False)
+    completed_delivery = (
+        event.get("delivered") is True and event.get("task_complete") is True
+    )
+    event.update(
+        ok=False,
+        delivered=completed_delivery,
+        task_complete=completed_delivery,
+        cleanup_complete=False,
+        finish_complete=False,
+    )
     event.pop("error", None)
 
     def persist():
@@ -438,8 +476,10 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         for entry in record["prompts"]:
             source = Path(record["worktree"]) / entry["path"]
             require(
-                not (event["actions"].get("archive:" + entry["path"]) == "complete"
-                     and (source.exists() or source.is_symlink())),
+                not (
+                    event["actions"].get("archive:" + entry["path"]) == "complete"
+                    and (source.exists() or source.is_symlink())
+                ),
                 "Archived prompt reappeared; preserve it and request judgment",
             )
         return observed
@@ -465,12 +505,14 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 "Unexpected missing " + kind + "; inspect saved identity",
             )
         if advanced:
-            event.setdefault("base_verifications", []).append({
-                "previous_verified_base_sha": previous_base,
-                "verified_base_sha": integrated["verified_base_sha"],
-                "worker_sha": integrated["integrated_worker_sha"],
-                "verification_evidence": integrated["verification_evidence"],
-            })
+            event.setdefault("base_verifications", []).append(
+                {
+                    "previous_verified_base_sha": previous_base,
+                    "verified_base_sha": integrated["verified_base_sha"],
+                    "worker_sha": integrated["integrated_worker_sha"],
+                    "verification_evidence": integrated["verification_evidence"],
+                }
+            )
             persist()
         cleanup_error = None
         try:
@@ -574,7 +616,11 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             + " retained resources; see finish evidence"
             + "\n"
             + "- Resource cleanup: "
-            + ("complete" if event["cleanup_complete"] else "PENDING; dispatcher action required")
+            + (
+                "complete"
+                if event["cleanup_complete"]
+                else "PENDING; dispatcher action required"
+            )
             + "\n"
             + "- Housekeeping (not a delivery gate): "
             + str(sum(item["status"] == "pending" for item in event["housekeeping"]))
@@ -589,11 +635,7 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             output.flush()
             os.fsync(output.fileno())
         report_sha = hashlib.sha256(body.encode()).hexdigest()
-        routing = [
-            part
-            for key, value in record["routing"].items()
-            for part in ("--" + key, value)
-        ]
+
         # Duplicate notes after interruption are safe; never infer a failed write succeeded.
         if (
             event["actions"].get("report") != "complete"
@@ -608,7 +650,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                         record["task_ref"],
                         "--file",
                         str(report),
-                        *routing,
                     ],
                     record["repo"],
                 ),
@@ -626,7 +667,7 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         def task_status():
             data = json.loads(
                 run(
-                    ["aven", "context", record["task_ref"], "--json", *routing],
+                    ["aven", "context", record["task_ref"], "--json"],
                     record["repo"],
                 )
             )
@@ -647,7 +688,7 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             event["actions"]["task"] = "attempted"
             persist()
             run(
-                ["aven", "edit", record["task_ref"], "--status", "done", *routing],
+                ["aven", "edit", record["task_ref"], "--status", "done"],
                 record["repo"],
             )
             require(
@@ -655,8 +696,9 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 "Aven task not confirmed done after status write",
             )
         event["actions"]["task"] = "complete"
-        event.update(ok=True, task_complete=True,
-                     finish_complete=event["cleanup_complete"])
+        event.update(
+            ok=True, task_complete=True, finish_complete=event["cleanup_complete"]
+        )
     except ERRORS as exc:
         event.update(ok=False, error=error_text(exc))
     finally:

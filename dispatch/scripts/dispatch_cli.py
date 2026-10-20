@@ -116,8 +116,7 @@ def main():
     report.add_argument(
         "--save", type=Path, help="Retain fetched full JSON for recovery"
     )
-    report.add_argument("--db")
-    report.add_argument("--workspace")
+
     args = parser.parse_args()
     try:
         if args.command == "discover":
@@ -127,9 +126,7 @@ def main():
                 text = args.input.read_text()
             else:
                 argv = ["aven", "show", args.task, "--full", "--json"]
-                for flag in ("db", "workspace"):
-                    if getattr(args, flag):
-                        argv.extend(["--" + flag, getattr(args, flag)])
+
                 text = run(argv)
             data = json.loads(text)
             task = data.get("task", {})
