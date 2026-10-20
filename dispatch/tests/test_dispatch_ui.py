@@ -164,6 +164,93 @@ class DispatchUITests(unittest.TestCase):
         self.assertIn(os.getpid(), ui.ancestors())
 
 
+class WorkerTabTests(unittest.TestCase):
+    def setUp(self):
+        self.ui = {"context": {"backend": "herdr", "instance": "/host/api.sock"},
+                   "agents": [{"pane_id": "boot~terminal", "session": "session"}]}
+        self.pane = dict(pane_id="native", terminal_id="terminal", tab_id="target",
+                         workspace_id="ws")
+        self.tab = dict(tab_id="target", workspace_id="ws", label="old")
+        self.other = dict(tab_id="unrelated", workspace_id="ws", label="Dme-XaPY")
+        self.calls = []
+        self.snapshots = 0
+        self.move_at = None
+
+    def request(self, method, **params):
+        self.calls.append((method, params))
+        if method == "session.snapshot":
+            self.snapshots += 1
+            if self.snapshots == self.move_at:
+                self.pane["tab_id"] = "unrelated"
+            return {"snapshot": dict(version="0.9.0", protocol=22,
+                                     panes=[dict(self.pane)], tabs=[self.tab, self.other])}
+        self.assertEqual(method, "tab.rename")
+        self.assertEqual(params, {"tab_id": "target", "label": "Dme-XaPY"})
+        self.tab["label"] = params["label"]
+        return {}
+
+    def name(self, saved=None, rename=True):
+        with patch.object(ui.Herdr, "socket_identity", return_value=(1, 2)), \
+             patch.object(ui.Herdr, "request", side_effect=self.request):
+            return ui.worker_tab(self.ui, "Dme-XaPY", saved, rename=rename)
+
+    def test_exact_case_no_decoration_and_idempotence(self):
+        saved = self.name(rename=False)
+        self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
+        for status in ("working", "waiting", "done"):
+            self.ui["agents"][0]["status"] = status
+            self.assertEqual(self.name(saved), saved)
+            self.assertEqual(self.tab["label"], "Dme-XaPY")
+        self.assertEqual(sum(m == "tab.rename" for m, _ in self.calls), 1)
+        self.assertEqual(self.other["label"], "Dme-XaPY")
+
+    def test_saved_identity_rejects_moved_pane_or_replaced_socket(self):
+        saved = self.name(rename=False)
+        for key, value in (("tab_id", "unrelated"), ("workspace_id", "other"),
+                           ("socket_identity", [9, 9]), ("workmux_pane", "new~terminal")):
+            with self.subTest(key=key), self.assertRaisesRegex(ui.UIError, "identity changed"):
+                self.name(dict(saved, **{key: value}))
+        self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
+
+    def test_move_between_resolution_and_mutation_refuses(self):
+        self.move_at = 2
+        with self.assertRaisesRegex(ui.UIError, "moved"):
+            self.name()
+        self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
+
+    def test_missing_terminal_never_uses_matching_label(self):
+        self.ui["agents"][0]["pane_id"] = "boot~missing"
+        with self.assertRaisesRegex(ui.UIError, "terminal identity"):
+            self.name()
+        self.assertFalse(any(m == "tab.rename" for m, _ in self.calls))
+
+    def test_tmux_uses_saved_socket_pane_session_and_window(self):
+        self.ui = {"context": {"backend": "tmux", "instance": "/host/tmux.sock"},
+                   "agents": [{"pane_id": "%17", "session": "$3"}]}
+        calls = []
+
+        def command(argv):
+            calls.append(argv)
+            self.assertEqual(argv[:3], ["tmux", "-S", "/host/tmux.sock"])
+            if argv[-1] == "#{pane_id}\t#{window_id}\t#{session_id}":
+                return "%17\t@31\t$3"
+            if argv[-1] == "#{window_name}":
+                return "Dme-XaPY"
+            return ""
+
+        with patch.object(ui, "command", side_effect=command):
+            saved = ui.worker_tab(self.ui, "Dme-XaPY", rename=False)
+            ui.worker_tab(self.ui, "Dme-XaPY", saved)
+            with self.assertRaisesRegex(ui.UIError, "identity changed"):
+                ui.worker_tab(self.ui, "Dme-XaPY", dict(saved, tab_id="@99"))
+        mutations = [argv[3:] for argv in calls if argv[3] != "display-message"]
+        self.assertEqual(mutations, [
+            ["set-window-option", "-t", "@31", "automatic-rename", "off"],
+            ["set-window-option", "-t", "@31", "allow-rename", "off"],
+            ["rename-window", "-t", "@31", "Dme-XaPY"],
+        ])
+
+
 class SocketContractTests(unittest.TestCase):
     def test_line_protocol_and_api_error(self):
         for error in [False, True]:

@@ -11,6 +11,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from dispatch_ui import worker_tab
 from git_preflight import (
     CheckError,
     branch_ref,
@@ -197,6 +198,22 @@ def create_record(args, identity, context, directory):
     }
 
 
+def ui_identity(ui):
+    """Window labels may drift; pane, session and server identity may not."""
+    return {**ui, "agents": [
+        {key: value for key, value in agent.items() if key != "window_name"}
+        for agent in ui["agents"]
+    ]}
+
+
+def name_worker(record, event, path):
+    identity = worker_tab(record["ui"], record["task_ref"],
+                          record.get("worker_tab"), rename=False)
+    record["worker_tab"] = identity
+    save(path, record)
+    event["worker_tab"] = worker_tab(record["ui"], record["task_ref"], identity)
+
+
 def observe(record, event, directory, archive_prompts=True):
     """Retain raw observations before validation, including ambiguous identities."""
     repo, handle = record["repo"], record["handle"]
@@ -372,7 +389,8 @@ def observe(record, event, directory, archive_prompts=True):
     for key in ("worktree", "worker_worktree", "ui", "agent_type"):
         if key in record:
             require(
-                record[key] == event[key],
+                (ui_identity(record[key]) == ui_identity(event[key])
+                 if key == "ui" else record[key] == event[key]),
                 "Saved " + key + " identity changed; reconcile before continuing",
             )
     if record.get("container"):
@@ -578,6 +596,7 @@ def execute(args):
                 "Creation was never attempted; reconcile the retained assignment",
             )
             observe(record, event, directory)
+            name_worker(record, event, path)
             if "wait_error" in event:
                 require(
                     not any(
@@ -604,6 +623,7 @@ def execute(args):
             if "launch_error" in event:
                 try:
                     observe(record, event, directory)
+                    name_worker(record, event, path)
                 except ERRORS as observation_error:
                     event["observation_error"] = error_text(observation_error)
             record["error"] = error_text(error)

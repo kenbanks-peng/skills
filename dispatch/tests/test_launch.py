@@ -3,9 +3,11 @@
 import fcntl
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -36,7 +38,7 @@ if name == "aven":
     if mode == "base-move-context":
         git("commit", "--allow-empty", "-qm", "new base")
     print(json.dumps({
-        "task": {"id": "task-id", "display_ref": "APP-TEST", "status": "active",
+        "task": {"id": "task-id", "display_ref": os.environ.get("DISPLAY_REF", "APP-TEST"), "status": "active",
                  "deleted": False, "title": "Literal `code` $(touch SENTINEL) \\path\nnext",
                  "description": "Use $HOME and `backticks` literally\nsecond line"},
         "project": {"key": "project"}, "workspace": {"key": "default"},
@@ -74,15 +76,15 @@ elif name == "workmux":
             sys.exit(3)
     elif args[0] == "status":
         agent = {"worktree": "dispatch-app-test", "project_path": str(repo),
-                 "pane_id": "pane-CHANGED" if mode == "changed-ui" else "pane-1",
+                 "pane_id": "boot~CHANGED" if mode == "changed-ui" else "boot~terminal-1",
                  "agent_kind": None if mode.startswith("process-") else "pi",
-                 "session": "session-1", "window_name": "worker",
+                 "session": "session-1", "window_name": (root / "label").read_text(),
                  "workdir": str(worker) if (root / "sandboxed").read_text() == "no" else "/guest/worker",
-                 "status": "done" if mode == "fast-done" else "working"}
+                 "status": "done" if mode == "fast-done" else "waiting" if mode == "waiting" else "working"}
         agents = [] if mode == "missing-ui" else [agent]
         if mode == "ambiguous-ui":
             agents.append(dict(agent, pane_id="pane-2"))
-        print(json.dumps({"context": {"backend": "herdr", "instance": "socket-1"},
+        print(json.dumps({"context": {"backend": "herdr", "instance": os.environ["HERDR_SOCKET_PATH"]},
                           "agents": agents, "target_errors": []}))
     else:
         sys.exit(9)
@@ -161,6 +163,50 @@ class LaunchTests(unittest.TestCase):
         self.git("commit", "-qm", "base")
         self.base = self.git("rev-parse", "HEAD")
         self.record = self.repo / ".git/dispatch-workers/APP-TEST/worker.json"
+        self.label = self.root / "label"
+        self.label.write_text("dispatch-app-test")
+        self.tab_id = "tab-1"
+        self.ui_calls = []
+        self.socket_dir = tempfile.TemporaryDirectory(prefix="dsp-ui-")
+        self.addCleanup(self.socket_dir.cleanup)
+        endpoint = str(Path(self.socket_dir.name) / "api")
+        self.env["HERDR_SOCKET_PATH"] = endpoint
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(endpoint)
+        server.listen()
+        server.settimeout(0.1)
+        stopped = threading.Event()
+
+        def serve():
+            while not stopped.is_set():
+                try:
+                    stream, _ = server.accept()
+                except TimeoutError:
+                    continue
+                with stream, stream.makefile("rb") as incoming:
+                    request = json.loads(incoming.readline())
+                    self.ui_calls.append(request)
+                    if request["method"] == "session.snapshot":
+                        result = {"snapshot": {"version": "0.9.0", "protocol": 22,
+                            "panes": [{"pane_id": "native-1", "terminal_id": "terminal-1",
+                                       "tab_id": self.tab_id, "workspace_id": "ws-1"}],
+                            "tabs": [{"tab_id": self.tab_id, "workspace_id": "ws-1",
+                                      "label": self.label.read_text()}]}}
+                    else:
+                        self.label.write_text(request["params"]["label"])
+                        result = {}
+                    stream.sendall(json.dumps({"id": request["id"],
+                                               "result": result}).encode() + b"\n")
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+
+        def stop():
+            stopped.set()
+            thread.join(timeout=2)
+            server.close()
+
+        self.addCleanup(stop)
 
     def git(self, *args):
         result = subprocess.run(
@@ -223,7 +269,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(data["agent_type"], "pi")
         self.assertEqual(data["container"]["id"], "container-1")
         self.assertEqual(data["worker_worktree"], "/guest/worker")
-        self.assertEqual(data["ui"]["agents"][0]["pane_id"], "pane-1")
+        self.assertEqual(data["ui"]["agents"][0]["pane_id"], "boot~terminal-1")
         self.assertEqual(data["routing"], {})
         self.assertEqual(self.calls()[0], ["aven", "context", "APP-TEST", "--json"])
         prompt = Path(data["prompt"]).read_text()
@@ -241,6 +287,48 @@ class LaunchTests(unittest.TestCase):
         self.assertFalse(Path(data["prompt"]).is_relative_to(self.root / "worker"))
         self.assertIn("--sandbox", self.adds()[0])
         self.assertIn("agents.linux.yaml", data["config"])
+
+    def test_exact_tab_name_and_resume_restores_without_replacement(self):
+        data = self.launch()
+        self.assertEqual(self.label.read_text(), "APP-TEST")
+        self.assertEqual(data["handle"], "dispatch-app-test")
+        self.assertEqual(data["branch"], "dispatch/app-test")
+        self.assertEqual(data["worker_tab"]["tab_id"], "tab-1")
+        self.label.write_text("✅ dispatch-app-test")
+        before = self.record.read_bytes()
+        self.cli("inspect", "APP-TEST")
+        self.assertEqual(self.record.read_bytes(), before)
+        self.assertEqual(self.label.read_text(), "✅ dispatch-app-test")
+        resumed = self.cli("inspect", "APP-TEST", "--resume")
+        self.assertEqual(self.label.read_text(), "APP-TEST")
+        self.assertEqual(resumed["worker_tab"], data["worker_tab"])
+        self.assertEqual(len(self.adds()), 1)
+        self.assertEqual([call["params"] for call in self.ui_calls
+                          if call["method"] == "tab.rename"],
+                         [{"tab_id": "tab-1", "label": "APP-TEST"}] * 2)
+
+    def test_displayed_case_and_waiting_state_are_preserved(self):
+        self.env.update(DISPLAY_REF="APP-TeST", MODE="waiting")
+        self.record = self.record.parent.parent / "APP-TeST/worker.json"
+        data = self.launch()
+        self.assertEqual(data["task_ref"], "APP-TeST")
+        self.assertEqual(self.label.read_text(), "APP-TeST")
+        self.assertEqual(data["handle"], "dispatch-app-test")
+        self.assertEqual(data["branch"], "dispatch/app-test")
+        self.label.write_text("💬 APP-TeST")
+        self.cli("inspect", "APP-TeST", "--resume")
+        self.assertEqual(self.label.read_text(), "APP-TeST")
+        self.assertEqual(len(self.adds()), 1)
+
+    def test_resume_rejects_moved_tab_even_with_correct_label(self):
+        self.launch()
+        self.ui_calls.clear()
+        self.tab_id = "unrelated"
+        data = self.cli("inspect", "APP-TEST", "--resume", ok=False)
+        self.assertIn("worker tab identity changed", data["error"])
+        self.assertFalse(any(call["method"] == "tab.rename" for call in self.ui_calls))
+        self.assertEqual(len(self.adds()), 1)
+        self.assertEqual(data["worker_tab"]["tab_id"], "tab-1")
 
     def test_null_agent_kind_uses_exact_container_process_evidence(self):
         self.env["MODE"] = "process-pi"
@@ -288,6 +376,7 @@ class LaunchTests(unittest.TestCase):
         self.env["MODE"] = "fast-done"
         data = self.launch()
         self.assertIn("wait_error", data["events"][0])
+        self.assertEqual(self.label.read_text(), "APP-TEST")
         self.assertEqual(
             data["events"][0]["workmux_status"]["agents"][0]["status"], "done"
         )
@@ -331,9 +420,9 @@ class LaunchTests(unittest.TestCase):
         self.env["MODE"] = "changed-ui"
         data = self.cli("inspect", "APP-TEST", "--resume", ok=False)
         self.assertIn("identity changed", data["error"])
-        self.assertEqual(data["ui"]["agents"][0]["pane_id"], "pane-1")
+        self.assertEqual(data["ui"]["agents"][0]["pane_id"], "boot~terminal-1")
         self.assertEqual(
-            data["events"][-1]["ui"]["agents"][0]["pane_id"], "pane-CHANGED"
+            data["events"][-1]["ui"]["agents"][0]["pane_id"], "boot~CHANGED"
         )
         self.assertEqual(len(self.adds()), 1)
 
