@@ -46,7 +46,8 @@ def verification(record):
             and check["returncode"] == 0
             and isinstance(check["argv"], list)
             and bool(check["argv"])
-            and all(isinstance(arg, str) and arg for arg in check["argv"])
+            and bool(check["argv"][0])
+            and all(isinstance(arg, str) and "\0" not in arg for arg in check["argv"])
             for check in data["checks"]
         ),
         "Base verification does not match the saved assignment",

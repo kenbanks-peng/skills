@@ -75,6 +75,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
             (self.root / "bin" / name).write_text(
                 fake.replace("#!PYTHON", "#!" + sys.executable)
             )
+        self.command("dispatch.py", "startup", "APP-TEST")
         self.env["MODE"] = "partial" if partial else ""
         self.command(
             "dispatch.py",

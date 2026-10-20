@@ -5,6 +5,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from git_preflight import git_env
+
 
 def run(argv, cwd=None, timeout=30, env=None):
     try:
@@ -15,7 +17,7 @@ def run(argv, cwd=None, timeout=30, env=None):
             capture_output=True,
             timeout=timeout,
             check=False,
-            env=env,
+            env=git_env() if env is None else env,
         )
     except subprocess.TimeoutExpired as error:
         raise ValueError(

@@ -100,10 +100,11 @@ def validate_assignment(args):
         all(
             isinstance(check, list)
             and check
-            and all(isinstance(arg, str) and arg for arg in check)
+            and isinstance(check[0], str) and bool(check[0])
+            and all(isinstance(arg, str) and "\0" not in arg for arg in check)
             for check in checks
         ),
-        "--check must be a nonempty JSON argv array",
+        "--check must be a JSON argv array with a nonempty executable and no NUL bytes",
     )
     return checks
 
@@ -427,6 +428,120 @@ def observe(record, event, directory, archive_prompts=True):
         record[key] = event[key]
 
 
+def run_path(common, run_id):
+    require(
+        isinstance(run_id, str) and re.fullmatch(r"[A-Za-z0-9_-]+", run_id),
+        "Invalid run ID",
+    )
+    return common / "dispatch-ui" / (run_id + ".json")
+
+
+def launch_run(args, common, repo, record=None):
+    """Bind every launch to one completed, still-open startup."""
+    run_id = args.run_id or (record or {}).get("run_id") or args.task
+    path = run_path(common, run_id)
+    require(path.is_file(), "Run startup first; pass the same --run-id to launch")
+    data = json.loads(path.read_text())
+    require(
+        data["schema_version"] == 1 and data["repo"] == repo
+        and data.get("ok") is True and data.get("aven_tab"),
+        "Run startup is not confirmed; resume startup before launch",
+    )
+    require(
+        not data.get("aven_close_attempted") and not data.get("aven_closed"),
+        "Run closure has started; use a new run ID for new work",
+    )
+    if record:
+        require(record["run_id"] == run_id, "Run override differs from saved run")
+    # Verify existing identity; never recreate an uncertain tab.
+    aven_tab(repo, data["argv"], data, lambda updated: save(path, updated))
+    return run_id, path
+
+
+def activate(record, event, path):
+    """Read before write and after write; recover a lost write response safely."""
+    evidence = event["activation"] = {}
+
+    def current():
+        data = json.loads(run(
+            ["aven", "context", record["task_ref"], "--json"], record["repo"]
+        ))
+        task = data["task"]
+        require(
+            task["id"] == record["task_id"]
+            and task["display_ref"] == record["task_ref"]
+            and task.get("deleted") is False
+            and task["status"] in ("inbox", "backlog", "todo", "active"),
+            "Aven task identity/status changed; retain worker for review",
+        )
+        evidence["status"] = task["status"]
+        save(path, record)
+        return task["status"]
+
+    if current() != "active":
+        evidence["write_attempted"] = True
+        save(path, record)
+        run(["aven", "edit", record["task_ref"], "--status", "active"], record["repo"])
+        require(current() == "active", "Aven task not confirmed active after status write")
+    evidence["ok"] = True
+    save(path, record)
+
+
+def run_workers(common, run_id, registered):
+    """Reconcile the run index and saved records; missing evidence blocks close."""
+    refs = set(registered)
+    for path in sorted((common / "dispatch-workers").glob("*/worker.json")):
+        worker = json.loads(path.read_text())
+        if worker.get("run_id") == run_id:
+            refs.add(path.parent.name)
+    evidence = []
+    for ref in sorted(refs):
+        require(re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", ref), "Invalid saved task ref")
+        path = common / "dispatch-workers" / ref / "worker.json"
+        worker = json.loads(path.read_text())
+        require(
+            worker["schema_version"] == 1
+            and worker["run_id"] == run_id
+            and worker["common_dir"] == str(common)
+            and worker["task_ref"] == path.parent.name,
+            "Saved run worker identity mismatch",
+        )
+        finished = worker.get("finish", {})
+        require(
+            finished.get("ok") is True
+            and finished.get("task_complete") is True
+            and finished.get("cleanup_complete") is True
+            and not finished.get("pending_cleanup")
+            and all(item["status"] in ("closed", "removed")
+                    for item in finished.get("housekeeping", [])),
+            "Run worker is unfinished or has pending cleanup: " + worker["task_ref"],
+        )
+        task = json.loads(run(
+            ["aven", "context", worker["task_ref"], "--json"], worker["repo"]
+        ))["task"]
+        require(
+            task["id"] == worker["task_id"]
+            and task["display_ref"] == worker["task_ref"]
+            and task["status"] == "done" and not task.get("deleted", False),
+            "Run worker is not confirmed done: " + worker["task_ref"],
+        )
+        require(
+            not Path(worker["worktree"]).exists()
+            and not Path(worker["worktree"]).is_symlink()
+            and git(worker["repo"], "show-ref", "--verify", "--quiet",
+                    "refs/heads/" + worker["branch"], allowed=(0, 1)).returncode == 1
+            and "worktree " + worker["worktree"] not in
+                git(worker["repo"], "worktree", "list", "--porcelain", "-z").stdout.split("\0"),
+            "Run worker resource reappeared; preserve it: " + worker["task_ref"],
+        )
+        base = commit(worker["repo"], branch_ref(worker["repo"], worker["base"]))
+        git(worker["repo"], "merge-base", "--is-ancestor",
+            worker["integration"]["verified_base_sha"], base)
+        evidence.append({"task_ref": worker["task_ref"], "record_path": str(path),
+                         "status": "done", "cleanup_complete": True})
+    return evidence
+
+
 def startup_run(args):
     """Check Aven availability from the same Git root used by the UI."""
     require(shutil.which("aven"), "aven is missing from PATH; no UI tabs were changed")
@@ -480,6 +595,8 @@ def startup_run(args):
         argv = [shutil.which("aven"), "tui", "--project", routing["project"]]
         record["argv"] = argv
         aven_tab(repo, argv, record, lambda data: save(path, data))
+        record["ok"] = True
+        save(path, record)
         return dict(record, ok=True, record_path=str(path))
 
 
@@ -506,6 +623,10 @@ def close_run(args):
             record["repo"] == identity["worktree"] and record["task"] == args.task,
             "Saved dispatch run belongs to another repository/task",
         )
+        record["worker_reconciliation"] = run_workers(
+            common, args.run_id or args.task, record.get("worker_refs", [])
+        )
+        save(path, record)
         close_aven_tab(record, lambda data: save(path, data))
         return dict(record, ok=True, record_path=str(path))
 
@@ -574,7 +695,9 @@ def execute(args):
                 args.command == "launch",
                 "No saved worker record; inspect cannot create a worker",
             )
+            run_id, run_record = launch_run(args, common, repo)
             record = create_record(args, identity, context, directory)
+            record.update(run_id=run_id, run_record_path=str(run_record))
             directory.mkdir(parents=True, exist_ok=True)
             prompt = directory / "assignment.md"
             with prompt.open("x", encoding="utf-8") as output:
@@ -598,6 +721,14 @@ def execute(args):
             record["prompt_sha256"] = digest(prompt)
             # Save intent before any external mutation. An interrupted launch is never repeated.
             save(path, record)
+        if existing:
+            _, run_record = launch_run(args, common, repo, record)
+        run_data = json.loads(run_record.read_text())
+        refs = run_data.setdefault("worker_refs", [])
+        if record["task_ref"] not in refs:
+            refs.append(record["task_ref"])
+            refs.sort()
+            save(run_record, run_data)
         event = {"action": "observe" if existing else "launch", "ok": False}
         record["events"].append(event)
         record.update(
@@ -702,6 +833,9 @@ def execute(args):
                     digest(Path(record["config"])) == record["config_sha256"],
                     "Selected config changed during launch; inspect retained resources",
                 )
+            record["launch_confirmed"] = True
+            save(path, record)
+            activate(record, event, path)
             event["ok"] = True
             record.update(ok=True, next_action="review/monitor")
         except ERRORS as error:
@@ -732,7 +866,7 @@ def main():
     )
     parser.add_argument(
         "--run-id",
-        help="Stable startup run identity; defaults to the designated task ref",
+        help="Stable run identity for startup/launch/close; resume uses the saved ID",
     )
     parser.add_argument("task", help="Aven task ref")
     parser.add_argument("--base", help="Explicit local base branch (new launch)")

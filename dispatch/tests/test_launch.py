@@ -26,6 +26,16 @@ with (root / "calls").open("a") as out:
 def git(*args):
     return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
 if name == "aven":
+    if args[0] == "edit":
+        if mode == "active-write-fails":
+            sys.stderr.write("active write failed")
+            sys.exit(7)
+        if mode != "active-readback-fails":
+            (root / "aven-status").write_text("active")
+        if mode == "active-lost-response":
+            sys.stderr.write("response lost after write")
+            sys.exit(7)
+        sys.exit(0)
     if args[0] == "doctor":
         db = root / "original tasks.db"
         print(json.dumps({"sections": [{"rows": [
@@ -47,7 +57,9 @@ if name == "aven":
     if mode == "base-move-context":
         git("commit", "--allow-empty", "-qm", "new base")
     print(json.dumps({
-        "task": {"id": "task-id", "display_ref": os.environ.get("DISPLAY_REF", "APP-TEST"), "status": "active",
+        "task": {"id": "task-id", "display_ref": os.environ.get("DISPLAY_REF", "APP-TEST"),
+                 "status": (root / "aven-status").read_text() if (root / "aven-status").exists()
+                           else os.environ.get("AVEN_INITIAL_STATUS", "active"),
                  "deleted": False, "title": "Literal `code` $(touch SENTINEL) \\path\nnext",
                  "description": "Use $HOME and `backticks` literally\nsecond line"},
         "project": {"key": "project"}, "workspace": {"key": "default"},
@@ -170,6 +182,8 @@ class LaunchTests(unittest.TestCase):
         config.parent.mkdir(parents=True)
         config.write_text("agent: pi\nsandbox:\n  enabled: true\n")
         self.git("init", "-b", "main")
+        self.git("config", "user.name", "Test")
+        self.git("config", "user.email", "test@example.invalid")
         (self.repo / "file").write_text("base")
         self.git("add", ".")
         self.git("commit", "-qm", "base")
@@ -199,7 +213,10 @@ class LaunchTests(unittest.TestCase):
                 except TimeoutError:
                     continue
                 with stream, stream.makefile("rb") as incoming:
-                    request = json.loads(incoming.readline())
+                    line = incoming.readline()
+                    if not line:  # Read-only socket probes send no request.
+                        continue
+                    request = json.loads(line)
                     self.ui_calls.append(request)
                     if request["method"] == "session.snapshot":
                         result = {
@@ -300,7 +317,18 @@ class LaunchTests(unittest.TestCase):
         self.assertIs(data["ok"], ok)
         return data
 
+    def prepare_run(self):
+        path = self.repo / ".git/dispatch-ui/APP-TEST.json"
+        if not path.exists():
+            mode = self.env["MODE"]
+            self.env["MODE"] = ""
+            try:
+                self.cli("startup", "APP-TEST")
+            finally:
+                self.env["MODE"] = mode
+
     def launch(self, *extra, ok=True):
+        self.prepare_run()
         return self.cli(
             "launch",
             "APP-TEST",
@@ -422,7 +450,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(data["worker_worktree"], "/guest/worker")
         self.assertEqual(data["ui"]["agents"][0]["pane_id"], "boot~terminal-1")
         self.assertEqual(data["routing"], {})
-        self.assertEqual(self.calls()[0], ["aven", "context", "APP-TEST", "--json"])
+        self.assertEqual(self.calls()[0], ["aven", "doctor", "--json"])
         prompt = Path(data["prompt"]).read_text()
         self.assertIn("$(touch SENTINEL)", prompt)
         self.assertIn("`backticks`", prompt)
@@ -434,8 +462,10 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(
             [call for call in self.calls() if call[:2] == ["aven", "context"]],
             [
-                ["aven", "context", "APP-TEST", "--json"],
+                ["aven", "context", "APP-TEST", "--json"],  # startup
+                ["aven", "context", "APP-TEST", "--json"],  # assignment
                 ["aven", "context", "APP-TEST"],
+                ["aven", "context", "APP-TEST", "--json"],  # activation
             ],
         )
         self.assertNotIn("task_context", saved)
@@ -484,10 +514,11 @@ class LaunchTests(unittest.TestCase):
         self.ui_calls.clear()
         self.tab_id = "unrelated"
         data = self.cli("inspect", "APP-TEST", "--resume", ok=False)
-        self.assertIn("worker tab identity changed", data["error"])
+        self.assertIn("identity changed", data["error"])
         self.assertFalse(any(call["method"] == "tab.rename" for call in self.ui_calls))
         self.assertEqual(len(self.adds()), 1)
-        self.assertEqual(data["worker_tab"]["tab_id"], "tab-1")
+        saved = json.loads(self.record.read_text())
+        self.assertEqual(saved["worker_tab"]["tab_id"], "tab-1")
 
     def test_null_agent_kind_uses_exact_container_process_evidence(self):
         self.env["MODE"] = "process-pi"
@@ -653,10 +684,154 @@ class LaunchTests(unittest.TestCase):
         self.launch("--config", str(config))
         self.assertEqual(len(self.adds()), 1)
 
+    def test_launch_requires_confirmed_open_run(self):
+        data = self.cli("launch", "APP-TEST", "--base", "main",
+                        "--check", '["true"]', ok=False)
+        self.assertIn("Run startup first", data["error"])
+        self.assertEqual(self.adds(), [])
+        self.assertFalse(self.record.exists())
+        self.prepare_run()
+        path = self.repo / ".git/dispatch-ui/APP-TEST.json"
+        saved = json.loads(path.read_text())
+        saved["ok"] = False
+        path.write_text(json.dumps(saved))
+        data = self.launch(ok=False)
+        self.assertIn("startup is not confirmed", data["error"])
+        self.assertEqual(self.adds(), [])
+        saved.update(ok=True, aven_close_attempted=True)
+        path.write_text(json.dumps(saved))
+        data = self.launch(ok=False)
+        self.assertIn("closure has started", data["error"])
+        self.assertEqual(self.adds(), [])
+
+    def test_active_transition_is_automatic_and_read_back(self):
+        self.env["AVEN_INITIAL_STATUS"] = "todo"
+        data = self.launch()
+        self.assertTrue(data["launch_confirmed"])
+        self.assertTrue(data["events"][-1]["activation"]["ok"])
+        self.assertEqual(data["events"][-1]["activation"]["status"], "active")
+        self.cli("inspect", "APP-TEST", "--resume")
+        edits = [c for c in self.calls() if c[:2] == ["aven", "edit"]]
+        self.assertEqual(edits, [["aven", "edit", "APP-TEST", "--status", "active"]])
+        self.assertEqual(len(self.adds()), 1)
+
+    def test_active_write_failures_resume_without_relaunch(self):
+        for mode in ("active-write-fails", "active-readback-fails", "active-lost-response"):
+            with self.subTest(mode=mode):
+                self.env.update(AVEN_INITIAL_STATUS="todo", MODE=mode)
+                # Reuse the one worker across failures. Live status, not the
+                # previous event receipt, determines whether to write again.
+                (self.root / "aven-status").unlink(missing_ok=True)
+                data = self.launch(ok=False)
+                self.assertTrue(data["launch_confirmed"])
+                self.assertNotIn("ok", data["events"][-1]["activation"])
+                self.env["MODE"] = ""
+                self.cli("inspect", "APP-TEST", "--resume")
+                self.assertEqual(len(self.adds()), 1)
+                if mode == "active-lost-response":
+                    edits = [c for c in self.calls() if c[:2] == ["aven", "edit"]]
+                    self.assertEqual(len(edits), 5)  # two repairs, one lost response
+
+    def test_close_run_rejects_unfinished_and_missing_worker_evidence(self):
+        self.launch()
+        data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertIn("unfinished or has pending cleanup", data["error"])
+        self.assertEqual(len(self.startup_tabs), 1)
+        self.record.rename(self.record.with_suffix(".retained"))
+        self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertFalse(any(c["method"] == "tab.close" for c in self.ui_calls))
+
+    def completed_record(self):
+        """Saved completion seam; resources are already absent."""
+        self.prepare_run()
+        self.record.parent.mkdir(parents=True)
+        saved = dict(
+            schema_version=1, run_id="APP-TEST", task_ref="APP-TEST", task_id="task-id",
+            repo=str(self.repo), common_dir=str(self.repo / ".git"),
+            worktree=str(self.root / "removed-worker"), branch="dispatch/app-test",
+            base="main", integration={"verified_base_sha": self.base},
+            finish=dict(ok=True, task_complete=True, cleanup_complete=True,
+                        pending_cleanup=[], housekeeping=[]),
+        )
+        self.record.write_text(json.dumps(saved))
+        return saved
+
+    def test_close_run_checks_live_done_and_resource_absence(self):
+        saved = self.completed_record()
+        data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertIn("not confirmed done", data["error"])
+        self.env["AVEN_INITIAL_STATUS"] = "done"
+        self.git("branch", saved["branch"])
+        data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertIn("resource reappeared", data["error"])
+        self.git("branch", "-d", saved["branch"])
+        result = self.cli("close-run", "APP-TEST", "--authorize-close")
+        self.assertEqual(result["worker_reconciliation"][0]["task_ref"], "APP-TEST")
+        self.assertTrue(result["aven_closed"])
+
+    def test_close_run_blocks_done_with_pending_cleanup(self):
+        saved = self.completed_record()
+        self.env["AVEN_INITIAL_STATUS"] = "done"
+        saved["finish"]["pending_cleanup"] = [{"identity": "retained"}]
+        self.record.write_text(json.dumps(saved))
+        data = self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertIn("pending cleanup", data["error"])
+        self.assertFalse(any(c["method"] == "tab.close" for c in self.ui_calls))
+
+    def test_close_run_rejects_lost_base_delivery(self):
+        saved = self.completed_record()
+        self.env["AVEN_INITIAL_STATUS"] = "done"
+        tree = self.git("rev-parse", "HEAD^{tree}")
+        other = self.git("commit-tree", tree, "-m", "unrelated verified base")
+        saved["integration"]["verified_base_sha"] = other
+        self.record.write_text(json.dumps(saved))
+        self.cli("close-run", "APP-TEST", "--authorize-close", ok=False)
+        self.assertFalse(any(c["method"] == "tab.close" for c in self.ui_calls))
+
+    def test_explicit_run_id_is_saved_and_reused_on_resume(self):
+        self.cli("startup", "APP-TEST", "--run-id", "shared-run")
+        data = self.cli("launch", "APP-TEST", "--run-id", "shared-run",
+                        "--base", "main", "--check", '["true"]')
+        self.assertEqual(data["run_id"], "shared-run")
+        index = json.loads(Path(data["run_record_path"]).read_text())
+        self.assertEqual(index["worker_refs"], ["APP-TEST"])
+        resumed = self.cli("inspect", "APP-TEST", "--resume")
+        self.assertEqual(resumed["run_id"], "shared-run")
+        self.assertEqual(len(self.adds()), 1)
+
+    def test_run_override_cannot_move_existing_worker_to_another_run(self):
+        self.launch()
+        self.cli("startup", "APP-TEST", "--run-id", "another-run")
+        data = self.cli("launch", "APP-TEST", "--run-id", "another-run", ok=False)
+        self.assertIn("Run override differs", data["error"])
+        self.assertEqual(len(self.adds()), 1)
+
+    def test_invalid_check_rejected_before_creation(self):
+        self.prepare_run()
+        for argv in (["echo", "bad\0argument"], ["", "argument"], ["echo", 1]):
+            with self.subTest(argv=argv):
+                self.cli("launch", "APP-TEST", "--base", "main",
+                         "--check", json.dumps(argv), ok=False)
+        self.assertEqual(self.adds(), [])
+        self.assertFalse(self.record.exists())
+
+    def test_empty_check_argument_is_preserved(self):
+        self.prepare_run()
+        data = self.cli("launch", "APP-TEST", "--base", "main",
+                        "--check", '["printf", ""]')
+        self.assertEqual(data["acceptance_checks"], [["printf", ""]])
+
+    def test_git_environment_cannot_redirect_external_tools(self):
+        self.prepare_run()
+        self.env["GIT_DIR"] = str(self.root / "missing-git-directory")
+        self.env["GIT_WORK_TREE"] = str(self.root / "wrong-worktree")
+        self.launch()
+        self.assertEqual(len(self.adds()), 1)
+
     def test_serialization_blocks_creation(self):
         with (self.repo / ".git/dispatch.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            self.launch(ok=False)
+            self.cli("launch", "APP-TEST", ok=False)
         self.assertEqual(self.calls(), [])
 
     def test_existing_branch_without_record_blocks_creation(self):
