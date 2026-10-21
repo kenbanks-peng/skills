@@ -58,10 +58,9 @@ Require `ok: true`. Preserve saved revisions and check logs. On failure or inter
 
 ```sh
 python3 <skill-directory>/scripts/finish_worker.py APP-1234
-python3 <skill-directory>/scripts/finish_worker.py APP-1234 --authorize-finish
 ```
 
-Review the first command's plan; authorize once. Inspect the separate `delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` outcomes. Require reviewed integration, independent acceptance verification, exact worker exit, a durable VERIFIED report, and confirmed Aven done status before claiming completion. Permit completion with pending safe resource cleanup only when all completion requirements are met. For blocked finish, inspect the saved error, dispatcher owner, recovery action, and local `finish-blocked.md`. Restore failed Aven reporting before claiming closure.
+Run finish after the dispatcher accepts and integrates the work. No separate finish authorization is required. Finish does not repeat acceptance checks, read verification files, or require the base to remain unchanged. Inspect the separate `delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` outcomes. Finish stops the exact worker, archives known prompts, attempts safe resource cleanup, writes a durable VERIFIED report, and confirms Aven done status. Resource identity, stopped-writer, and file-preservation checks protect cleanup; they do not reopen acceptance. Permit completion with pending safe resource cleanup only when all completion requirements are met. For blocked finish, inspect the saved error, dispatcher owner, recovery action, and local `finish-blocked.md`. Restore failed Aven reporting before claiming closure.
 
 ### Enforce status transitions
 

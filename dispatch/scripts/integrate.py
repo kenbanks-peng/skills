@@ -309,7 +309,8 @@ def execute(args):
             )
             event.pop("error", None)
             record.update(
-                ok=True, next_action="stop/archive/cleanup; recheck base before closure"
+                ok=True,
+                next_action="Run finish_worker.py to stop, clean up, and close the accepted task",
             )
         except ERRORS as exc:
             event.update(ok=False, error=error_text(exc))

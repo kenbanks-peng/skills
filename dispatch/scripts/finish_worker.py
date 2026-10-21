@@ -14,62 +14,9 @@ from archive_prompts import archive
 from cleanup_ui import close_worker_ui
 from cleanup_worker import validate
 from dispatch import ERRORS, error_text, save
-from git_preflight import branch_ref, commit, git, operations, paths, require
+from git_preflight import commit, git, operations, paths, require
 from stop_worker import stop
 from worker_runtime import emit, run
-
-
-def verification(record):
-    integrated = record["integration"]
-    require(integrated.get("ok") is True, "No successful independent integration")
-    evidence_path = Path(integrated["verification_evidence"])
-    worker = Path(record["worktree"])
-    require(
-        evidence_path.is_absolute()
-        and not evidence_path.resolve().is_relative_to(worker),
-        "Verification evidence must survive worker removal",
-    )
-    data = json.loads(evidence_path.read_text())
-    require(
-        data.get("ok") is True
-        and data["tested_sha"] == integrated["verified_base_sha"]
-        and data["worker_sha"] == integrated["integrated_worker_sha"]
-        and data["base_ref"] == "refs/heads/" + record["base"]
-        and data["repo"]["common_dir"] == record["common_dir"]
-        and data["repo"]["worktree"] == record["repo"]
-        and data.get("worker_is_ancestor") is True
-        and data.get("base_moved") is False
-        and bool(data["checks"])
-        and [check["argv"] for check in data["checks"]] == record["acceptance_checks"]
-        and all(
-            check["status"] == "passed"
-            and check["returncode"] == 0
-            and isinstance(check["argv"], list)
-            and bool(check["argv"])
-            and bool(check["argv"][0])
-            and all(isinstance(arg, str) and "\0" not in arg for arg in check["argv"])
-            for check in data["checks"]
-        ),
-        "Base verification does not match the saved assignment",
-    )
-    current_base(record)
-    return integrated
-
-
-def current_base(record):
-    repo, integrated = record["repo"], record["integration"]
-    require(
-        commit(repo, branch_ref(repo, record["base"]))
-        == integrated["verified_base_sha"],
-        "Base moved since verification; retain resources and verify again",
-    )
-    git(
-        repo,
-        "merge-base",
-        "--is-ancestor",
-        integrated["integrated_worker_sha"],
-        integrated["verified_base_sha"],
-    )
 
 
 def observation(record):
@@ -274,10 +221,10 @@ def housekeeping(record, event, persist):
         persist()
 
 
-def finish(record, path, authorize=False, inspect_only=False):
-    """Keep failed gates recoverable, including failures before a plan is built."""
+def finish(record, path, inspect_only=False):
+    """Close accepted work; preserve evidence when cleanup or reporting fails."""
     try:
-        result = finish_attempt(record, path, authorize, inspect_only)
+        result = finish_attempt(record, path, inspect_only)
     except ERRORS as exc:
         saved = record.get("finish", {})
         result = {
@@ -288,7 +235,7 @@ def finish(record, path, authorize=False, inspect_only=False):
             "cleanup_complete": False,
             "finish_complete": False,
         }
-    if inspect_only or not (authorize or record.get("finish", {}).get("authorized")):
+    if inspect_only:
         return result
     if result.get("ok") is False:
         report = path.parent / "finish-blocked.md"
@@ -296,7 +243,7 @@ def finish(record, path, authorize=False, inspect_only=False):
             "error": result["error"],
             "owner": "dispatcher",
             "next_action": "Inspect saved gates and Aven status; repair the blocker, "
-            "then repeat finish using the saved authorization and evidence",
+            "then repeat finish using the saved resource identities and evidence",
             "evidence": str(path),
             "report": str(report),
             "resources": {
@@ -342,10 +289,10 @@ def finish(record, path, authorize=False, inspect_only=False):
     return result
 
 
-def finish_attempt(record, path, authorize=False, inspect_only=False):
+def finish_attempt(record, path, inspect_only=False):
     require(record["branch"] != record["base"], "Worker and base branches must differ")
-    integrated = verification(record)
-    state = observation(record)
+    # Acceptance belongs to dispatcher review/integration, not worker closure.
+    integrated = record["integration"]
     plan = {
         "repo": record["repo"],
         "worktree": record["worktree"],
@@ -372,7 +319,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
     event = record.setdefault(
         "finish",
         {
-            "authorized": False,
             "actions": {},
             "delivered": False,
             "task_complete": False,
@@ -381,12 +327,24 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             "plan": plan,
         },
     )
-    # Authorization belongs to the original resource plan, never to a rewritten
-    # plan. Only independently verified descendant bases may extend that history.
     original = event["plan"]
+    # Only destructive resource identities must remain stable. Checks and base
+    # verification are historical delivery evidence, not cleanup authorization.
+    resource_keys = (
+        "repo",
+        "worktree",
+        "branch",
+        "runtime",
+        "container",
+        "ui",
+        "prompts",
+        "cleanup_parent",
+        "worktree_parent",
+        "worker_sha",
+    )
     require(
-        dict(original, verified_base_sha=plan["verified_base_sha"]) == plan,
-        "Saved finish plan changed; judgment is required",
+        all(original.get(key) == plan.get(key) for key in resource_keys),
+        "Saved finish resource plan changed; judgment is required",
     )
     receipt = event.get("exit_evidence", {}).get("receipt")
     if receipt:
@@ -398,30 +356,33 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                     "common_dir",
                     "worker_worktree",
                     "handle",
-                    "routing",
-                    "acceptance_checks",
                 )
             ),
-            "Saved finish assignment changed; judgment is required",
+            "Saved worker identity changed; judgment is required",
         )
-    history = event.get("base_verifications", [])
-    previous_base = (
-        history[-1]["verified_base_sha"] if history else original["verified_base_sha"]
-    )
-    advanced = previous_base != plan["verified_base_sha"]
-    if advanced:
-        require(
-            git(
-                record["repo"],
-                "merge-base",
-                "--is-ancestor",
-                previous_base,
-                plan["verified_base_sha"],
-                allowed=(0, 1),
-            ).returncode
-            == 0,
-            "Previously verified base is not an ancestor; judgment is required",
-        )
+
+    def guarded_state():
+        observed = observation(record)
+        for kind in ("worktree", "branch"):
+            require(
+                not (
+                    observed[kind + "_present"]
+                    and event["actions"].get(kind) == "complete"
+                ),
+                "Completed " + kind + " reappeared; preserve it and request judgment",
+            )
+        for entry in record["prompts"]:
+            source = Path(record["worktree"]) / entry["path"]
+            require(
+                not (
+                    event["actions"].get("archive:" + entry["path"]) == "complete"
+                    and (source.exists() or source.is_symlink())
+                ),
+                "Archived prompt reappeared; preserve it and request judgment",
+            )
+        return observed
+
+    state = guarded_state()
     if inspect_only:
         return {
             "ok": True,
@@ -431,14 +392,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 dict(record, finish=None), previous=event.get("exit_evidence")
             ),
         }
-    if not (authorize or event["authorized"]):
-        return {
-            "ok": True,
-            "dry_run": True,
-            "plan": event["plan"],
-            "observation": state,
-        }
-    event["authorized"] = True
     event["evidence"] = str(path)
     completed_delivery = (
         event.get("delivered") is True and event.get("task_complete") is True
@@ -463,28 +416,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         persist()
         return result
 
-    def guarded_state():
-        current_base(record)
-        observed = observation(record)
-        for kind in ("worktree", "branch"):
-            require(
-                not (
-                    observed[kind + "_present"]
-                    and event["actions"].get(kind) == "complete"
-                ),
-                "Completed " + kind + " reappeared; preserve it and request judgment",
-            )
-        for entry in record["prompts"]:
-            source = Path(record["worktree"]) / entry["path"]
-            require(
-                not (
-                    event["actions"].get("archive:" + entry["path"]) == "complete"
-                    and (source.exists() or source.is_symlink())
-                ),
-                "Archived prompt reappeared; preserve it and request judgment",
-            )
-        return observed
-
     persist()
     try:
         state = guarded_state()
@@ -505,16 +436,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 state[kind + "_present"] or kind in event["actions"],
                 "Unexpected missing " + kind + "; inspect saved identity",
             )
-        if advanced:
-            event.setdefault("base_verifications", []).append(
-                {
-                    "previous_verified_base_sha": previous_base,
-                    "verified_base_sha": integrated["verified_base_sha"],
-                    "worker_sha": integrated["integrated_worker_sha"],
-                    "verification_evidence": integrated["verification_evidence"],
-                }
-            )
-            persist()
         cleanup_error = None
         try:
             if state["worktree_present"]:
@@ -550,7 +471,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
 
                     action(name, archive_one)
 
-                current_base(record)
                 args = SimpleNamespace(
                     repo=record["repo"],
                     worktree=record["worktree"],
@@ -562,7 +482,7 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                     stop_evidence=None,
                     parent=None,
                 )
-                validate(args)
+                validate(args, check_base=False)
                 confirm_exit(record, event)
                 action(
                     "worktree",
@@ -574,7 +494,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
                 event["actions"]["worktree"] = "complete"
                 persist()
             if state["branch_present"]:
-                current_base(record)
                 require(not operations(record["repo"]), "Git operation in progress")
                 guarded_state()
                 confirm_exit(record, event)
@@ -599,7 +518,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
         event["cleanup_complete"] = not event["pending_cleanup"] and all(
             item["status"] in ("closed", "removed") for item in event["housekeeping"]
         )
-        current_base(record)
         confirm_exit(record, event)
         # Report is durable outside removed resources, then saved to Aven before status changes.
         report = path.parent / "completion.md"
@@ -608,7 +526,7 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             record["repo"], "rev-parse", "--short", integrated["verified_base_sha"]
         ).stdout.strip()
         body = (
-            f"VERIFIED: Integrated at {short_sha}; independent checks passed and exact worker exit confirmed.\n"
+            f"VERIFIED: Dispatcher accepted integration at {short_sha}; worker exit confirmed.\n"
             + "- Verification: "
             + integrated["verification_evidence"]
             + "\n"
@@ -662,7 +580,6 @@ def finish_attempt(record, path, authorize=False, inspect_only=False):
             "Durable completion report missing",
         )
         event["delivered"] = True
-        current_base(record)
         confirm_exit(record, event)
 
         def task_status():
@@ -711,11 +628,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("task")
     parser.add_argument(
-        "--authorize-finish",
-        action="store_true",
-        help="Authorize the saved plan once, including report and task completion",
-    )
-    parser.add_argument(
         "--inspect", action="store_true", help="Observe without mutation"
     )
     args = parser.parse_args()
@@ -740,7 +652,7 @@ def main():
                 not path.resolve().is_relative_to(Path(record["worktree"])),
                 "Evidence must be outside worker resources",
             )
-            return emit(finish(record, path, args.authorize_finish, args.inspect))
+            return emit(finish(record, path, args.inspect))
     except ERRORS as exc:
         return emit({"ok": False, "error": error_text(exc)})
 

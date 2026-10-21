@@ -22,7 +22,7 @@ if name == "aven" and phase != "launch":
         (root / "aven-status").write_text("done")
     status = (root / "aven-status").read_text() if (root / "aven-status").exists() else "active"
     sha = git("rev-parse", "refs/heads/dispatch/app-test") if worker.exists() else ""
-    print(json.dumps({"task": {"ref": "APP-TEST", "display_ref": "APP-TEST", "status": status}, "notes": [
+    print(json.dumps({"task": {"id": "task-id", "ref": args[1], "display_ref": args[1], "status": status}, "notes": [
         {"id": "result-1", "body": "RESULT: implemented " + sha,
          "created_at": "2026-10-20T00:00:00Z"}]}))
     sys.exit(0)
@@ -63,10 +63,17 @@ class DocumentedWorkflowTests(unittest.TestCase):
         )
         return json.loads(result.stdout)
 
-    def start(self, partial=False):
+    def start(self, partial=False, task="APP-TEST", startup=True, check=None):
         fake = launch.FAKE.replace(
             'if name == "aven":', EXTRA + '\nif name == "aven":', 1
         )
+        # Each sequential worker has its own path, branch, and task reference.
+        fake = fake.replace(
+            'worker = root / "worker"',
+            'worker = Path(os.environ.get("TEST_WORKER", str(root / "worker")))',
+        )
+        if task != "APP-TEST":
+            fake = fake.replace("APP-TEST", task).replace("app-test", task.lower())
         fake = fake.replace(
             '"Status": "running"',
             '"Status": "exited" if (root / "stopped").exists() else "running"',
@@ -75,16 +82,19 @@ class DocumentedWorkflowTests(unittest.TestCase):
             (self.root / "bin" / name).write_text(
                 fake.replace("#!PYTHON", "#!" + sys.executable)
             )
-        self.command("dispatch.py", "startup", "APP-TEST")
+        if startup:
+            self.command("dispatch.py", "startup", "APP-TEST")
         self.env["MODE"] = "partial" if partial else ""
         self.command(
             "dispatch.py",
             "launch",
+            task,
+            "--run-id",
             "APP-TEST",
             "--base",
             "main",
             "--check",
-            '["git", "diff", "--check"]',
+            check or '["git", "diff", "--check"]',
             # Select Docker explicitly to exercise the same adapter on all hosts.
             "--runtime",
             "docker",
@@ -93,20 +103,22 @@ class DocumentedWorkflowTests(unittest.TestCase):
         if partial:
             self.env["MODE"] = ""
             self.command("dispatch.py", "inspect", "APP-TEST", "--resume")
-        self.worker = self.root / "worker"
+        self.worker = Path(self.env.get("TEST_WORKER", str(self.root / "worker")))
         # Match repositories that ignore Workmux artifacts: receipt-listed,
         # unchanged prompts are still eligible for archival during finish.
         (self.repo / ".git/info/exclude").write_text(".workmux/\n")
         self.git("config", "user.name", "Workflow Test")
         self.git("config", "user.email", "workflow@example.invalid")
-        (self.worker / "src").mkdir()
-        (self.worker / "src/change").write_text("delivered\n")
+        (self.worker / "src").mkdir(exist_ok=True)
+        (self.worker / "src/change").write_text(
+            "delivered\n" if task == "APP-TEST" else "delivered\nsecond\n"
+        )
         self.git("-C", str(self.worker), "add", "src/change")
         self.git("-C", str(self.worker), "commit", "-qm", "Implement task")
         self.env["PHASE"] = "reported"
-        report = self.command("dispatch_cli.py", "report", "--task", "APP-TEST")
+        report = self.command("dispatch_cli.py", "report", "--task", task)
         self.review = [
-            "APP-TEST",
+            task,
             "--reviewed-commit",
             report["worker_commit"],
             "--result-id",
@@ -114,9 +126,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
         ]
 
     def finish(self):
-        plan = self.command("finish_worker.py", "APP-TEST")
-        self.assertTrue(plan["dry_run"])
-        result = self.command("finish_worker.py", "APP-TEST", "--authorize-finish")
+        result = self.command("finish_worker.py", "APP-TEST")
         self.assertTrue(result["task_complete"])
         return result
 
@@ -150,6 +160,80 @@ class DocumentedWorkflowTests(unittest.TestCase):
         self.assertEqual(sum(c[:2] == ["workmux", "add"] for c in self.calls()), 1)
         self.assertEqual(sum(c[:2] == ["workmux", "merge"] for c in self.calls()), 1)
 
+    def test_two_accepted_tasks_reconcile_and_close_after_base_advances(self):
+        # JSON encode checks so shell quoting is not part of this test.
+        one_line = json.dumps(
+            [
+                sys.executable,
+                "-c",
+                "from pathlib import Path; assert Path('src/change').read_text() == 'delivered\\n'",
+            ]
+        )
+        self.env["TEST_WORKER"] = str(self.root / "worker-a" / "tree")
+        self.start(check=one_line)
+        self.command("integrate.py", *self.review)
+        path_a = self.record
+
+        def finish_without_worker_ui(path, task):
+            saved = json.loads(path.read_text())
+            # This fixture has only the dispatcher UI. Worker UI cleanup is
+            # covered by the separate real-socket finish tests.
+            saved["ui"]["agents"] = []
+            path.write_text(json.dumps(saved))
+            result = self.command("finish_worker.py", task)
+            self.assertTrue(result["finish_complete"])
+            return result
+
+        completed_a = finish_without_worker_ui(path_a, "APP-TEST")
+        before = path_a.read_bytes()
+        self.env["PHASE"] = "launch"
+        (self.root / "aven-status").write_text("active")
+        self.env["TEST_WORKER"] = str(self.root / "worker-b" / "tree")
+        (self.root / "stopped").unlink()
+        # start() commits a new change. B replaces A's one-line result.
+        # Reuse launch with B's own independent two-line acceptance check.
+        two_lines = json.dumps(
+            [
+                sys.executable,
+                "-c",
+                "from pathlib import Path; assert Path('src/change').read_text() == 'delivered\\nsecond\\n'",
+            ]
+        )
+        self.start(task="APP-NEXT", startup=False, check=two_lines)
+        self.command("integrate.py", *self.review)
+        path_b = self.repo / ".git/dispatch-workers/APP-NEXT/worker.json"
+        finish_without_worker_ui(path_b, "APP-NEXT")
+        self.assertEqual(path_a.read_bytes(), before)
+        self.env["TEST_WORKER"] = str(self.root / "worker-a" / "tree")
+        inspected = self.command("finish_worker.py", "APP-TEST", "--inspect")
+        self.assertEqual(inspected["saved_finish"], completed_a)
+        self.assertEqual(path_a.read_bytes(), before)
+        self.assertTrue(self.command("finish_worker.py", "APP-TEST")["finish_complete"])
+        self.assertEqual(
+            subprocess.run(
+                json.loads(one_line), cwd=self.repo, capture_output=True, check=False
+            ).returncode,
+            1,
+        )
+
+        # Restore the startup fixture's multi-task Aven context and fresh SUMMARY.
+        # It models Aven, not task-specific acceptance or finish behavior.
+        (self.root / "bin/aven").write_text(
+            launch.FAKE.replace("#!PYTHON", "#!" + sys.executable).replace(
+                '"display_ref": os.environ.get("DISPLAY_REF", "APP-TEST")',
+                '"display_ref": args[1]',
+            )
+        )
+        self.env["WRITE_SUMMARY"] = "1"
+        closed = self.command(
+            "dispatch.py", "close-run", "APP-TEST", "--authorize-close"
+        )
+        self.assertTrue(closed["aven_closed"])
+        self.assertEqual(
+            {worker["task_ref"] for worker in closed["worker_reconciliation"]},
+            {"APP-TEST", "APP-NEXT"},
+        )
+
     def test_launch_review_integrate_finish_cleanup_retry(self):
         self.start(partial=True)
         self.assertEqual(sum(c[:2] == ["workmux", "add"] for c in self.calls()), 1)
@@ -181,9 +265,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
         self.start()
         self.command("integrate.py", *self.review)
         self.env["UNCERTAIN_EXIT"] = "1"
-        result = self.command(
-            "finish_worker.py", "APP-TEST", "--authorize-finish", ok=False
-        )
+        result = self.command("finish_worker.py", "APP-TEST", ok=False)
         self.assertFalse(result["task_complete"])
         self.assertFalse(result["delivered"])
         self.assertTrue(self.worker.exists())

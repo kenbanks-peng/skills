@@ -34,7 +34,7 @@ def ref(repo, branch):
     )
 
 
-def validate(args):
+def validate(args, *, check_base=True):
     repo, worker = exact_path(args.repo), exact_path(args.worktree)
     check(
         require(git(repo, "rev-parse", "--show-toplevel")) == str(repo),
@@ -144,20 +144,23 @@ def validate(args):
         Path((git_dir / "gitdir").read_text().strip()) == worker / ".git",
         "Linked worktree backlink mismatch",
     )
-    check(
-        ref(repo, args.base) == args.verified_base_sha,
-        "Base changed since verification",
-    )
     check(ref(repo, args.branch) == args.worker_commit, "Worker branch tip changed")
-    require(
-        git(
-            repo,
-            "merge-base",
-            "--is-ancestor",
-            args.worker_commit,
-            args.verified_base_sha,
+    # Standalone cleanup verifies integration. finish_worker closes work that the
+    # dispatcher has already accepted, without reopening that decision.
+    if check_base:
+        check(
+            ref(repo, args.base) == args.verified_base_sha,
+            "Base changed since verification",
         )
-    )
+        require(
+            git(
+                repo,
+                "merge-base",
+                "--is-ancestor",
+                args.worker_commit,
+                args.verified_base_sha,
+            )
+        )
     parent = None
     if args.parent:
         parent = exact_path(args.parent)
