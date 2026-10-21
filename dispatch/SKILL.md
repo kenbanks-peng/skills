@@ -21,13 +21,13 @@ Run startup only after dispatch is requested, in the original host terminal, nev
 ```sh
 aven list --ready
 aven context APP-1234
-python3 <skill-directory>/scripts/dispatch.py startup APP-1234
+python3 <skill-directory>/scripts/startup.py APP-1234
 python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
   --base main \
   --check '["python3", "-m", "unittest"]'
 ```
 
-Startup and launch must use the same run ID. It defaults to the command's task ref; for multiple worker tasks, pass `--run-id <stable-id>` to startup and every launch. Launch verifies successful startup and the saved open Aven tab. Resume uses the worker's saved run ID. Reuse exact tab identity rather than matching by label. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
+Startup and launch must use the same run ID. It defaults to the command's task ref; for multiple worker tasks, pass `--run-id <stable-id>` to startup and every launch. Launch verifies the saved run record, not the Aven tab. Closing that tab does not block worker launch or resume. Resume uses the worker's saved run ID. Reuse exact tab identity rather than matching by label. Preserve the returned `record_path`. For interrupted startup, load [runtime.md](runtime.md#dispatch-startup-and-aven-tab).
 
 Repeat `--check` for required checks. Put task requirements in Aven rather than separate prompt fields. Pass `--platform darwin` when macOS workers are requested; otherwise launch defaults to `linux`. Let the script manage configuration, runtime selection, and UI routing. Treat script failures as blockers.
 

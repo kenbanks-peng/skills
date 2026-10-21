@@ -18,11 +18,11 @@ Finish can close only an exactly matched tmux pane on the saved server `socket_p
 
 ## Dispatch startup and Aven tab
 
-Run `python3 <skill-directory>/scripts/dispatch.py startup <designated-task-ref>` in the original dispatcher host terminal after dispatch is requested, before launching workers. Task intake never invokes startup. A repository subdirectory is supported; startup and the Aven terminal run from the repository root (`git rev-parse --show-toplevel`). This is the target repository root, not `/` or a worker worktree. [open-tasks-tab.sh](scripts/open-tasks-tab.sh) delegates to this same adapter.
+Run `python3 <skill-directory>/scripts/startup.py <designated-task-ref>` in the original dispatcher host terminal after dispatch is requested, before launching workers. Task intake never invokes startup. A repository subdirectory is supported; startup and the Aven terminal run from the repository root (`git rev-parse --show-toplevel`). This is the target repository root, not `/` or a worker worktree. [open-tasks-tab.sh](scripts/open-tasks-tab.sh) delegates to this same adapter.
 
 Startup uses read-only `aven doctor --json` to check the existing database, then reads task context and saves the project. It executes `aven tui --project <saved-project>` from the target repository root. Missing Aven, database, task context, UI identity, or unsupported UI protocol fails with a diagnostic. No database is initialized by the startup probe.
 
-The stable run ID defaults to each command's task ref. For multiple worker tasks, pass the same `--run-id <id>` to startup and every launch. Resume uses the saved worker run ID and rejects a different override. Launch verifies completed startup and the exact open tab before starting or resuming a worker. It registers worker refs in the run record before creation. Records under `<common-git-dir>/dispatch-ui/<run-id>.json` save the project, dispatcher/server identity, creation intent, Aven pane/tab identity, startup confirmation, and worker refs. Herdr uses ancestry to select the current workspace, protocol 22 `layout.apply` with a new tab only (no `tab_id`), and the root command argv. tmux uses the exact socket/session and a detached new window. Labels are display data, never recovery selectors.
+The stable run ID defaults to each command's task ref. For multiple worker tasks, pass the same `--run-id <id>` to startup and every launch. Resume uses the saved worker run ID and rejects a different override. Launch verifies completed startup from the run record. It does not check the Aven tab; closing that tab does not block worker launch or resume. It registers worker refs in the run record before creation. Records under `<common-git-dir>/dispatch-ui/<run-id>.json` save the project, dispatcher/server identity, creation intent, Aven pane/tab identity, startup confirmation, and worker refs. Herdr uses ancestry to select the current workspace, protocol 22 `layout.apply` with a new tab only (no `tab_id`), and the root command argv. tmux uses the exact socket/session and a detached new window. Labels are display data, never recovery selectors.
 
 Repeated startup verifies the saved identity without creating a replacement or restarting Aven. Missing/moved panes, changed server/dispatcher identity, or interrupted creation stop for reconciliation. Creation intent is saved before mutation; even an interruption before the returned ID is saved never automatically repeats creation. Inspect `creation_attempted`, `created_tab_id` when present, and the original UI inventory. Preserve uncertain resources and reconcile the record manually; a label match alone is not ownership proof.
 
@@ -41,8 +41,8 @@ Run in the actual dispatcher Workmux/Herdr host terminal, in the owning reposito
 
 ```sh
 cd /Users/kenbanks/Software/Public/skills/dispatch
-python3 scripts/dispatch.py startup DSP-AR8K --run-id dsp-ar8k-host-check
-python3 scripts/dispatch.py startup DSP-AR8K --run-id dsp-ar8k-host-check
+python3 scripts/startup.py DSP-AR8K --run-id dsp-ar8k-host-check
+python3 scripts/startup.py DSP-AR8K --run-id dsp-ar8k-host-check
 herdr session snapshot
 aven context DSP-AR8K
 ```

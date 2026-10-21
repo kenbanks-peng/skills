@@ -7,13 +7,12 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import sys
 import tempfile
 from pathlib import Path
 
 from dispatch_cli import latest_report
-from dispatch_ui import aven_tab, close_aven_tab, worker_tab
+from dispatch_ui import close_aven_tab, worker_tab
 from git_preflight import (
     CheckError,
     branch_ref,
@@ -439,17 +438,16 @@ def run_path(common, run_id):
 
 
 def launch_run(args, common, repo, record=None):
-    """Bind every launch to one completed, still-open startup."""
+    """Bind workers to a confirmed run without checking its optional Aven tab."""
     run_id = args.run_id or (record or {}).get("run_id") or args.task
     path = run_path(common, run_id)
-    require(path.is_file(), "Run startup first; pass the same --run-id to launch")
+    require(path.is_file(), "Run startup.py first; pass the same --run-id to launch")
     data = json.loads(path.read_text())
     require(
         data["schema_version"] == 1
         and data["repo"] == repo
-        and data.get("ok") is True
-        and data.get("aven_tab"),
-        "Run startup is not confirmed; resume startup before launch",
+        and data.get("ok") is True,
+        "Run startup is not confirmed; resume startup.py before launch",
     )
     require(
         not data.get("aven_close_attempted") and not data.get("aven_closed"),
@@ -457,8 +455,6 @@ def launch_run(args, common, repo, record=None):
     )
     if record:
         require(record["run_id"] == run_id, "Run override differs from saved run")
-    # Verify existing identity; never recreate an uncertain tab.
-    aven_tab(repo, data["argv"], data, lambda updated: save(path, updated))
     return run_id, path
 
 
@@ -571,72 +567,6 @@ def run_workers(common, run_id, registered):
             }
         )
     return evidence
-
-
-def startup_run(args):
-    """Check Aven availability from the same Git root used by the UI."""
-    require(shutil.which("aven"), "aven is missing from PATH; no UI tabs were changed")
-    require(re.fullmatch(r"[A-Za-z0-9_-]+", args.run_id or args.task), "Invalid run ID")
-    identity = paths(Path.cwd())
-    repo, common = identity["worktree"], Path(identity["common_dir"])
-    with (common / "dispatch.lock").open("a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as error:
-            raise ValueError(
-                "Another dispatch operation owns this repository"
-            ) from error
-        directory = common / "dispatch-ui"
-        directory.mkdir(exist_ok=True)
-        path = directory / ((args.run_id or args.task) + ".json")
-        if path.exists():
-            record = json.loads(path.read_text())
-            require(
-                record["repo"] == repo and record["task"] == args.task,
-                "Saved dispatch run belongs to another repository/task",
-            )
-
-        else:
-            # doctor opens read-only, unlike commands that may initialize a missing DB.
-            doctor = json.loads(run(["aven", "doctor", "--json"], repo))
-            rows = {
-                row["code"]: row
-                for section in doctor["sections"]
-                for row in section["rows"]
-            }
-            db = Path(rows["database.path"]["value"]).expanduser().resolve(strict=True)
-            require(
-                db.is_file() and rows["database.open"]["status"] == "ok",
-                "Aven database unavailable; refusing to initialize a new database",
-            )
-            context = json.loads(run(["aven", "context", args.task, "--json"], repo))
-            routing = dict(
-                db=str(db),
-                workspace=context["workspace"]["key"],
-                project=context["project"]["key"],
-            )
-            require(
-                all(isinstance(v, str) and v for v in routing.values()),
-                "Missing Aven database/workspace/project routing",
-            )
-            record = dict(
-                schema_version=1,
-                repo=repo,
-                task=args.task,
-                routing=routing,
-                task_id=context["task"]["id"],
-                task_ref=context["task"]["display_ref"],
-                prior_note_ids=[note["id"] for note in context["notes"]],
-            )
-            save(path, record)
-        routing = record["routing"]
-        require(Path(routing["db"]).is_file(), "Saved Aven database is missing")
-        argv = [shutil.which("aven"), "tui", "--project", routing["project"]]
-        record["argv"] = argv
-        aven_tab(repo, argv, record, lambda data: save(path, data))
-        record["ok"] = True
-        save(path, record)
-        return dict(record, ok=True, record_path=str(path))
 
 
 def close_run(args):
@@ -910,7 +840,7 @@ def execute(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "command", choices=("startup", "close-run", "launch", "inspect")
+        "command", choices=("close-run", "launch", "inspect")
     )
     parser.add_argument(
         "--authorize-close",
@@ -948,7 +878,7 @@ def main():
     try:
         if args.command == "close-run":
             return emit(close_run(args))
-        return emit(startup_run(args) if args.command == "startup" else execute(args))
+        return emit(execute(args))
     except ERRORS as error:
         return emit(
             {
