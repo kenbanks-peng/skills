@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 """Finish one saved worker: inspect, stop, archive, remove, report, and complete."""
 
-import argparse
 import fcntl
 import hashlib
 import json
@@ -10,13 +8,13 @@ import re
 from pathlib import Path
 from types import SimpleNamespace
 
-from archive_prompts import archive
-from cleanup_ui import close_worker_ui
-from cleanup_worker import validate
-from dispatch import ERRORS, error_text, save
-from git_preflight import commit, git, operations, paths, require
-from stop_worker import stop
-from worker_runtime import emit, run
+from .archive import archive
+from .cleanup import validate
+from .cleanup_ui import close_worker_ui
+from .git import commit, git, operations, paths, require
+from .launch import ERRORS, error_text, save
+from .runtime import emit, run
+from .stop import stop
 
 
 def observation(record):
@@ -85,9 +83,11 @@ def observation(record):
 
 def confirm_exit(record, event):
     current = stop(dict(record, finish=None), previous=event["exit_evidence"])
+    event["exit_recheck"] = current
     require(
         current.get("ok") is True and current.get("stopped") is True,
-        "Writer exit is no longer confirmed: " + json.dumps(current),
+        "Writer exit is no longer confirmed: "
+        + current.get("error", "Inspect retained exit_recheck evidence"),
     )
 
 
@@ -425,7 +425,8 @@ def finish_attempt(record, path, inspect_only=False):
         persist()
         require(
             event["stop"].get("ok") is True and event["stop"].get("stopped") is True,
-            "Writer exit is uncertain: " + json.dumps(event["stop"]),
+            "Writer exit is uncertain: "
+            + event["stop"].get("error", "Inspect retained stop evidence"),
         )
         event["exit_evidence"] = event["stop"]
         persist()
@@ -624,20 +625,14 @@ def finish_attempt(record, path, inspect_only=False):
     return event
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("task")
-    parser.add_argument(
-        "--inspect", action="store_true", help="Observe without mutation"
-    )
-    args = parser.parse_args()
+def handle(args):
     try:
         require(
             bool(re.fullmatch(r"[A-Za-z0-9]+-[A-Za-z0-9]+", args.task)),
             "Use the full task reference",
         )
         common = Path(paths(Path.cwd())["common_dir"])
-        with (common / "dispatch.lock").open("a") as lock:
+        with (common / "dispatch.lock").open("r" if args.inspect else "a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             path = common / "dispatch-workers" / args.task / "worker.json"
             record = json.loads(path.read_text())
@@ -652,10 +647,15 @@ def main():
                 not path.resolve().is_relative_to(Path(record["worktree"])),
                 "Evidence must be outside worker resources",
             )
-            return emit(finish(record, path, args.inspect))
+            result = finish(record, path, args.inspect)
+            return emit(
+                dict(
+                    result,
+                    task_ref=record["task_ref"],
+                    handle=record["handle"],
+                    record_path=str(path),
+                    verified_base_sha=record["integration"]["verified_base_sha"],
+                )
+            )
     except ERRORS as exc:
         return emit({"ok": False, "error": error_text(exc)})
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -50,7 +50,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
 
     def command(self, script, *args, ok=True):
         result = subprocess.run(
-            [sys.executable, str(launch.SCRIPTS / script), *args],
+            [sys.executable, str(launch.SCRIPTS / script), *args, "--verbose"],
             cwd=self.repo,
             env=self.env,
             capture_output=True,
@@ -102,7 +102,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
         )
         if partial:
             self.env["MODE"] = ""
-            self.command("dispatch.py", "inspect", "APP-TEST", "--resume")
+            self.command("dispatch.py", "resume", "APP-TEST")
         self.worker = Path(self.env.get("TEST_WORKER", str(self.root / "worker")))
         # Match repositories that ignore Workmux artifacts: receipt-listed,
         # unchanged prompts are still eligible for archival during finish.
@@ -116,7 +116,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
         self.git("-C", str(self.worker), "add", "src/change")
         self.git("-C", str(self.worker), "commit", "-qm", "Implement task")
         self.env["PHASE"] = "reported"
-        report = self.command("dispatch_cli.py", "report", "--task", task)
+        report = self.command("dispatch.py", "report", "--task", task)
         self.review = [
             task,
             "--reviewed-commit",
@@ -126,13 +126,13 @@ class DocumentedWorkflowTests(unittest.TestCase):
         ]
 
     def finish(self):
-        result = self.command("finish_worker.py", "APP-TEST")
+        result = self.command("dispatch.py", "finish", "APP-TEST")
         self.assertTrue(result["task_complete"])
         return result
 
     def test_successful_no_retry_managed_inventory(self):
         self.start()
-        integrated = self.command("integrate.py", *self.review)
+        integrated = self.command("dispatch.py", "integrate", *self.review)
         completed = self.finish()
         self.assertEqual(completed["pending_cleanup"], [])
         self.assertFalse(self.worker.exists())
@@ -146,6 +146,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
         expected = {
             self.record,
             directory / "assignment.md",
+            directory / "task-context.json",
             directory / "config.yaml",
             prompt_copy,
             integration / "checks.json",
@@ -155,7 +156,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
             directory / "completion.md",
         }
         actual = {path for path in directory.rglob("*") if path.is_file()}
-        self.assertEqual(len(expected), 9)
+        self.assertEqual(len(expected), 10)
         self.assertEqual(actual, expected)
         self.assertEqual(sum(c[:2] == ["workmux", "add"] for c in self.calls()), 1)
         self.assertEqual(sum(c[:2] == ["workmux", "merge"] for c in self.calls()), 1)
@@ -171,7 +172,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
         )
         self.env["TEST_WORKER"] = str(self.root / "worker-a" / "tree")
         self.start(check=one_line)
-        self.command("integrate.py", *self.review)
+        self.command("dispatch.py", "integrate", *self.review)
         path_a = self.record
 
         def finish_without_worker_ui(path, task):
@@ -180,7 +181,7 @@ class DocumentedWorkflowTests(unittest.TestCase):
             # covered by the separate real-socket finish tests.
             saved["ui"]["agents"] = []
             path.write_text(json.dumps(saved))
-            result = self.command("finish_worker.py", task)
+            result = self.command("dispatch.py", "finish", task)
             self.assertTrue(result["finish_complete"])
             return result
 
@@ -200,15 +201,31 @@ class DocumentedWorkflowTests(unittest.TestCase):
             ]
         )
         self.start(task="APP-NEXT", startup=False, check=two_lines)
-        self.command("integrate.py", *self.review)
+        self.command("dispatch.py", "integrate", *self.review)
         path_b = self.repo / ".git/dispatch-workers/APP-NEXT/worker.json"
         finish_without_worker_ui(path_b, "APP-NEXT")
         self.assertEqual(path_a.read_bytes(), before)
         self.env["TEST_WORKER"] = str(self.root / "worker-a" / "tree")
-        inspected = self.command("finish_worker.py", "APP-TEST", "--inspect")
-        self.assertEqual(inspected["saved_finish"], completed_a)
+        inspected = self.command("dispatch.py", "finish", "APP-TEST", "--inspect")
+        self.assertEqual(
+            inspected["saved_finish"],
+            {
+                k: v
+                for k, v in completed_a.items()
+                if k
+                not in (
+                    "task_ref",
+                    "handle",
+                    "record_path",
+                    "verified_base_sha",
+                    "evidence_path",
+                )
+            },
+        )
         self.assertEqual(path_a.read_bytes(), before)
-        self.assertTrue(self.command("finish_worker.py", "APP-TEST")["finish_complete"])
+        self.assertTrue(
+            self.command("dispatch.py", "finish", "APP-TEST")["finish_complete"]
+        )
         self.assertEqual(
             subprocess.run(
                 json.loads(one_line), cwd=self.repo, capture_output=True, check=False
@@ -237,17 +254,17 @@ class DocumentedWorkflowTests(unittest.TestCase):
     def test_launch_review_integrate_finish_cleanup_retry(self):
         self.start(partial=True)
         self.assertEqual(sum(c[:2] == ["workmux", "add"] for c in self.calls()), 1)
-        self.command("integrate.py", *self.review)
+        self.command("dispatch.py", "integrate", *self.review)
         # Unknown artifacts are preserved, but their cleanup remains visible after done.
         unknown = self.worker / "unknown-artifact"
         unknown.write_text("retain")
         first = self.finish()
         self.assertTrue(first["pending_cleanup"])
         self.assertTrue(unknown.exists())
-        inspected = self.command("finish_worker.py", "APP-TEST", "--inspect")
+        inspected = self.command("dispatch.py", "finish", "APP-TEST", "--inspect")
         self.assertTrue(inspected["saved_finish"]["pending_cleanup"])
         unknown.unlink()  # Explicit test-owner actions, not automatic cleanup.
-        retried = self.command("finish_worker.py", "APP-TEST")
+        retried = self.command("dispatch.py", "finish", "APP-TEST")
         self.assertTrue(retried["task_complete"])
         self.assertEqual(retried["pending_cleanup"], [])
         self.assertFalse(self.worker.exists())
@@ -255,17 +272,17 @@ class DocumentedWorkflowTests(unittest.TestCase):
     def test_interrupted_integration_reconciles_without_second_merge(self):
         self.start()
         self.env["MERGE_FAILURE"] = "after"
-        self.command("integrate.py", *self.review, ok=False)
+        self.command("dispatch.py", "integrate", *self.review, ok=False)
         self.env["MERGE_FAILURE"] = ""
-        self.command("integrate.py", *self.review, "--reconcile")
+        self.command("dispatch.py", "integrate", *self.review, "--reconcile")
         self.assertEqual(sum(c[:2] == ["workmux", "merge"] for c in self.calls()), 1)
         self.finish()
 
     def test_uncertain_exit_blocks_completion_after_integration(self):
         self.start()
-        self.command("integrate.py", *self.review)
+        self.command("dispatch.py", "integrate", *self.review)
         self.env["UNCERTAIN_EXIT"] = "1"
-        result = self.command("finish_worker.py", "APP-TEST", ok=False)
+        result = self.command("dispatch.py", "finish", "APP-TEST", ok=False)
         self.assertFalse(result["task_complete"])
         self.assertFalse(result["delivered"])
         self.assertTrue(self.worker.exists())
@@ -274,8 +291,8 @@ class DocumentedWorkflowTests(unittest.TestCase):
     def test_merge_failure_preserves_unintegrated_worker(self):
         self.start()
         self.env["MERGE_FAILURE"] = "before"
-        self.command("integrate.py", *self.review, ok=False)
-        self.command("integrate.py", *self.review, "--reconcile", ok=False)
+        self.command("dispatch.py", "integrate", *self.review, ok=False)
+        self.command("dispatch.py", "integrate", *self.review, "--reconcile", ok=False)
         self.assertTrue(self.worker.exists())
         self.assertEqual(self.git("rev-parse", "main"), self.base)
         self.assertEqual(sum(c[:2] == ["workmux", "merge"] for c in self.calls()), 1)
@@ -302,11 +319,11 @@ class DocumentationTests(unittest.TestCase):
     def test_documented_command_help(self):
         for script, extra in (
             ("dispatch.py", []),
-            ("dispatch_cli.py", ["report"]),
-            ("dispatch_cli.py", ["discover"]),
-            ("integrate.py", []),
-            ("finish_worker.py", []),
-            ("verify_base.py", []),
+            ("dispatch.py", ["report"]),
+            ("dispatch.py", ["doctor"]),
+            ("dispatch.py", ["integrate"]),
+            ("dispatch.py", ["finish"]),
+            ("dispatch.py", ["recover", "verify"]),
         ):
             result = subprocess.run(
                 [sys.executable, str(launch.SCRIPTS / script), *extra, "--help"],

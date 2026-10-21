@@ -1,16 +1,32 @@
-#!/usr/bin/env python3
 """Stop the exact recorded worker container and independently verify exit."""
 
-import argparse
 import json
 import time
 from pathlib import Path
 
-from worker_runtime import container_ids, emit, inspect, load_receipt, run, worker_path
+from .runtime import container_ids, emit, inspect, load_receipt, run, worker_path
 
 
 def stop(receipt, execute=False, timeout=30, previous=None):
-    result = {"ok": False, "executed": execute, "receipt": receipt, "observations": []}
+    result = {
+        "ok": False,
+        "executed": execute,
+        "receipt": {
+            key: receipt.get(key)
+            for key in (
+                "task_ref",
+                "common_dir",
+                "repo",
+                "worktree",
+                "worker_worktree",
+                "handle",
+                "runtime",
+                "container",
+                "record_path",
+            )
+        },
+        "observations": [],
+    }
     try:
         if receipt["runtime"] == "local" or not receipt.get("container"):
             raise ValueError(
@@ -94,24 +110,9 @@ def stop(receipt, execute=False, timeout=30, previous=None):
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        epilog=(
-            "Dry-run by default. Missing containers and inspect errors alone are not proof of exit. "
-            "Persist stdout. Only after stopped=true may dispatch reconcile the recorded UI. "
-        ),
-    )
-    parser.add_argument("--receipt", required=True)
-    parser.add_argument("--execute", action="store_true")
-    parser.add_argument(
-        "--previous",
-        help="Matching prior stop JSON for rechecking auto-removed containers",
-    )
-    parser.add_argument("--timeout", type=int, default=30)
-    args = parser.parse_args()
+def handle(args):
     if args.timeout <= 0:
-        parser.error("--timeout must be positive")
+        raise ValueError("--timeout must be positive")
     try:
         previous = (
             json.loads(Path(args.previous).read_text()) if args.previous else None
@@ -120,7 +121,3 @@ def main():
     except (OSError, ValueError, KeyError) as error:
         result = {"ok": False, "error": str(error)}
     return emit(result)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

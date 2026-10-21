@@ -1,17 +1,15 @@
-#!/usr/bin/env python3
 """Verify Aven and open the project tab once for a dispatch run."""
 
-import argparse
 import fcntl
 import json
 import re
 import shutil
 from pathlib import Path
 
-from dispatch import ERRORS, error_text, save
-from dispatch_ui import aven_tab
-from git_preflight import paths, require
-from worker_runtime import emit, run
+from .git import paths, require
+from .launch import ERRORS, error_text, save
+from .runtime import emit, run
+from .ui import aven_tab
 
 
 def startup_run(args):
@@ -80,11 +78,7 @@ def startup_run(args):
         return dict(record, ok=True, record_path=str(path))
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("task", help="Aven task for final run reporting")
-    parser.add_argument("--run-id", help="Stable run identity (default: task ref)")
-    args = parser.parse_args()
+def handle(args):
     try:
         return emit(startup_run(args))
     except ERRORS as error:
@@ -95,7 +89,3 @@ def main():
                 "next_action": "Inspect retained startup records and UI identity",
             }
         )
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

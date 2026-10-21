@@ -89,7 +89,9 @@ class IntegrationTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                str(SCRIPTS / "integrate.py"),
+                str(SCRIPTS / "dispatch.py"),
+                "integrate",
+                "--verbose",
                 "SKL-TEST",
                 "--reviewed-commit",
                 self.sha,
@@ -176,8 +178,9 @@ class IntegrationTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                str(SCRIPTS / "dispatch_cli.py"),
+                str(SCRIPTS / "dispatch.py"),
                 "report",
+                "--verbose",
                 "--task",
                 "SKL-TEST",
                 *args,

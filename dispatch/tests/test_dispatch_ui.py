@@ -12,8 +12,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "dispatch_ui.py"
-SPEC = importlib.util.spec_from_file_location("dispatch_ui", SCRIPT)
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "dispatch_lib" / "ui.py"
+sys.path.insert(0, str(SCRIPT.parents[1]))
+SPEC = importlib.util.spec_from_file_location("dispatch_lib.ui", SCRIPT)
 ui = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ui)
 
@@ -191,7 +192,9 @@ class DispatchUITests(unittest.TestCase):
     def test_help_and_invalid_actions_cannot_mutate(self):
         for action, code in [("--help", 0), ("intake", 2), ("finish", 2)]:
             result = subprocess.run(
-                [sys.executable, str(SCRIPT), action], capture_output=True, text=True
+                [sys.executable, str(SCRIPT.parents[1] / "dispatch.py"), action],
+                capture_output=True,
+                text=True,
             )
             self.assertEqual(result.returncode, code)
 
@@ -535,13 +538,8 @@ class AvenTabTests(unittest.TestCase):
         self.assertEqual(sum(c[3] == "kill-pane" for c in calls), 1)
 
     def test_legacy_close_cannot_close_run_or_worker_tabs(self):
-        result = subprocess.run(
-            ["bash", str(SCRIPT.with_name("close-tasks-tab.sh")), "herdr:aven-pane"],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("run-owned", result.stderr)
+        self.assertFalse((SCRIPT.parents[1] / "close-tasks-tab.sh").exists())
+        self.assertFalse((SCRIPT.parents[1] / "open-tasks-tab.sh").exists())
 
 
 class SocketContractTests(unittest.TestCase):

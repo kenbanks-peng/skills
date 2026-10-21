@@ -54,6 +54,7 @@ class FinishTests(unittest.TestCase):
 
     def setUp(self):
         safety.SafetyTests.setUp(self)
+        (self.repo / ".git/dispatch.lock").touch()
         self.env["CLI_MODE"] = "exited"
         self.aven_state = self.root / "aven-state.json"
         self.aven_state.write_text(json.dumps({"status": "active", "notes": []}))
@@ -113,7 +114,9 @@ class FinishTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                str(safety.SCRIPTS / "finish_worker.py"),
+                str(safety.SCRIPTS / "dispatch.py"),
+                "finish",
+                "--verbose",
                 "SKL-TEST",
                 *args,
             ],

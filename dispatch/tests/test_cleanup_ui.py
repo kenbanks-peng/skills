@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-import cleanup_ui as ui
+from dispatch_lib import cleanup_ui as ui
 
 
 class CleanupUITests(unittest.TestCase):
@@ -21,14 +21,26 @@ class CleanupUITests(unittest.TestCase):
         self.agent = {"pane_id": "boot~terminal", "window_name": "not-an-identity"}
         self.item = {}
         self.saved = []
-        self.pane = {"pane_id": "native", "terminal_id": "terminal", "tab_id": "tab",
-                     "workspace_id": "workspace", "cwd": "/worker"}
-        self.foreign = dict(self.pane, pane_id="foreign", terminal_id="foreign-term",
-                            tab_id="other-tab", cwd="/elsewhere")
+        self.pane = {
+            "pane_id": "native",
+            "terminal_id": "terminal",
+            "tab_id": "tab",
+            "workspace_id": "workspace",
+            "cwd": "/worker",
+        }
+        self.foreign = dict(
+            self.pane,
+            pane_id="foreign",
+            terminal_id="foreign-term",
+            tab_id="other-tab",
+            cwd="/elsewhere",
+        )
         self.inventory = {
             "panes": [self.pane, self.foreign],
-            "tabs": [{"tab_id": "tab", "workspace_id": "workspace"},
-                     {"tab_id": "other-tab", "workspace_id": "workspace"}],
+            "tabs": [
+                {"tab_id": "tab", "workspace_id": "workspace"},
+                {"tab_id": "other-tab", "workspace_id": "workspace"},
+            ],
         }
         self.closed = {"panes": [self.foreign], "tabs": [self.inventory["tabs"][1]]}
         self.patcher = patch.object(ui, "SavedHerdr")
@@ -47,10 +59,15 @@ class CleanupUITests(unittest.TestCase):
         self.close()
         self.factory.assert_called_once_with("/original/herdr.sock", "boot")
         self.client.request.assert_called_once_with("tab.close", tab_id="tab")
-        self.assertEqual(self.saved[-1]["target"], {
-            "pane_id": "native", "terminal_id": "terminal", "tab_id": "tab",
-            "workspace_id": "workspace",
-        })
+        self.assertEqual(
+            self.saved[-1]["target"],
+            {
+                "pane_id": "native",
+                "terminal_id": "terminal",
+                "tab_id": "tab",
+                "workspace_id": "workspace",
+            },
+        )
         self.assertTrue(self.saved[-1]["close_attempted"])
 
     def test_identity_mismatch_never_closes(self):
@@ -114,12 +131,22 @@ class CleanupUITests(unittest.TestCase):
     def test_tmux_is_pinned_to_original_socket_and_verified(self):
         context = {"backend": "tmux", "socket_path": "/original.sock"}
         agent = {"pane_id": "%1", "session": "$1"}
-        with patch.object(ui, "run", side_effect=[
-            "/original.sock\t%1\t$1\t/worker", "", "%2\n",
-        ]) as command:
+        with patch.object(
+            ui,
+            "run",
+            side_effect=[
+                "/original.sock\t%1\t$1\t/worker",
+                "",
+                "%2\n",
+            ],
+        ) as command:
             ui.close_worker_ui(context, agent, "/worker", self.item, self.persist)
-        self.assertTrue(all(call.args[0][:3] == ["tmux", "-S", "/original.sock"]
-                            for call in command.call_args_list))
+        self.assertTrue(
+            all(
+                call.args[0][:3] == ["tmux", "-S", "/original.sock"]
+                for call in command.call_args_list
+            )
+        )
         self.assertTrue(self.item["close_attempted"])
         with patch.object(ui, "run", return_value="%2\n") as command:
             ui.close_worker_ui(context, agent, "/worker", self.item, self.persist)
@@ -143,8 +170,10 @@ class PeerTransportTests(unittest.TestCase):
                         received.append(data)
                         if data:
                             request = json.loads(data)
-                            stream.sendall(json.dumps({"id": request["id"],
-                                                       "result": {}}).encode() + b"\n")
+                            stream.sendall(
+                                json.dumps({"id": request["id"], "result": {}}).encode()
+                                + b"\n"
+                            )
 
                 thread = threading.Thread(target=serve)
                 thread.start()

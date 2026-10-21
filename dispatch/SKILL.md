@@ -7,6 +7,14 @@ description: Use when the user explicitly requests dispatch to run coding tasks 
 
 Coordinate implementation through verified completion or a durable handoff. Use the `tasks` skill for Aven mechanics. Run commands from the target repository; replace `<skill-directory>` below with this skill's absolute path.
 
+## Command output
+
+Use only `scripts/dispatch.py` for dispatch operations. Run `--help` or `<command> --help` for phase-specific inputs. Internal modules are not agent commands.
+
+Default JSON is an actionable summary, not full evidence. Keep `record_path`, `evidence_path`, and report `source_path`. Read a specific field or file when needed; do not print whole worker records, note histories, container mounts, or logs. `--verbose` returns complete command evidence. Do not rerun a mutation merely to get verbose output: read its saved evidence instead. Read-only inspect can be repeated with `--verbose`; it does not save fresh observations.
+
+Cleanup and housekeeping summaries include total counts, at most three entries, and a `more` count. Resolve all remaining entries from the saved evidence. An `ok` finish can still have `pending_cleanup`; it is not run closure. See [input/output inventory](io-inventory.md) for formats, size budgets, and evidence retention.
+
 ## Coordination
 
 - Own status, assignment, review, integration, and closure. Assign implementation and RESULT/BLOCKED reporting to workers. Keep tasks active after a worker RESULT or Workmux `done` until completion requirements are met.
@@ -21,7 +29,7 @@ Run startup only after dispatch is requested, in the original host terminal, nev
 ```sh
 aven list --ready
 aven context APP-1234
-python3 <skill-directory>/scripts/startup.py APP-1234
+python3 <skill-directory>/scripts/dispatch.py startup APP-1234
 python3 <skill-directory>/scripts/dispatch.py launch APP-1234 \
   --base main \
   --check '["python3", "-m", "unittest"]'
@@ -31,24 +39,23 @@ Startup and launch must use the same run ID. It defaults to the command's task r
 
 Repeat `--check` for required checks. Put task requirements in Aven rather than separate prompt fields. Pass `--platform darwin` when macOS workers are requested; otherwise launch defaults to `linux`. Let the script manage configuration, runtime selection, and UI routing. Treat script failures as blockers.
 
-Require launch `ok: true`: the script confirms worker identity, sets active when needed, and reads Aven context to confirm the status. It saves the worker in the run index. If activation fails, use `dispatch.py inspect <task-ref> --resume`; it reads live status before any retry and never creates a replacement. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes.
+Require launch `ok: true`: the script confirms worker identity, sets active when needed, and reads Aven context to confirm the status. It saves the worker in the run index. If activation fails, use `dispatch.py resume <task-ref>`; it reads live status before any retry and never creates a replacement. Append a `DISPATCH:` note linking the returned handle and recovery record; use `tasks` for selective notes.
 
 Keep session identity and the observed `agent_type` in saved recovery evidence. Use the `tasks` policy and supported Aven metadata options for assignment metadata. On Aven versions exposing an agent field, clear it with supported CLI options when leaving active. Preserve the launch-generated evidence at `<common-git-dir>/dispatch-workers/APP-1234/worker.json`, outside worker worktrees. Use the generated worker prompt and guest path rather than caller-managed identity files.
 
 ## 2. Monitor and review
 
 ```sh
-workmux wait <returned-handle> --any --timeout 120
-workmux status --json
-python3 <skill-directory>/scripts/dispatch_cli.py report --task APP-1234
+python3 <skill-directory>/scripts/dispatch.py inspect APP-1234 --wait 120
+python3 <skill-directory>/scripts/dispatch.py report --task APP-1234
 ```
 
-Track every unresolved handle. Give the enclosing tool more than 120 seconds; inspect workers after a timeout. Handle waiting/finished workers before waiting again. Review the selected RESULT, current commits, actual diff, acceptance criteria, and check evidence. Block integration for missing or invalid reports; return incomplete work to the worker. Save the report's `worker_commit` and `note.id` for integration. Capture terminal output only for diagnosis.
+Track every unresolved handle. Give the enclosing tool more than 135 seconds. Inspect returns current worker status and any wait error without changing saved state. Handle waiting/finished workers before waiting again. Review the selected RESULT, current commits, actual diff, acceptance criteria, and check evidence. Block integration for missing or invalid reports; return incomplete work to the worker. Save the report's `worker_commit` and `note.id` for integration. The default report has a bounded excerpt. Read the complete selected report with `report --task APP-1234 --verbose` before review when the excerpt is not sufficient. This returns the selected note, not the full note history. Capture terminal output only for diagnosis.
 
 ## 3. Integrate
 
 ```sh
-python3 <skill-directory>/scripts/integrate.py APP-1234 \
+python3 <skill-directory>/scripts/dispatch.py integrate APP-1234 \
   --reviewed-commit <reviewed-worker-SHA> --result-id <reviewed-RESULT-note-ID>
 ```
 
@@ -57,7 +64,7 @@ Require `ok: true`. Preserve saved revisions and check logs. On failure or inter
 ## 4. Finish
 
 ```sh
-python3 <skill-directory>/scripts/finish_worker.py APP-1234
+python3 <skill-directory>/scripts/dispatch.py finish APP-1234
 ```
 
 Run finish after the dispatcher accepts and integrates the work. No separate finish authorization is required. Finish does not repeat acceptance checks, read verification files, or require the base to remain unchanged. Inspect the separate `delivered`, `task_complete`, `pending_cleanup`, and `housekeeping` outcomes. Finish stops the exact worker, archives known prompts, attempts safe resource cleanup, writes a durable VERIFIED report, and confirms Aven done status. Resource identity, stopped-writer, and file-preservation checks protect cleanup; they do not reopen acceptance. Permit completion with pending safe resource cleanup only when all completion requirements are met. For blocked finish, inspect the saved error, dispatcher owner, recovery action, and local `finish-blocked.md`. Restore failed Aven reporting before claiming closure.
@@ -74,7 +81,7 @@ On retries, reconcile live status against saved evidence. Confirm current status
 
 ## 5. Close or hand off
 
-Query ready work again with the run's filters. Create or reuse follow-ups and separate current-run work from deferred backlog. Run explicitly required final-run checks against the final pinned base; use `verify_base.py --help` if a separate check is needed. Do not repeat task checks as an extra run-wide gate.
+Query ready work again with the run's filters. Create or reuse follow-ups and separate current-run work from deferred backlog. Run explicitly required final-run checks against the final pinned base; use `dispatch.py recover verify --help` if a separate check is needed. Do not repeat task checks as an extra run-wide gate.
 
 Before final handoff, reconcile every tracked task against saved records and Aven context, including done tasks with pending cleanup; see [recovery.md](recovery.md). Never bulk-mark active tasks done. Append one `SUMMARY:` on the epic or designated task containing:
 

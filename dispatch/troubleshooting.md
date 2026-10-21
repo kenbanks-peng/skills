@@ -18,7 +18,7 @@ Repair Aven configuration or access and confirm the intended task context before
 Load after an unsupported command, flag, response schema, or diagnosed tool change. Normal runs do not require discovery, a capability cache, or help rehearsal.
 
 ```sh
-python3 <skill-directory>/scripts/dispatch_cli.py discover \
+python3 <skill-directory>/scripts/dispatch.py doctor \
   --cache <evidence-directory>/cli.json --refresh
 workmux <affected-subcommand> --help
 ```

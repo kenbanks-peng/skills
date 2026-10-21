@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
 """Check Git merge preconditions without changes."""
 
-import argparse
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -160,32 +157,7 @@ def preflight(args, evidence):
     require(not evidence["status_porcelain"], "Worker has tracked or untracked changes")
 
 
-def parser():
-    result = argparse.ArgumentParser(
-        description=__doc__,
-        epilog=(
-            "Emits one JSON object; exit 0 means the observed preconditions passed, "
-            "not authorization to merge. No refs, config, index, or worktree files are changed. "
-            "Serialize Git operations: evidence is a snapshot, not a lock. Ignored files are allowed. Non-normal index entries (including assume-unchanged and skip-worktree) are rejected."
-        ),
-    )
-    result.add_argument(
-        "--repo", required=True, help="Existing repository checkout path"
-    )
-    result.add_argument(
-        "--worker-worktree", required=True, help="Exact registered worker worktree root"
-    )
-    result.add_argument(
-        "--worker-branch", required=True, help="Expected local worker branch name"
-    )
-    result.add_argument(
-        "--base", required=True, help="Explicit local base branch name (no default)"
-    )
-    return result
-
-
-def main(argv=None):
-    args = parser().parse_args(argv)
+def handle(args):
     evidence = {"ok": False}
     try:
         preflight(args, evidence)
@@ -194,7 +166,3 @@ def main(argv=None):
         evidence["error"] = str(exc)
     print(json.dumps(evidence, indent=2))
     return 0 if evidence["ok"] else 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts/agent_processes.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts/probes/agent_processes.py"
 SPEC = importlib.util.spec_from_file_location("agent_processes", SCRIPT)
 PROBE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PROBE)

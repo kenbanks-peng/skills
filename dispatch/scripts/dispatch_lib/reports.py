@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
 """Compatibility troubleshooting and latest dispatch report output."""
 
-import argparse
+import hashlib
 import json
 import re
 import shutil
 from pathlib import Path
 
-from git_preflight import CheckError, commit, paths, require
-from worker_runtime import emit, run
+from .git import CheckError, commit, paths, require
+from .runtime import emit, run
 
 COMMANDS = {
     "workmux": {
@@ -43,8 +42,13 @@ def discover(cache, refresh=False):
             available = set(re.findall(r"--[a-z][a-z-]*", help_text))
             item["commands"][command] = {flag: flag in available for flag in flags}
         data["tools"][binary] = item
-        if not all(all(flags.values()) for flags in item["commands"].values()):
-            data["ok"] = False
+        for command, flags in item["commands"].items():
+            for flag, available in flags.items():
+                if not available:
+                    data["ok"] = False
+                    data.setdefault("errors", []).append(
+                        f"{binary} {command}: required flag {flag} is unavailable"
+                    )
     cache.parent.mkdir(parents=True, exist_ok=True)
     temporary = cache.with_suffix(cache.suffix + ".tmp")
     temporary.write_text(json.dumps(data, indent=2) + "\n")
@@ -91,33 +95,7 @@ def worker_result(data, record, sha):
     raise ValueError("RESULT lacks matching current worker commit evidence")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    subs = parser.add_subparsers(dest="command", required=True)
-    discovery = subs.add_parser(
-        "discover",
-        help="Troubleshoot unsupported CLI/schema behavior or a diagnosed tool change only",
-    )
-    discovery.add_argument("--cache", type=Path, required=True)
-    discovery.add_argument("--refresh", action="store_true")
-    report = subs.add_parser("report", help="Return the latest matching note only")
-    report.add_argument("--task", required=True)
-    report.add_argument(
-        "--kind",
-        default="RESULT",
-        choices=("RESULT", "BLOCKED", "VERIFIED", "DISPATCH", "SUMMARY"),
-    )
-    report.add_argument(
-        "--after", help="Exclusive ISO timestamp from the previous event"
-    )
-    report.add_argument(
-        "--input", type=Path, help="Use retained Aven full JSON instead of fetching"
-    )
-    report.add_argument(
-        "--save", type=Path, help="Retain fetched full JSON for recovery"
-    )
-
-    args = parser.parse_args()
+def handle(args):
     try:
         if args.command == "discover":
             result = discover(args.cache, args.refresh)
@@ -134,10 +112,19 @@ def main():
                 raise ValueError(
                     "Report snapshot must match the exact full task reference"
                 )
+            # Retain the complete source once, not in every selected report.
+            common = Path(paths(Path.cwd())["common_dir"])
+            directory = common / "dispatch-reports"
+            directory.mkdir(exist_ok=True)
+            source = directory / (hashlib.sha256(text.encode()).hexdigest() + ".json")
+            if not source.exists():
+                with source.open("x") as output:
+                    output.write(text)
             if args.save:
                 with args.save.open("x") as output:
                     output.write(text)
             result = latest_report(data, args.kind, args.after)
+            result["source_path"] = str(source)
             if args.kind == "RESULT":
                 common = Path(paths(Path.cwd())["common_dir"])
                 record = json.loads(
@@ -156,7 +143,3 @@ def main():
     except (ValueError, OSError, KeyError, TypeError, CheckError) as error:
         result = {"ok": False, "error": str(error)}
     return emit(result)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

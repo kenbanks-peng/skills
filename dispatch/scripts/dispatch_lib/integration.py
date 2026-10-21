@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 """Integrate reviewed work from a saved dispatch record; never clean up or close tasks."""
 
-import argparse
 import contextlib
 import copy
 import fcntl
@@ -9,15 +7,10 @@ import io
 import json
 import math
 import re
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-sys.dont_write_bytecode = True
-
-from dispatch import ERRORS, error_text, save
-from dispatch_cli import worker_result
-from git_preflight import (
+from .git import (
     branch_ref,
     commit,
     git,
@@ -29,8 +22,10 @@ from git_preflight import (
     require,
     status,
 )
-from verify_base import main as verify_main
-from worker_runtime import emit, run
+from .launch import ERRORS, error_text, save
+from .reports import worker_result
+from .runtime import emit, run
+from .verification import handle as verify_main
 
 
 def identity(record, evidence):
@@ -77,18 +72,13 @@ def checked(record, sha, base, filename, timeout, worker_sha=None):
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         code = verify_main(
-            [
-                "--repo",
-                record["repo"],
-                "--base",
-                base,
-                "--worker-commit",
-                worker_sha or sha,
-                "--checks-file",
-                str(filename.parent / "checks.json"),
-                "--timeout",
-                str(timeout),
-            ]
+            SimpleNamespace(
+                repo=record["repo"],
+                base=base,
+                worker_commit=worker_sha or sha,
+                checks_file=[str(filename.parent / "checks.json")],
+                timeout=timeout,
+            )
         )
     data = json.loads(output.getvalue())
     save(filename, data)
@@ -120,7 +110,7 @@ def execute(args):
         "Use the full task reference",
     )
     path = common / "dispatch-workers" / args.task / "worker.json"
-    with (common / "dispatch.lock").open("a") as lock:
+    with (common / "dispatch.lock").open("r" if args.closure else "a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
@@ -183,7 +173,12 @@ def execute(args):
         save(path, record)
         directory = path.parent / ("integration-" + str(len(record["events"])))
         directory.mkdir(exist_ok=True)
-        event["evidence_directory"] = str(directory)
+        event.update(
+            evidence_directory=str(directory),
+            record_path=str(path),
+            task_ref=record["task_ref"],
+            handle=record["handle"],
+        )
         try:
             event["result"] = result(record, args.result_id, args.reviewed_commit)
             evidence = {}
@@ -310,7 +305,7 @@ def execute(args):
             event.pop("error", None)
             record.update(
                 ok=True,
-                next_action="Run finish_worker.py to stop, clean up, and close the accepted task",
+                next_action="Run dispatch.py finish to stop, clean up, and close the accepted task",
             )
         except ERRORS as exc:
             event.update(ok=False, error=error_text(exc))
@@ -322,36 +317,10 @@ def execute(args):
         return event
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("task")
-    parser.add_argument("--reviewed-commit")
-    parser.add_argument("--result-id", help="ID of the latest reviewed RESULT note")
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument(
-        "--reconcile",
-        action="store_true",
-        help="Observe an attempted merge and rerun checks; never merge again",
-    )
-    mode.add_argument(
-        "--new-attempt",
-        action="store_true",
-        help="Explicit new review after repair of a pre-merge failure",
-    )
-    mode.add_argument(
-        "--closure",
-        action="store_true",
-        help="Read-only rejection of base movement before task closure",
-    )
-    parser.add_argument("--timeout", type=float, default=300)
-    args = parser.parse_args()
+def handle(args):
     if not math.isfinite(args.timeout) or args.timeout <= 0:
-        parser.error("--timeout must be finite and positive")
+        raise ValueError("--timeout must be finite and positive")
     try:
         return emit(execute(args))
     except ERRORS as exc:
         return emit({"ok": False, "error": error_text(exc)})
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

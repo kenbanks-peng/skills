@@ -47,7 +47,7 @@ if name == "aven":
         sys.exit(7)
     if "--json" not in args:
         if mode == "human-context-error":
-            sys.stderr.write("cannot read human context")
+            sys.stderr.write("cannot read task context")
             sys.exit(7)
         print("APP-TEST: Literal `code` $(touch SENTINEL) \\path\n"
               "Description:\nUse $HOME and `backticks` literally\nsecond line\n"
@@ -306,7 +306,7 @@ class LaunchTests(unittest.TestCase):
 
     def cli(self, *args, ok=True):
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS / "dispatch.py"), *args],
+            [sys.executable, str(SCRIPTS / "dispatch.py"), *args, "--verbose"],
             cwd=self.repo,
             env=self.env,
             text=True,
@@ -361,7 +361,13 @@ class LaunchTests(unittest.TestCase):
         results = []
         for cwd in (subdir, self.repo):
             result = subprocess.run(
-                [sys.executable, str(SCRIPTS / "dispatch.py"), "startup", "APP-TEST"],
+                [
+                    sys.executable,
+                    str(SCRIPTS / "dispatch.py"),
+                    "startup",
+                    "APP-TEST",
+                    "--verbose",
+                ],
                 cwd=cwd,
                 env=self.env,
                 text=True,
@@ -447,7 +453,7 @@ class LaunchTests(unittest.TestCase):
     def test_literal_prompt_default_routing_and_saved_identity(self):
         data = self.launch()
         saved = json.loads(self.record.read_text())
-        self.assertEqual(saved, data)
+        self.assertEqual(saved, {k: v for k, v in data.items() if k != "evidence_path"})
         self.assertEqual(data["launch_base"], self.base)
         self.assertEqual(data["repo"], str(self.repo))
         self.assertEqual(data["agent_type"], "pi")
@@ -469,7 +475,6 @@ class LaunchTests(unittest.TestCase):
             [
                 ["aven", "context", "APP-TEST", "--json"],  # startup
                 ["aven", "context", "APP-TEST", "--json"],  # assignment
-                ["aven", "context", "APP-TEST"],
                 ["aven", "context", "APP-TEST", "--json"],  # activation
             ],
         )
@@ -496,7 +501,7 @@ class LaunchTests(unittest.TestCase):
         self.cli("inspect", "APP-TEST")
         self.assertEqual(self.record.read_bytes(), before)
         self.assertEqual(self.label.read_text(), "✅ dispatch-app-test")
-        resumed = self.cli("inspect", "APP-TEST", "--resume")
+        resumed = self.cli("resume", "APP-TEST")
         self.assertEqual(self.label.read_text(), "✅ dispatch-app-test")
         self.assertEqual(resumed["worker_tab"], data["worker_tab"])
         self.assertEqual(len(self.adds()), 1)
@@ -510,7 +515,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(data["handle"], "dispatch-app-test")
         self.assertEqual(data["branch"], "dispatch/app-test")
         self.label.write_text("💬 APP-TeST")
-        self.cli("inspect", "APP-TeST", "--resume")
+        self.cli("resume", "APP-TeST")
         self.assertEqual(self.label.read_text(), "💬 APP-TeST")
         self.assertEqual(len(self.adds()), 1)
 
@@ -518,7 +523,7 @@ class LaunchTests(unittest.TestCase):
         self.launch()
         self.ui_calls.clear()
         self.tab_id = "unrelated"
-        data = self.cli("inspect", "APP-TEST", "--resume", ok=False)
+        data = self.cli("resume", "APP-TEST", ok=False)
         self.assertIn("identity changed", data["error"])
         self.assertFalse(any(call["method"] == "tab.rename" for call in self.ui_calls))
         self.assertEqual(len(self.adds()), 1)
@@ -534,7 +539,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(event["agent_processes"][0]["pid"], 3)
         self.assertIn(["docker", "exec", "container-1"], [c[:3] for c in self.calls()])
         self.env["MODE"] = ""
-        resumed = self.cli("inspect", "APP-TEST", "--resume")
+        resumed = self.cli("resume", "APP-TEST")
         self.assertEqual(resumed["agent_type"], "pi")
 
     def test_null_kind_process_probe_uses_exact_apple_container(self):
@@ -561,7 +566,7 @@ class LaunchTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 self.env["MODE"] = mode
                 if self.record.exists():
-                    self.cli("inspect", "APP-TEST", "--resume", ok=False)
+                    self.cli("resume", "APP-TEST", ok=False)
                 else:
                     self.launch(ok=False)
                 self.assertEqual(len(self.adds()), 1)
@@ -601,7 +606,7 @@ class LaunchTests(unittest.TestCase):
                 if self.record.exists():
                     # Use the retained worker for each subsequent observation.
                     self.env["MODE"] = mode
-                    data = self.cli("inspect", "APP-TEST", "--resume", ok=False)
+                    data = self.cli("resume", "APP-TEST", ok=False)
                 else:
                     self.env["MODE"] = mode
                     data = self.launch(ok=False)
@@ -613,7 +618,7 @@ class LaunchTests(unittest.TestCase):
     def test_changed_identity_blocks_resume(self):
         self.launch()
         self.env["MODE"] = "changed-ui"
-        data = self.cli("inspect", "APP-TEST", "--resume", ok=False)
+        data = self.cli("resume", "APP-TEST", ok=False)
         self.assertIn("identity changed", data["error"])
         self.assertEqual(data["ui"]["agents"][0]["pane_id"], "boot~terminal-1")
         self.assertEqual(
@@ -693,7 +698,7 @@ class LaunchTests(unittest.TestCase):
         data = self.cli(
             "launch", "APP-TEST", "--base", "main", "--check", '["true"]', ok=False
         )
-        self.assertIn("Run startup first", data["error"])
+        self.assertIn("Run dispatch.py startup first", data["error"])
         self.assertEqual(self.adds(), [])
         self.assertFalse(self.record.exists())
         self.prepare_run()
@@ -716,7 +721,7 @@ class LaunchTests(unittest.TestCase):
         self.assertTrue(data["launch_confirmed"])
         self.assertTrue(data["events"][-1]["activation"]["ok"])
         self.assertEqual(data["events"][-1]["activation"]["status"], "active")
-        self.cli("inspect", "APP-TEST", "--resume")
+        self.cli("resume", "APP-TEST")
         edits = [c for c in self.calls() if c[:2] == ["aven", "edit"]]
         self.assertEqual(edits, [["aven", "edit", "APP-TEST", "--status", "active"]])
         self.assertEqual(len(self.adds()), 1)
@@ -736,7 +741,7 @@ class LaunchTests(unittest.TestCase):
                 self.assertTrue(data["launch_confirmed"])
                 self.assertNotIn("ok", data["events"][-1]["activation"])
                 self.env["MODE"] = ""
-                self.cli("inspect", "APP-TEST", "--resume")
+                self.cli("resume", "APP-TEST")
                 self.assertEqual(len(self.adds()), 1)
                 if mode == "active-lost-response":
                     edits = [c for c in self.calls() if c[:2] == ["aven", "edit"]]
@@ -834,7 +839,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(data["run_id"], "shared-run")
         index = json.loads(Path(data["run_record_path"]).read_text())
         self.assertEqual(index["worker_refs"], ["APP-TEST"])
-        resumed = self.cli("inspect", "APP-TEST", "--resume")
+        resumed = self.cli("resume", "APP-TEST")
         self.assertEqual(resumed["run_id"], "shared-run")
         self.assertEqual(len(self.adds()), 1)
 
@@ -896,19 +901,19 @@ class LaunchTests(unittest.TestCase):
         self.record.write_text(json.dumps(saved))
         prompt = Path(data["prompt"]).read_text()
         self.assertNotIn("## Aven reporting", prompt)
-        self.assertIn(["aven", "context", "APP-TEST"], self.calls())
+        self.assertNotIn(["aven", "context", "APP-TEST"], self.calls())
 
-        self.cli("inspect", "APP-TEST", "--resume")
+        self.cli("resume", "APP-TEST")
         self.assertEqual(len(self.adds()), 1)
         self.assertEqual(
             [call for call in self.calls() if call[0] == "aven"][-1],
             ["aven", "context", "APP-TEST", "--json"],
         )
 
-    def test_human_context_failure_does_not_launch_or_save_record(self):
-        self.env["MODE"] = "human-context-error"
+    def test_structured_context_failure_does_not_launch_or_save_record(self):
+        self.env["MODE"] = "context-error"
         data = self.launch(ok=False)
-        self.assertIn("cannot read human context", data["error"])
+        self.assertIn("cannot read task context", data["error"])
         self.assertEqual(self.adds(), [])
         self.assertFalse(self.record.exists())
 

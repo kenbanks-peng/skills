@@ -1,21 +1,16 @@
-#!/usr/bin/env python3
 """Run required argv checks on a pinned local base in an isolated Git worktree."""
 
-import argparse
 import json
 import math
 import os
 import re
 import signal
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 
-sys.dont_write_bytecode = True
-
-from git_preflight import (
+from .git import (
     CheckError,
     branch_ref,
     commit,
@@ -92,8 +87,17 @@ def stop_group(process):
 
 def run_check(check, checkout, timeout):
     require(os.name == "posix", "Check execution requires POSIX process groups")
-    limit = 1024 * 1024
-    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+    limit = 4096
+    logs = Path(paths(checkout)["common_dir"]) / "dispatch-checks"
+    logs.mkdir(exist_ok=True)
+    with (
+        tempfile.NamedTemporaryFile(
+            dir=logs, prefix="check-", suffix=".stdout", delete=False
+        ) as stdout,
+        tempfile.NamedTemporaryFile(
+            dir=logs, prefix="check-", suffix=".stderr", delete=False
+        ) as stderr,
+    ):
         process = subprocess.Popen(
             check["argv"],
             cwd=checkout,
@@ -101,6 +105,7 @@ def run_check(check, checkout, timeout):
             stdout=stdout,
             stderr=stderr,
             shell=False,
+            stdin=subprocess.DEVNULL,
             start_new_session=True,
         )
         timed_out = False
@@ -124,6 +129,10 @@ def run_check(check, checkout, timeout):
             else ("passed" if process.returncode == 0 else "failed"),
         )
         for name, stream in (("stdout", stdout), ("stderr", stderr)):
+            stream.flush()
+            os.fsync(stream.fileno())
+            check[name + "_path"] = stream.name
+            check[name + "_bytes"] = os.fstat(stream.fileno()).st_size
             stream.seek(0)
             output = stream.read(limit + 1)
             check[name] = output[:limit].decode("utf-8", errors="replace")
@@ -202,54 +211,9 @@ def observe_base(args, evidence):
         evidence.setdefault("errors", []).append(str(exc))
 
 
-def parser():
-    result = argparse.ArgumentParser(
-        description=__doc__,
-        epilog=(
-            "Emits JSON evidence and exits nonzero on any failure, dirty checkout, or observed base movement. "
-            "Checks execute sequentially, fail fast, with captured stdout/stderr and no shell evaluation. "
-            "Pinned detached HEAD, normal index flags, and clean tracked content are required before every check and at completion. "
-            "Ignored/untracked build artifacts may exist between checks, but must be removed before final cleanup. "
-            "POSIX is required: each check gets a new session; its process group receives TERM then KILL after 0.2 seconds on timeout or exit. "
-            "JSON output is capped at 1 MiB per stream (truncation flagged); temporary capture files can grow until the check ends. "
-            "Children that deliberately escape the process group are not contained. "
-            "Only a successful, still-clean temporary checkout is removed; failures retain it for diagnosis. "
-            "Checks are trusted executable code, not sandboxed. "
-            "Evidence is a snapshot: serialize merges and recheck the base before closure."
-        ),
-    )
-    result.add_argument(
-        "--repo", required=True, help="Existing repository checkout path"
-    )
-    result.add_argument("--base", required=True, help="Explicit local base branch name")
-    result.add_argument(
-        "--worker-commit",
-        required=True,
-        help="Full checked post-rebase worker commit SHA",
-    )
-    result.add_argument(
-        "--checks-file",
-        required=True,
-        action="append",
-        help=(
-            'UTF-8 JSON file containing nonempty argv arrays, e.g. [["python3", "-m", "unittest"]]. '
-            "Repeat to concatenate files in order; every file must be nonempty. Paths in argv are relative to the temporary checkout."
-        ),
-    )
-    result.add_argument(
-        "--timeout",
-        type=float,
-        default=300,
-        help="Positive timeout in seconds per check (default: 300)",
-    )
-    return result
-
-
-def main(argv=None):
-    cli = parser()
-    args = cli.parse_args(argv)
+def handle(args):
     if not math.isfinite(args.timeout) or args.timeout <= 0:
-        cli.error("--timeout must be finite and positive")
+        raise ValueError("--timeout must be finite and positive")
     evidence = {"ok": False, "checks": [], "cleanup": "not_created"}
     try:
         verify(args, evidence)
@@ -268,7 +232,3 @@ def main(argv=None):
         observe_base(args, evidence)
     print(json.dumps(evidence, indent=2))
     return 0 if evidence["ok"] else 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

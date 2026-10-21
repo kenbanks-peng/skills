@@ -1,19 +1,14 @@
-#!/usr/bin/env python3
 """Fail-closed removal of one verified, merged linked worktree and branch."""
 
-import argparse
 import errno
 import json
 import os
 import re
-import sys
 from pathlib import Path
 
-sys.dont_write_bytecode = True
-
-from recovery_snapshot import git, require, state, worktrees
-from stop_worker import stop
-from worker_runtime import load_receipt
+from .recovery import git, require, state, worktrees
+from .runtime import load_receipt
+from .stop import stop
 
 
 def exact_path(value):
@@ -248,67 +243,7 @@ def cleanup(args):
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        epilog=(
-            "Dry-run by default. Execution requires BOTH --execute and --authorize-cleanup. "
-            "Authorization asserts required checks passed on the supplied exact base SHA and all "
-            "worker writers are stopped. Coordinate these explicit arguments with verify_base; no "
-            "guessed JSON schema is accepted. Serialize repository lifecycle operations externally: "
-            "Git inspection/removal/ref deletion cannot be atomic. Partial failures retain remaining "
-            "resources and return exit 1. No Workmux or Aven calls; sessions must be reconciled separately."
-        ),
-    )
-    parser.add_argument(
-        "--repo", required=True, help="Exact canonical repository root outside worker"
-    )
-    parser.add_argument(
-        "--worktree", required=True, help="Exact registered linked worker worktree path"
-    )
-    parser.add_argument(
-        "--branch",
-        required=True,
-        help="Explicit local worker branch (not a ref or handle)",
-    )
-    parser.add_argument(
-        "--base", required=True, help="Explicit local verified base branch"
-    )
-    parser.add_argument(
-        "--verified-base-sha",
-        required=True,
-        help="Full SHA on which required checks passed",
-    )
-    parser.add_argument(
-        "--worker-commit",
-        required=True,
-        help="Full verified worker tip SHA, ancestor of base",
-    )
-    parser.add_argument(
-        "--receipt",
-        help="Launch receipt; required with --stop-evidence for container workers",
-    )
-    parser.add_argument(
-        "--stop-evidence",
-        help="Confirmed stop JSON; rechecked against the container before cleanup",
-    )
-    parser.add_argument(
-        "--parent",
-        help="Optional exact immediate parent; rmdir only, nonempty retained",
-    )
-    parser.add_argument(
-        "--execute", action="store_true", help="Perform removal rather than dry-run"
-    )
-    parser.add_argument(
-        "--authorize-cleanup",
-        action="store_true",
-        help="Explicitly authorize cleanup after verification and stopping writers",
-    )
-    args = parser.parse_args()
+def handle(args):
     result = cleanup(args)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

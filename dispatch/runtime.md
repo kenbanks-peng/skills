@@ -18,7 +18,7 @@ Finish can close only an exactly matched tmux pane on the saved server `socket_p
 
 ## Dispatch startup and Aven tab
 
-Run `python3 <skill-directory>/scripts/startup.py <designated-task-ref>` in the original dispatcher host terminal after dispatch is requested, before launching workers. Task intake never invokes startup. A repository subdirectory is supported; startup and the Aven terminal run from the repository root (`git rev-parse --show-toplevel`). This is the target repository root, not `/` or a worker worktree. [open-tasks-tab.sh](scripts/open-tasks-tab.sh) delegates to this same adapter.
+Run `python3 <skill-directory>/scripts/dispatch.py startup <designated-task-ref>` in the original dispatcher host terminal after dispatch is requested, before launching workers. Task intake never invokes startup. A repository subdirectory is supported; startup and the Aven terminal run from the repository root (`git rev-parse --show-toplevel`). This is the target repository root, not `/` or a worker worktree.
 
 Startup uses read-only `aven doctor --json` to check the existing database, then reads task context and saves the project. It executes `aven tui --project <saved-project>` from the target repository root. Missing Aven, database, task context, UI identity, or unsupported UI protocol fails with a diagnostic. No database is initialized by the startup probe.
 
@@ -33,7 +33,7 @@ Aven and dispatcher tabs are run-owned, never worker cleanup targets. Keep them 
 python3 <skill-directory>/scripts/dispatch.py close-run <designated-task-ref> --authorize-close
 ```
 
-Use the same `--run-id <id>` as startup, if set. [close-tasks-tab.sh](scripts/close-tasks-tab.sh) accepts the same task/run/authorization arguments; labels and pane IDs are not accepted. Closure uses the saved socket and exact pane/tab identity, refuses changed identities or extra panes, and confirms removal. The dispatcher and unrelated tabs stay open. Interrupted closure can be retried with the same command; saved intent permits reconciliation without a second close when the target is already absent. Do not close on a blocked or partial handoff. Report any closure failure as pending housekeeping. A closed run cannot be restarted; use a new run ID for new work.
+Use the same `--run-id <id>` as startup, if set. Labels and pane IDs are not accepted. Closure uses the saved socket and exact pane/tab identity, refuses changed identities or extra panes, and confirms removal. The dispatcher and unrelated tabs stay open. Interrupted closure can be retried with the same command; saved intent permits reconciliation without a second close when the target is already absent. Do not close on a blocked or partial handoff. Report any closure failure as pending housekeeping. A closed run cannot be restarted; use a new run ID for new work.
 
 ### Host end-to-end check
 
@@ -41,8 +41,8 @@ Run in the actual dispatcher Workmux/Herdr host terminal, in the owning reposito
 
 ```sh
 cd /Users/kenbanks/Software/Public/skills/dispatch
-python3 scripts/startup.py DSP-AR8K --run-id dsp-ar8k-host-check
-python3 scripts/startup.py DSP-AR8K --run-id dsp-ar8k-host-check
+python3 scripts/dispatch.py startup DSP-AR8K --run-id dsp-ar8k-host-check
+python3 scripts/dispatch.py startup DSP-AR8K --run-id dsp-ar8k-host-check
 herdr session snapshot
 aven context DSP-AR8K
 ```

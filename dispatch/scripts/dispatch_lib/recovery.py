@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 """Read-only recovery evidence. No task or multiplexer mutations."""
 
-import argparse
 import json
 import os
 import re
@@ -84,6 +82,19 @@ def command(argv, cwd, timeout=10):
             result[name] = data[:LIMIT].decode("utf-8", errors="replace")
             if len(data) > LIMIT:
                 result["truncated"] = True
+                # A failed bounded observation must not discard its full log.
+                from .git import paths as repo_paths
+
+                logs = Path(repo_paths(cwd)["common_dir"]) / "dispatch-recovery-logs"
+                logs.mkdir(exist_ok=True)
+                stream.seek(0)
+                with tempfile.NamedTemporaryFile(
+                    dir=logs, prefix="observation-", suffix="." + name, delete=False
+                ) as retained:
+                    shutil.copyfileobj(stream, retained)
+                    retained.flush()
+                    os.fsync(retained.fileno())
+                    result[name + "_path"] = retained.name
         result["ok"] = (
             result.get("returncode") == 0
             and not result.get("truncated")
@@ -216,43 +227,13 @@ def snapshot(repo, handles=(), timeout=10):
     return evidence
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        epilog=(
-            "JSON on stdout. Exit 1 for failed/truncated observations; missing optional Workmux "
-            "is marked incomplete. Git status includes ignored files. No Aven calls. "
-            "POSIX required: each command runs in a dedicated session/process group. "
-            "Timeout sends group SIGTERM, then SIGKILL after 0.25 seconds, with at most "
-            "1 second to reap the leader. Signal/reap errors are retained. Returned output "
-            "is capped at 64 KiB per stream; temporary capture files are not size-capped. "
-            "Descendants that deliberately leave the process group are not contained."
-        ),
-    )
-    parser.add_argument("--repo", required=True, help="Explicit repository directory")
-    parser.add_argument(
-        "--handle",
-        action="append",
-        default=[],
-        help="Optional exact Workmux handle; repeatable",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=float,
-        default=10,
-        help="Seconds per Workmux command (default: 10)",
-    )
-    args = parser.parse_args()
+def handle(args):
     if not 0 < args.timeout <= 120 or any(
         not h or h.startswith("-") for h in args.handle
     ):
-        parser.error(
+        raise ValueError(
             "timeout must be in (0, 120]; handles must be nonempty and not options"
         )
     result = snapshot(args.repo, args.handle, args.timeout)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

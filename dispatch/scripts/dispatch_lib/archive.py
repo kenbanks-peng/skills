@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
 """Archive receipt-listed generated prompts before strict worktree cleanup."""
 
-import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
 
-from worker_runtime import canonical, emit, load_receipt, run
+from .runtime import canonical, emit, load_receipt, run
 
 
 def archive(receipt, stop, destination, execute=False):
@@ -29,8 +27,10 @@ def archive(receipt, stop, destination, execute=False):
         ):
             raise ValueError("Matching confirmed worker-stop evidence is required")
         result.update(
-            worktree=str(worker), archive=str(destination),
-            repo=receipt["repo"], handle=receipt["handle"],
+            worktree=str(worker),
+            archive=str(destination),
+            repo=receipt["repo"],
+            handle=receipt["handle"],
         )
         directory = worker / ".workmux"
         if directory.is_symlink():
@@ -112,20 +112,7 @@ def archive(receipt, stop, destination, execute=False):
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        epilog=(
-            "Dry-run by default. Requires matching stop evidence. Unknown .workmux files "
-            "remain in place and still block cleanup. Keep stdout with run evidence. "
-            "After partial removal, reconcile recorded actions before retrying."
-        ),
-    )
-    parser.add_argument("--receipt", required=True)
-    parser.add_argument("--stop-evidence", required=True)
-    parser.add_argument("--archive", required=True)
-    parser.add_argument("--execute", action="store_true")
-    args = parser.parse_args()
+def handle(args):
     try:
         result = archive(
             load_receipt(args.receipt),
@@ -136,7 +123,3 @@ def main():
     except (OSError, ValueError, KeyError) as error:
         result = {"ok": False, "error": str(error)}
     return emit(result)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

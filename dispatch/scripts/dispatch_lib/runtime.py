@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
 """Shared bounded CLI calls and container observations for dispatch helpers."""
 
 import json
 import subprocess
 from pathlib import Path
 
-from git_preflight import git_env
+from .git import git_env
 
 
 def run(argv, cwd=None, timeout=30, env=None):
@@ -15,6 +14,7 @@ def run(argv, cwd=None, timeout=30, env=None):
             cwd=cwd,
             text=True,
             capture_output=True,
+            stdin=subprocess.DEVNULL,
             timeout=timeout,
             check=False,
             env=git_env() if env is None else env,

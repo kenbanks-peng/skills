@@ -115,8 +115,15 @@ class SafetyTests(unittest.TestCase):
         return str(path)
 
     def cli(self, script, *args, ok=True):
+        route = [script] if script == "report" else ["recover", script]
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS / script), *map(str, args)],
+            [
+                sys.executable,
+                str(SCRIPTS / "dispatch.py"),
+                *route,
+                *map(str, args),
+                "--verbose",
+            ],
             env=self.env,
             capture_output=True,
             text=True,
@@ -158,7 +165,7 @@ class SafetyTests(unittest.TestCase):
             for key, value in values.items()
             for item in ("--" + key.replace("_", "-"), value)
         ]
-        return self.cli("git_preflight.py", *args, ok=ok)
+        return self.cli("preflight", *args, ok=ok)
 
     def cleanup(self, ok=True, **overrides):
         values = {
@@ -175,13 +182,11 @@ class SafetyTests(unittest.TestCase):
             for key, value in values.items()
             for item in ("--" + key.replace("_", "-"), value)
         ]
-        return self.cli(
-            "cleanup_worker.py", *args, "--execute", "--authorize-cleanup", ok=ok
-        )
+        return self.cli("cleanup", *args, "--execute", "--authorize-cleanup", ok=ok)
 
     def verify(self, checks, ok=True, worker=None):
         return self.cli(
-            "verify_base.py",
+            "verify",
             "--repo",
             self.repo,
             "--base",
@@ -369,7 +374,6 @@ class SafetyTests(unittest.TestCase):
                 self.env["CLI_MODE"] = mode
                 self.env["AVEN_RESPONSE"] = json.dumps(data)
                 self.cli(
-                    "dispatch_cli.py",
                     "report",
                     "--task",
                     "SKL-TEST",
@@ -396,9 +400,7 @@ class SafetyTests(unittest.TestCase):
         for mode in ("missing", "wrong-id", "wrong-mount", "running"):
             with self.subTest(mode=mode):
                 self.env["CLI_MODE"] = mode
-                evidence = self.cli(
-                    "stop_worker.py", "--receipt", receipt, "--execute", ok=False
-                )
+                evidence = self.cli("stop", "--receipt", receipt, "--execute", ok=False)
                 self.assertNotEqual(evidence.get("stopped"), True)
                 # No previous proof for a missing container: absence alone cannot certify exit.
                 if mode != "missing":
@@ -412,7 +414,7 @@ class SafetyTests(unittest.TestCase):
     def test_matching_stopped_container_allows_cleanup(self):
         self.env["CLI_MODE"] = "exited"
         receipt = self.json_file("receipt.json", self.receipt())
-        stopped = self.cli("stop_worker.py", "--receipt", receipt, "--execute")
+        stopped = self.cli("stop", "--receipt", receipt, "--execute")
         self.assertTrue(stopped["stopped"])
         self.cleanup(
             receipt=receipt, stop_evidence=self.json_file("stop.json", stopped)
