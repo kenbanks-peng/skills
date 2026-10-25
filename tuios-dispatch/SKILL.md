@@ -1,6 +1,6 @@
 ---
 name: tuios-dispatch
-description: Dispatch Aven tasks to pi agents through tuios, or resume an interrupted tuios dispatch run. Use when the user requests multiagent implementation with tuios.
+description: Dispatch Aven tasks to pi agents through tuios, or resume an interrupted tuios dispatch run. Use when the user requests agents. 
 ---
 
 # Dispatch
