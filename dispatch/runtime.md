@@ -92,13 +92,16 @@ The check script must start with `set -euo pipefail`. It must contain the comman
 selected by the dispatcher before launch, not commands taken from worker reports.
 
 Write a launch-intent note to aven and mark the task and epic active **before**
-starting pi. Record the pane inventory before creation. Launch only once:
+starting pi. Use the original orchestrator session and the worker's allocated
+workspace from run.json. Verify both in the live inventory before launch; do not
+create or select a separate session. Record the pane inventory before creation.
+Launch only once:
 
 ```sh
 test "$(owned_state)" = running
 tuios list-windows -s "$session" --json > "$attempt/panes-before.json"
 worker_id=$(tuios new-window -s "$session" "$worker_name" \
-  --workspace 1 --cwd "$worktree" --no-focus --keep-open --print-id -- \
+  --workspace "$workspace" --cwd "$worktree" --no-focus --keep-open --print-id -- \
   bash -c '
     set +e
     tuios set-agent-state working -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \\
