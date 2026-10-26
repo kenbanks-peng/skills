@@ -31,8 +31,10 @@ Required checks:
 - Inspect changes and commit only the assigned files on this branch. Do not include
   aven refs in commit messages or external systems.
 - Do not leave background processes. Stop all processes you started before reporting.
-- If scope, requirements, or permissions block the task, stop and report the
-  blocker. Do not answer a permission prompt on behalf of the person.
+- Resolve recoverable problems within the assigned scope and permissions.
+  If a problem requires a scope change, missing information, or new permission,
+  complete any independent work that is safe, then report the blocker.
+  Do not answer a permission prompt on behalf of the person.
 
 ## Report
 

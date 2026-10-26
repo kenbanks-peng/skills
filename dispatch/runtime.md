@@ -53,8 +53,11 @@ owned_state() {
 }
 ```
 
-Call `owned_state` before every start, exec, stop, or delete. Any mismatch or
-runtime error stops the procedure. Do not save full inspect output: it includes
+Call `owned_state` before every start, exec, stop, or delete. An ownership or
+mount mismatch blocks operations on that container. For a runtime error, inspect
+the recorded container and retry read-only checks when safe. Before retrying a
+mutation, confirm whether it took effect; do not repeat it while state is unknown.
+Continue independent work when safe. Do not save full inspect output: it includes
 environment values. The label is an ownership check, not a security boundary.
 
 ## Start and preflight
@@ -81,8 +84,8 @@ report the exact failure; do not change the image or mount host secrets.
 
 Before this step, the dispatcher must save the rendered `prompt.md`, task
 `context.md`, and executable check content in `checks.sh` in the attempt directory.
-The check script must start with `set -euo pipefail`. It must contain the agreed
-commands, not commands taken from worker reports.
+The check script must start with `set -euo pipefail`. It must contain the commands
+selected by the dispatcher before launch, not commands taken from worker reports.
 
 Write a launch-intent note to aven and mark the task and epic active **before**
 starting pi. Record the pane inventory before creation. Launch only once:
@@ -167,7 +170,7 @@ the reviewed state. Keep the stopped container until delivery is verified.
 ## Integration checks
 
 After a merge, create a new directory `integration-N` under the run record.
-Copy the agreed integration commands into its `checks.sh`. Run integration-container
+Copy the selected integration commands into its `checks.sh`. Run integration-container
 commands in a Bash subshell `( ... )` so the worker variables are not overwritten.
 Use this same create, load, ownership, start, and check procedure with:
 - `attempt` = the new integration directory;
@@ -197,7 +200,9 @@ For a timeout or an interrupted run, load the saved receipt and call
 `owned_state`. If running, leave it alone while inspecting outstanding work.
 To cancel the worker or stop an abandoned execution, first record the cancellation
 or blocker in aven, then run `container stop --time 10 "$cid"` and confirm stopped.
-Do not restart pi automatically. Save a fresh attempt for any retry.
+Once the previous execution is confirmed stopped, retry recoverable failures
+within the assignment in a fresh attempt. Do not restart an execution whose
+state is unknown.
 
 If inspect fails, run the exact list command above. A successful list that
 excludes the ID proves absence; a connection failure does not. If create intent

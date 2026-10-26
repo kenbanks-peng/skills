@@ -9,6 +9,10 @@ Own assignment, aven updates, review, integration, and cleanup. Workers implemen
 one task and write a report. Use tuios for worktrees, panes, waits, and merges.
 Use [runtime.md](runtime.md) for **all** container operations; read it before launch.
 Do not substitute another runtime or build another scheduler.
+Resolve recoverable failures within the authorized scope and continue independent
+work. Ask the user only when progress requires a decision, permission, or
+information that cannot be obtained from the available tools and repository.
+Do not end the run while work can safely continue.
 
 ## 1. Check and plan
 
@@ -41,9 +45,10 @@ Do not follow whichever session the person focuses.
 Default target: the current branch. Default concurrency: two ready tasks.
 Use user-specified values instead. A specified target must already be checked
 out in repo; stop on a mismatch rather than switching the shared checkout.
-Required checks must come from the user or
-the repository's documented test procedure. If requirements or checks cannot be
-established, ask before launch. Do not invent acceptance criteria.
+Use checks supplied by the user or documented by the repository. If neither
+provides suitable checks, select checks from the repository's tools and the
+requested change, and record them before launch. Derive acceptance criteria
+from the user's requirements; do not add requirements.
 
 Read task context and search for existing work before adding anything:
 
@@ -118,7 +123,7 @@ Render [worker.md](worker.md) as `attempt/prompt.md`. Replace all eleven
 placeholders with the saved refs, attempt ID, canonical paths, full base SHA,
 requirements, write scope, and checks. The report path is `attempt/report.md`.
 Require no remaining `{{...}}` fields. Save dispatcher-owned `checks.sh` with
-`set -euo pipefail` and the agreed commands.
+`set -euo pipefail` and the selected commands.
 
 Follow runtime.md: create the named container, load canonical paths from its
 receipt, start it, and pass preflight. Then save a `DISPATCH:` note containing
@@ -142,9 +147,11 @@ do not claim that a worker is running until launch evidence is present.
 ## 3. Wait and review
 
 Use the bounded window-exit wait and saved exit/report files in runtime.md.
-Visit each outstanding worker in turn. Handle a blocker before waiting again.
-A timeout leaves it outstanding; do not relaunch it. Never sleep and capture in a
-loop. To diagnose a failure:
+Visit each outstanding worker in turn. Diagnose blockers and repair recoverable
+failures. If a task needs user input, record its blocker and continue independent
+tasks. A timeout leaves work outstanding; repeat the bounded wait after visiting
+other workers. Do not relaunch it or sleep and capture in a loop. To diagnose a
+failure:
 
 ```sh
 tuios capture-pane -s "$session" -w "$worker_id" --scrollback --lines 80
