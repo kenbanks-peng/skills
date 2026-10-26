@@ -1,0 +1,59 @@
+<tml version="1" title="Dispatch status">
+  <state>{"revision":0,"board":{"run":"No snapshot","observed_at":"unknown","tasks":[]}}</state>
+  <scroll>
+    <col pad="1" gap="1">
+      <heading>Dispatch: {state.board.run}</heading>
+      <text>Read-only observations. Revision {state.revision}. Observed: {state.board.observed_at}</text>
+      <heading level="2">Tasks and dependencies</heading>
+      <table rows="state.board.tasks" select="none">
+        <column field="task" title="Task"/>
+        <column field="attempt" title="Attempt"/>
+        <column field="task_state" title="Task state"/>
+        <column field="dependencies" title="Dependencies"/>
+        <column field="blockers" title="Blockers"/>
+      </table>
+      <heading level="2">Native worker observations</heading>
+      <table rows="state.board.tasks" select="none">
+        <column field="task" title="Task"/>
+        <column field="attempt" title="Attempt"/>
+        <column field="state" title="Native state"/>
+        <column field="source" title="Source"/>
+        <column field="identity" title="Identity evidence"/>
+        <column field="evidence_age_ms" title="Evidence age (ms)"/>
+        <column field="completion_seq" title="Completed turns"/>
+        <column field="subagents" title="Subagents"/>
+      </table>
+      <heading level="2">Resource labels</heading>
+      <table rows="state.board.tasks" select="none">
+        <column field="task" title="Task"/>
+        <column field="attempt" title="Attempt"/>
+        <column field="agent" title="Agent label"/>
+        <column field="session" title="Session"/>
+        <column field="pane" title="Pane"/>
+        <column field="environment" title="Environment"/>
+      </table>
+      <table rows="state.board.tasks" select="none">
+        <column field="task" title="Task"/>
+        <column field="attempt" title="Attempt"/>
+        <column field="branch" title="Branch"/>
+        <column field="worktree" title="Worktree"/>
+      </table>
+      <heading level="2">Queue, review, and checks</heading>
+      <table rows="state.board.tasks" select="none">
+        <column field="task" title="Task"/>
+        <column field="attempt" title="Attempt"/>
+        <column field="queue" title="Queued work"/>
+        <column field="review" title="Review"/>
+        <column field="checks" title="Checks"/>
+      </table>
+      <heading level="2">Delivery and cleanup</heading>
+      <table rows="state.board.tasks" select="none">
+        <column field="task" title="Task"/>
+        <column field="attempt" title="Attempt"/>
+        <column field="delivery" title="Delivery"/>
+        <column field="cleanup" title="Cleanup"/>
+      </table>
+      <text role="dim">Task acceptance is separate from a finished agent turn. Unknown evidence is not a pass.</text>
+    </col>
+  </scroll>
+</tml>

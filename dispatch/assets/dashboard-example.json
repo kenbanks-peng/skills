@@ -1,0 +1,33 @@
+{
+  "run": "example-run",
+  "revision": 1,
+  "observed_at": "2026-10-26T22:00:00Z (example, not live evidence)",
+  "tasks": [
+    {
+      "task": "TASK-1",
+      "task_state": "active",
+      "dependencies": ["TASK-0: accepted"],
+      "attempt": "a01",
+      "agent": "implementer",
+      "session": "example-worker",
+      "pane": "example-pane-id",
+      "branch": "example/task-1",
+      "worktree": "/example/task-1",
+      "environment": "host",
+      "queue": "correction q17: pending; evidence: queue-ls.json",
+      "review": "pending; no verdict",
+      "checks": "not run",
+      "delivery": "not committed; not merged",
+      "blockers": "none",
+      "cleanup": "retained for review",
+      "native": {
+        "state": "unknown",
+        "source": "unknown",
+        "identity": "unknown",
+        "evidence_age_ms": null,
+        "completion_seq": null,
+        "subagents": null
+      }
+    }
+  ]
+}
