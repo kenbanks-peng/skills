@@ -2,7 +2,8 @@
 
 Use this procedure for every worker and every integration-check container.
 Supported runtime: Apple `container` on macOS, selected by the installed `linux`
-configuration. Do not substitute Docker, change the image, or invent an adapter.
+configuration. Use the configured image unless the user authorizes a change.
+This procedure uses Apple container commands, not Docker.
 
 ## Create and identify
 
@@ -76,9 +77,12 @@ container exec --workdir "$worktree" "$cid" bash -eu -c '
 ' _ "$worktree" "$attempt" > "$attempt/preflight.log" 2>&1
 ```
 
-A failed Git identity check is a blocker. Do not invent an identity or alter Git
-configuration. Have the person configure it. If credentials or tools are missing,
-report the exact failure; do not change the image or mount host secrets.
+If a Git identity check fails, inspect the existing host identity and the
+container environment. The helper already passes the host author and committer
+identities; repair that transfer before asking the user. Do not invent an identity.
+Install missing tools or repair configuration within the user's authorization,
+then repeat preflight. Ask only for information or permission still needed.
+Do not mount host secrets without authorization.
 
 ## Launch pi through tuios
 
@@ -178,7 +182,7 @@ Use this same create, load, ownership, start, and check procedure with:
 
 Do not run pi in an integration container. Save target HEAD before checks, stop
 the container after checks, and require the target HEAD to be unchanged and
-`git status --porcelain=v1 --untracked-files=all` to be empty. Delete the stopped
+Git status to be clean under the Aven-file exception in SKILL.md. Delete the stopped
 integration container with the procedure below. Keep its logs and receipt.
 
 Checks that fail after merge leave the task active. Do not reset the target or

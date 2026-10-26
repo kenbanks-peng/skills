@@ -26,7 +26,7 @@ cd "$repo"
 common_git=$(git rev-parse --path-format=absolute --git-common-dir)
 common_git=$(cd "$common_git" && pwd -P)
 target=$(git symbolic-ref --short HEAD)
-test -z "$(git status --porcelain=v1 --untracked-files=all)"
+git status --porcelain=v1 --untracked-files=all
 aven skill
 aven doctor --json
 tuios --skill
@@ -36,9 +36,23 @@ linux config validate
 container list --all --format json >/dev/null
 ```
 
-A detached HEAD, dirty target, missing existing aven database, unsupported daemon,
-or unavailable runtime is a blocker. Do not initialize a database, clean files,
-restart a daemon, install hooks, change grants, or alter container configuration.
+Resolve tool and configuration failures within the user's authorization.
+Install missing tools or repair configuration when needed; ask before changes
+that require new permission or would interrupt unrelated work. Do not discard
+files to make a check pass. Resolve a detached HEAD or dirty target before
+integration without overwriting the user's work.
+
+Aven creates its database automatically when needed. Use `.aven/tasks.db` by
+default, or the database/workspace options supplied by the user. A missing
+database is not a blocker and does not require permission or a replacement path.
+
+For every clean-tree check in this skill and runtime.md, inspect Git status.
+Untracked files for the selected Aven database and its SQLite sidecars (`-wal`,
+`-shm`, and `-journal`) are local task state, not source changes. Leave them in
+place and out of commits. Do not ignore the whole `.aven` directory or exempt
+tracked changes. All other uncommitted changes must be resolved before merging
+or removing a worktree.
+
 Record the original tuios server/socket identity and use it for the whole run.
 Do not follow whichever session the person focuses.
 
@@ -168,7 +182,7 @@ git -C "$worktree" status --porcelain=v1 --untracked-files=all
 
 Require a RESULT report for the correct task/attempt and a matching full commit
 SHA. Check scope and every acceptance criterion. Worker commits must contain
-only assigned files and must not include aven refs in commit messages.
+only assigned files.
 Do not use `ship commit` to hide uncommitted or untracked work; return it for repair.
 Run the dispatcher checks in the worker container, then stop it as runtime.md
 specifies. Recheck HEAD and cleanliness after stop. Only then accept review.
@@ -192,17 +206,19 @@ Exclude other Git writers during integration. Require:
 ```sh
 git -C "$worktree" merge-base --is-ancestor "$base_sha" "$reviewed_sha"
 test "$(git -C "$worktree" rev-parse HEAD)" = "$reviewed_sha"
-test -z "$(git -C "$worktree" status --porcelain=v1 --untracked-files=all)"
+git -C "$worktree" status --porcelain=v1 --untracked-files=all
+# Confirm the worker tree is clean, except for the Aven files described above.
 test "$(git -C "$repo" symbolic-ref --short HEAD)" = "$target"
-test -z "$(git -C "$repo" status --porcelain=v1 --untracked-files=all)"
+git -C "$repo" status --porcelain=v1 --untracked-files=all
+# Confirm the target is clean, except for the Aven files described above.
 tuios ship merge -s "$session" -w "$shell_id" --into "$target"
 git -C "$repo" merge-base --is-ancestor "$reviewed_sha" "$target"
 delivered_sha=$(git -C "$repo" rev-parse "$target")
 ```
 
 Use the initial shell pane, which remains attached to the worktree. Use normal
-merges, not squash, so ancestry proves delivery. Never force, reset the target,
-push, or create a pull request.
+merges, not squash, so ancestry proves delivery. Do not force or reset the target.
+Push or create a pull request when the user requests it, after verification.
 
 Run integration checks in a separate recorded container mounted on the target
 checkout, using runtime.md. Require the target still equals delivered_sha and
@@ -228,14 +244,15 @@ For each accepted task, delete every stopped, recorded worker/check container
 using runtime.md. Confirm its ID is absent. Require all worker attempts stopped,
 retained commit ancestry, and a clean worker tree before removing any worktree.
 
-Inventory the session. Require each live pane ID to be either the saved initial
-shell or a saved worker pane. Any extra or replaced pane blocks session removal.
-Close saved worker panes that still exist; then clear the workspace label and
-remove the worktree/session:
+Inventory the session and close saved worker panes that still exist. Leave
+unrelated or replaced panes alone and continue cleanup of other owned resources.
+If those panes still need the session or worktree, retain it and report why.
+Otherwise, clear the workspace label and remove the worktree/session:
 
 ```sh
 tuios list-windows -s "$session" --json
 tuios close-window -s "$session" "$worker_id"
+# Remove the session/worktree only after confirming no unrelated pane needs it.
 tuios set-workspace-name -s "$session" 1
 tuios worktree rm "$session"
 git -C "$repo" worktree list --porcelain
@@ -265,7 +282,7 @@ test ancestry first. If already merged, run the missing verification rather than
 merging again. A missing record or uncertain owner blocks destructive cleanup.
 An aven status write is skipped only when live readback confirms the target state.
 
-Do not use tuios mail in this workflow. Mail does not cross the per-worktree
-sessions, is not durable, and requires explicit recipient reads. Saved reports
-and aven notes are the handoff. Do not mount a host socket to add mail.
+Use saved reports and aven notes for durable handoffs. Tuios mail can supplement
+them when available; account for session boundaries and explicit recipient reads.
+Mail delivery is not proof that a worker read or completed an assignment.
 Do not type into a blocked agent or answer an approval as the person.
