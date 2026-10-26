@@ -20,8 +20,9 @@ paths/actions, acceptance checks, target branch, and merge policy. The skill
 records missing authority as a blocker; it does not ask a person to decide.
 Follow [preflight](references/planning.md#preflight), then choose
 [distinct tasks or fan attempts](references/workers.md). For Pi, first run the
-[native integration probe](references/pi.md#host-integration-probe), subject to
-the [mail defect notice](references/acceptance.md#known-defects-and-gaps).
+[native integration probe](references/pi.md#host-integration-probe). The target's
+same-session mail fix is implemented; live verification is still pending. See
+[capability gaps](references/acceptance.md#known-defects-and-gaps).
 
 Keep evidence outside disposable worktrees. Use native ship commit and explicit
 local ship merge after review and checks. Remote push/PR approval is not a

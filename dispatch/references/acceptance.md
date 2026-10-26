@@ -28,7 +28,7 @@ for actual commands and exits.
 | R03 Tasks and modes | E1, E2 | Aven refs/dependencies, roles, assignment and attempt IDs | two execution modes unrun |
 | R04 Worktrees and fleet | E1, E2, E7 | native path/session/pane/branch map, grouped inventory, dispositions | fleet and fan unrun |
 | R05 Agent integration | E0, E1 | Pi report identity, state and completion sequence, exact result | Pi live probe unrun; containers unsupported |
-| R06 Assignment and mail | E1, E3 | prompt receipt, queue ID/result, same-session read/reply thread | Pi mail example defect |
+| R06 Assignment and mail | E1, E3 | prompt receipt, queue ID/result, same-session read/reply thread | same-session Pi mail fix implemented on target; live verification pending |
 | R07 Events | E1, E3, E5 | grouped waits/events with IDs and exit status | newer wait flag unsupported |
 | R08 Review/checkpoints | E1, E3, E4 | diff, reviewer findings, note/send result, restore safety checkpoint | live review/restore unrun |
 | R09 Delivery | E1, E5 | ship commit and explicit merge logs, source/target SHAs, integrated check | local ship unrun; approval-based push/PR unsupported |
@@ -105,7 +105,11 @@ Save command logs and exits under `run_dir`; link concise outcomes from Aven.
 Create two workers with [native worktrees](workers.md#distinct-tasks). For A set
 `BRANCH="$RUN-a"`, `SESSION="$RUN-a"`; for B use suffix `b`. Run the documented
 worktree new and start-agent commands once for each. Save returned IDs and paths,
-not predicted names. A's initial prompt is:
+not predicted names. Launch A first. Immediately use A's returned `SESSION` and
+`PANE` for the [E3 busy-worker queue portion](#busy-worker-queue), while A is
+working, before launching B or waiting for either worker's first rest. If that
+window is missed, record the busy-worker observation as not checked; follow E3's
+new-attempt rule. A's initial prompt is:
 
 ```text
 TASK_A/attempt-1; role implementer. Work only in this assigned scratch worktree.
@@ -132,7 +136,10 @@ where observable. A short missed transition is not checked, not invented.
 
 Freeze both writers and reconcile queue/background jobs. Launch independent
 read-only reviewers as in [review](review-delivery.md#review-and-corrections).
-Require approve/reject findings for each exact diff. Run E3 on A before delivery.
+Require approve/reject findings for each exact diff. Now run only the
+[E3 review-send follow-up](#review-send-follow-up) on A before delivery. This is
+separate from the queued correction already sent while A was working. Freeze A
+again after the follow-up, reconcile its queue, and obtain the final review.
 Use a native check pane for each frozen candidate, then for the merged target:
 
 ```sh
@@ -184,8 +191,12 @@ been executed by this task.
 
 ## E3: Busy worker queued correction and mail
 
-Before A's first turn ends in E1, observe actual working state. If the turn is
-too short, this observation is not checked: use a new authorized fixture attempt
+### Busy-worker queue
+
+Run this portion immediately after A's launch in E1, before B's launch, the
+first-rest/grouped wait, freeze, or review. Before A's first turn ends, observe
+actual working state. If the turn is too short, this observation is not checked:
+use a new authorized fixture attempt
 whose prompt includes a bounded 15-second foreground sleep before its file
 check. Do not send a second implementation assignment to the existing worker.
 Queue a stable correction exactly once while working:
@@ -197,15 +208,25 @@ tuios queue ls -s "$SESSION" -w "$PANE" --json
 ```
 
 Replace TASK_A with its actual ref. Save returned queue ID, working baseline,
-and correction text. Require an explicit correction result with increased turn
-sequence and correct file bytes. Verify no second prompt/queue/mail delivered
+and correction text. Return immediately to E1 to launch B; do not wait for A's
+correction to finish before launching B. During grouped monitoring, require an
+explicit correction result with increased turn sequence and correct file bytes. Verify no second prompt/queue/mail delivered
 the correction and no duplicate correction result. Require `a.txt` to change
 from the draft content to `alpha\n`. Queue absence alone fails to prove execution.
-On stalled/uncertain delivery stop and reconcile; never blindly resend. Also
-record one real native review note and `review send` delivery for a separate,
-uniquely named authorized verification follow-up: on the changed `a.txt` line,
-request a byte-content check and its exact exit code before final acceptance.
-Do not deliver that follow-up with `queue` too. Inspect its result, then re-review.
+On stalled/uncertain delivery stop and reconcile; never blindly resend. Complete
+these result observations before E1's freeze and review.
+
+### Review-send follow-up
+
+Run this portion only after E1's writers are frozen and the independent review
+has returned. Record one real native review note and `review send` delivery for
+a separate, uniquely named authorized verification follow-up: on the changed
+`a.txt` line, request a byte-content check and its exact exit code before final
+acceptance. Do not deliver that follow-up with `queue` too. Inspect its result,
+freeze A again, reconcile pending work, and re-review before checks and delivery.
+This follow-up does not replace the earlier busy-worker queue observation.
+
+### Same-session mail
 
 For mail, follow [same-session coordination](coordination.md#asynchronous-mail-and-thread-waits).
 Only run the exchange from a real authorized coordinator pane inside the worker
@@ -213,7 +234,8 @@ session; record that pane as `INBOX`. Use its actual sender ID. Save message ID,
 worker explicit inbox read, reply with `--reply-to`, thread-specific wait, and
 coordinator explicit `-w "$INBOX" --thread "$MESSAGE" --unread` read. If no such
 coordinator exists, mark mail blocked; direct ask/queue is not proof of mail.
-Do not use the defective Pi probe example described below.
+The target's repaired Pi probe follows this contract; its live verification is
+still pending. See the implementation record below.
 
 ## E4: Controlled checkpoint restore
 
@@ -295,12 +317,16 @@ Document review covers the refusal path when it did not occur live.
 
 ## Known defects and gaps
 
-- Pi mail probe step 3 uses `--from "$TUIOS_PANE_ID"` from the dispatcher while
-  targeting a separate worker session. It does not establish a real coordinator
-  inbox there, and its readback omits `-w`, so it is a session observation, not
-  an explicit inbox read. This conflicts with the coordination guide. The owner
-  must repair it before treating that probe as mail acceptance. No file outside
-  this task's write scope was changed.
+- Pi mail repair is implemented on the target in commit
+  `38b9599ebbed20942037a0a9b30768e24fb61838` (inspected read-only). It requires a
+  real authorized coordinator inside the worker session, checks actual sender
+  identities, has the worker explicitly read and reply in-thread, and has the
+  coordinator wait and read its own inbox with `-w`. These changes match the
+  coordination guide's same-session sender/inbox rules. Missing coordinator
+  authority blocks mail; it does not authorize another launch or identity spoof.
+  Live verification remains pending in SKL-2R45. This branch has not merged the
+  target repair; final integration must include it. No other owner's file was
+  changed, and implementation inspection is not live mail acceptance.
 - Host evidence reports native TML validation exit zero. The validate log is
   empty; this task did not repeat that probe. `dashboard-show.log` records unknown
   `tml-open`. `capabilities/daemon-gap.txt` records unknown `list-verbs` and rejected
