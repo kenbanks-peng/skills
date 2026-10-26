@@ -19,7 +19,10 @@ class LaunchTests(unittest.TestCase):
                 binary = root / "bin"
                 binary.mkdir()
                 pi = binary / "pi"
-                pi.write_text('#!/bin/bash\nexit "$PI_RC"\n')
+                pi.write_text(
+                    '#!/bin/bash\nprintf "%s\\n" "$@" > "$attempt/pi.args"\n'
+                    'exit "$PI_RC"\n'
+                )
                 pi.chmod(0o755)
                 env = dict(
                     os.environ,
@@ -54,8 +57,10 @@ tuios() {
     esac
 }
 container() {
-    [ "$1" = exec ] && [ "$2" = --workdir ] || return 99
-    shift 4
+    [ "$1" = exec ] && [ "$2" = --interactive ] &&
+        [ "$3" = --tty ] && [ "$4" = --workdir ] &&
+        [ "$5" = "$worktree" ] && [ "$6" = "$cid" ] || return 99
+    shift 6
     "$@"
 }
 export -f tuios container
@@ -69,6 +74,17 @@ export -f tuios container
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stderr, "")
+                self.assertEqual(
+                    (attempt / "pi.args").read_text().splitlines(),
+                    [
+                        "--session",
+                        str(attempt / "pi.jsonl"),
+                        "--tui-mode",
+                        "regular",
+                        "--",
+                        f"@{attempt / 'prompt.md'}",
+                    ],
+                )
                 self.assertEqual((attempt / "pi.started").read_bytes(), b"started\n")
                 self.assertEqual((attempt / "pi.exit").read_bytes(), f"{rc}\n".encode())
                 self.assertFalse((attempt / "pi.exit.tmp").exists())

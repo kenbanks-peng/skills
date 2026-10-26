@@ -106,10 +106,10 @@ worker_id=$(tuios new-window -s "$session" "$worker_name" \
     set +e
     tuios set-agent-state working -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
       --harness pi -m "pi worker running"
-    container exec --workdir "$1" "$2" bash -eu -c '\''
+    container exec --interactive --tty --workdir "$1" "$2" bash -eu -c '\''
       cd "$1"
       printf "started\n" > "$2/pi.started"
-      exec pi --session "$2/pi.jsonl" --print -- "@$2/prompt.md"
+      exec pi --session "$2/pi.jsonl" --tui-mode regular -- "@$2/prompt.md"
     '\'' _ "$1" "$3"
     rc=$?
     printf "%s\n" "$rc" > "$3/pi.exit.tmp"
@@ -129,7 +129,10 @@ printf '%s\n' "$worker_id" > "$attempt/worker-pane-id"
 The host wrapper reports its own tuios state and writes `pi.exit` only after
 `container exec` returns. UI state is not acceptance evidence. No tuios socket
 or integration hooks are needed inside the container. The container stays
-running so the dispatcher can inspect and check the work.
+running so the dispatcher can inspect and check the work. Pi runs in the regular
+interactive TUI, not print mode. A completed turn does not exit pi. After the
+worker saves its report, exit pi from its TUI to let the wrapper record `pi.exit`.
+Do not treat a saved report alone as process completion.
 
 If pane creation output is lost, compare `panes-before.json` with the live pane
 inventory and inspect the recorded container. Do not create a second pane on the
