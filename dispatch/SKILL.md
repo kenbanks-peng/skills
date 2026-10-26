@@ -30,7 +30,6 @@ common_git=$(cd "$common_git" && pwd -P)
 target=$(git symbolic-ref --short HEAD)
 git status --porcelain=v1 --untracked-files=all
 aven skill
-aven doctor --json
 tuios --skill
 : "${TUIOS_SESSION:?Run dispatch from a tuios pane}"
 : "${TUIOS_PANE_ID:?Run dispatch from a tuios pane}"
@@ -44,6 +43,10 @@ linux config validate
 container list --all --format json >/dev/null
 ```
 
+Use the command syntax returned by `aven skill`. Before adding an option not
+shown there, check that command's `--help`; do not assume commands support
+`--json`. Capture task refs from supported output and verify them with `aven show`.
+
 Resolve tool and configuration failures within the user's authorization.
 Install missing tools or repair configuration when needed; ask before changes
 that require new permission or would interrupt unrelated work. Do not discard
@@ -56,10 +59,14 @@ database is not a blocker and does not require permission or a replacement path.
 
 For every clean-tree check in this skill and runtime.md, inspect Git status.
 Untracked files for the selected Aven database and its SQLite sidecars (`-wal`,
-`-shm`, and `-journal`) are local task state, not source changes. Leave them in
-place and out of commits. Do not ignore the whole `.aven` directory or exempt
-tracked changes. All other uncommitted changes must be resolved before merging
-or removing a worktree.
+`-shm`, and `-journal`) are local task state, not source changes. This also applies
+to its verified Aven-generated `<database>.aven-open.lock` file (by default,
+`.aven/tasks.db.aven-open.lock`). Confirm the exact path belongs to the selected
+database and record it before excluding it from clean-tree checks. Do not delete
+a lock file or infer that it is stale. Leave these files in place and out of
+commits. No Git ignore change is required. Do not ignore the whole `.aven`
+directory, use a lock-file wildcard, or exempt tracked changes. All other
+uncommitted changes must be resolved before merging or removing a worktree.
 
 Record the original tuios server/socket, session, and orchestrator pane identities.
 Verify that the pane belongs to that session. Find its workspace number in the

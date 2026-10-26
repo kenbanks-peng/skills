@@ -40,8 +40,10 @@ Required checks:
 ## Report
 
 Before your final response, write the report to the absolute report path above.
-Write a temporary file beside it, then rename it to the report path. Keep logs
-beside the report, outside the source tree. Do not put secrets in reports.
+Write a temporary file beside it, close the completed file, then rename it to
+the report path. The final path is the dispatcher's report-ready signal. Do not
+publish a partial report or change it after publication. Keep logs beside the
+report, outside the source tree. Do not put secrets in reports.
 
 Use this structure:
 
@@ -54,5 +56,7 @@ Use this structure:
 - Remaining risks and suggested next action.
 
 A RESULT requests dispatcher review. It does not mean the task is done.
-End your pi turn after the report is saved. The dispatcher owns aven notes,
-review, integration, and cleanup.
+After the rename succeeds, give a short final response with the report path and
+end your pi turn. Do not claim the report is saved before the rename succeeds.
+Do not exit pi yourself; the dispatcher exits the idle TUI after confirming your
+turn has ended. The dispatcher owns aven notes, review, integration, and cleanup.

@@ -133,15 +133,33 @@ The host wrapper reports its own tuios state and writes `pi.exit` only after
 `container exec` returns. UI state is not acceptance evidence. No tuios socket
 or integration hooks are needed inside the container. The container stays
 running so the dispatcher can inspect and check the work. Pi runs in the regular
-interactive TUI, not print mode. A completed turn does not exit pi. After the
-worker saves its report, exit pi from its TUI to let the wrapper record `pi.exit`.
-Do not treat a saved report alone as process completion.
+interactive TUI, not print mode. A completed turn does not exit pi. Follow the
+report, turn-end, and exit sequence below. Do not wait for the wrapper's `done`
+state as a report-ready signal: the wrapper cannot set it until pi exits.
 
 If pane creation output is lost, compare `panes-before.json` with the live pane
 inventory and inspect the recorded container. Do not create a second pane on the
 basis of a missing pane-ID file. Stop for reconciliation if identity is uncertain.
 
 ## Wait and check
+
+Use this order for each worker:
+
+1. Check for the final, nonempty `attempt/report.md`. The worker publishes it
+   by renaming a completed temporary file. Temporary files and terminal text
+   that mentions the report are not report-ready signals.
+2. If the file is absent, use bounded tuios waits to receive worker output, then
+   check the file again. Output is only a wake-up signal. On timeout, visit other
+   workers before waiting again; do not sleep and capture in a loop. Do not wait
+   for `done` or `window-exit` while pi is still open.
+3. Read the final report and verify its task and attempt IDs. Inspect the owned
+   pane to confirm the worker's final response has ended and pi is idle, with
+   no tool running or input/permission request. A saved report alone does not
+   prove the turn has ended. If the state is unclear, leave pi running and
+   diagnose it. Never answer a prompt or send exit keys to an active worker.
+4. Verify the saved pane identity and send Ctrl+D to the idle pi TUI. This exits
+   pi; it does not close the retained pane. Only then wait for process exit and
+   check the wrapper's exit evidence:
 
 ```sh
 tuios wait-for window-exit -s "$session" -w "$worker_id" --timeout 600000
