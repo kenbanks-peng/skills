@@ -12,10 +12,10 @@
    tuios queue ls -s "$SESSION" -w "$PANE" --json
    tuios read-agent-messages -s "$SESSION" -w "$INBOX" --peek --json
    tuios checkpoint list -s "$SESSION" -w "$PANE" --json
-   tuios ship status -s "$SESSION" --json
+   tuios ship status -s "$SESSION" -w "$PANE" --json
    ```
 
-   Run pane-specific calls only for identities still present. Read Git branch, HEAD, status, worktree inventory, and target history. Check any recorded runtime/container ID through its authorized lifecycle tool. A reused name is not the same resource; compare pane/session IDs, branch, path, base, and runtime identity.
+   Use the recorded session and full pane ID for `SESSION` and `PANE`, never focus or a reused name. Run pane-specific calls only for identities still present. Read Git branch, HEAD, status, worktree inventory, and target history. Check any recorded runtime/container ID through its authorized lifecycle tool. A reused name is not the same resource; compare pane/session IDs, branch, path, base, and runtime identity.
 3. Classify each intended effect before a retry:
 
    | Uncertain effect | Reconcile | Safe next step |
@@ -77,7 +77,7 @@ Use precise outcomes such as `delivered; cleanup pending`, `implemented; integra
 
 - No unattended ship push/pr while native approval is required. Observe existing PR/CI state only.
 - Native verdict is restricted to the native judge or an already external caller. The supplied snapshots do not define judge launch parameters. Discover the actual verb schema; if unavailable, preserve selection in Aven and report native verdict as unmet.
-- The supplied environment probe found a CLI/daemon mismatch: the daemon rejected `--new` and did not know `list-verbs`. Do not restart a shared daemon. Use supported bounded state/message waits and inspect current evidence. If schema discovery is unavailable, block schema-dependent features rather than guessing parameters.
+- Native TML validation passed, but `tml-open`, `list-verbs`, and `wait-for --new` failed against the older shared daemon. Validation is not evidence of a working live surface or native workflow. Do not restart the shared daemon. Use supported bounded state/message waits without `--new` and inspect current evidence. If schema discovery or surface creation is unavailable, record the affected feature as blocked rather than guessing parameters. Native live acceptance remains task **SKL-2R45**, not passed; see the [Pi host probe](pi.md#host-integration-probe) for the same-session mail prerequisite.
 - Fan/start-agent can encounter first-run input and fan/queue can create diagnostic Inbox questions for held/stalled prompts. There is no documented switch that suppresses all such native items. Preflight readiness, do not deliberately launch an unready harness, never answer the items, and report unexpected input as blocked. The supported workflow has no human-response path.
 - Review and checkpoints are local-only. Remote work must be pulled through authorized native worktree pull for local review; record source and copy identities. Pull can be refused by host policy.
 - Checkpoint retention, size omissions, diff truncation, volatile queues/mail, absent shell integration, or missing tested pi integration can prevent a required acceptance exercise. Record the exact limit. Do not fabricate a pass or replace native state with silence detection.

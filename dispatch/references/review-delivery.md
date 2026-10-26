@@ -73,10 +73,10 @@ Checkpoint support can be disabled or expire by retention. If unavailable, do no
 Set `TARGET` and `POLICY` from the authorized plan, not from the current branch or a worker reply. Policy must be explicit: fast-forward-only or squash are supported here. If neither is authorized, block integration. Preserve the original target checkout and do not change its branch to make a merge pass.
 
 1. Confirm candidate scope, Git author/committer identity, clean index expectations, no concurrent writers, approved review, and passing checks. Inspect all changed/untracked paths. Resolve useful checkpoints and evidence retention before cleanup.
-2. Check `tuios ship commit --help` and `tuios ship merge --help` before use. The examples use documented session addressing. Verify that the session's selected pane resolves to the recorded worktree and that all its possible writers are stopped. If panes have different working trees, use only an explicit pane selector confirmed by installed help or verb schema; the snapshots do not define ship's pane flags. If the checkout cannot be resolved safely, block delivery. Commit with native ship:
+2. Check `tuios ship commit --help` and `tuios ship merge --help` before use. The saved installed help defines `-s/--session` and `-w/--window` for commit, merge, and status. Set `SESSION` to the recorded session and `PANE` to the recorded full pane ID, not a name or focused pane. Verify that this exact session/pane resolves to the recorded worktree and that all its possible writers are stopped. Use both selectors on every delivery call; never rely on focus or the most recently active session. If the checkout cannot be resolved safely, block delivery. Commit with native ship:
 
    ```sh
-   tuios ship commit -s "$SESSION" -m "$COMMIT_MESSAGE"
+   tuios ship commit -s "$SESSION" -w "$PANE" -m "$COMMIT_MESSAGE"
    ```
 
    This stages every nonignored change, including untracked files. Do not use it on a shared dirty checkout. Do not use `--force` to commit while an agent works. `nothing_to_commit` is not proof of delivery: inspect HEAD and compare the intended patch. Save the full commit SHA and verify clean status and committed scope. If commit output was lost, reconcile Git before retrying. If hooks modify files or fail, re-review/check the resulting state.
@@ -84,13 +84,13 @@ Set `TARGET` and `POLICY` from the authorized plan, not from the current branch 
 4. Use exactly one policy:
 
    ```sh
-   tuios ship merge -s "$SESSION" --into "$TARGET" --ff-only
+   tuios ship merge -s "$SESSION" -w "$PANE" --into "$TARGET" --ff-only
    ```
 
    Or, when squash is the recorded policy:
 
    ```sh
-   tuios ship merge -s "$SESSION" --into "$TARGET" --squash -m "$COMMIT_MESSAGE"
+   tuios ship merge -s "$SESSION" -w "$PANE" --into "$TARGET" --squash -m "$COMMIT_MESSAGE"
    ```
 
    Do not silently change policy after a refusal. `checkout_dirty` means preserve the checkout and block merge. `merge_conflict` is undone by tuios; inspect the observed state and record conflict paths. Resolve only through an authorized worker correction on its own branch, then repeat review/check/commit. Do not clean or rewrite the target.
@@ -98,8 +98,8 @@ Set `TARGET` and `POLICY` from the authorized plan, not from the current branch 
 6. Observe existing PR/CI state without initiating delivery:
 
    ```sh
-   tuios ship status -s "$SESSION" --json
-   tuios ship status -s "$SESSION" --refresh --json
+   tuios ship status -s "$SESSION" -w "$PANE" --json
+   tuios ship status -s "$SESSION" -w "$PANE" --refresh --json
    ```
 
    Refresh uses gh and may fail if unavailable or not logged in. Record unavailable/stale status; do not start login or approval. Cached PR status is not a local check result. Do not run ship push/pr, including their `--yes`, `--confirm`, or `--request` forms. Remote delivery that needs approval is an explicit unattended capability gap.
