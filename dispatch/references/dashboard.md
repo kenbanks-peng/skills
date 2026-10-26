@@ -1,7 +1,8 @@
 # One live dashboard
 
 Open one read-only TML pane in the dispatcher's workspace before workers launch.
-Update it in place. Do not substitute prose, an empty terminal, or a saved TML
+This is the dispatch status window; reuse it rather than opening extra status
+windows. Update it in place. Do not substitute prose, an empty terminal, or a saved TML
 file for an open surface. Read the rendered view before and after opening.
 
 The supplied helper only renders snapshots and guarded patches. It does not
@@ -24,7 +25,8 @@ tuios tml show "$run_dir/dashboard.tml" --pane -s "$DISPATCH_SESSION" --workspac
 Record the returned surface ID and pane ID. Confirm it exists with tml get and
 capture-pane. Inspect the actual overview for clipped columns and empty data.
 Name the run's workspaces; do not steal focus or switch the user's session.
-Worker views belong in a workers workspace, not between tiny check panes.
+Only Linux worker views may be visible beside dispatch and Aven. Do not create
+visible check, shell, review, merge, or integration windows in any workspace.
 
 ## Update
 
@@ -66,5 +68,7 @@ Do not open repeated failed surfaces or restart a shared daemon.
 A client reached through another machine may show a placeholder for TML; keep
 the dashboard on the user's display host and verify there.
 
-Leave one final dashboard with outcomes and retained resources. Close it with
+At run end, close all other run-owned windows, including Aven and Linux
+workers. Leave one final dashboard in dispatch with outcomes and retained
+non-window resources. Close it with
 `tuios tml close "$SURFACE" '"dispatch closed"'` only when closure is required.

@@ -5,7 +5,8 @@
 Wait for the implementation turn to end and any queued writing to finish.
 Workers must end without background writers. Record the candidate HEAD and
 pending diff. Review independently: the dispatcher can review a small change;
-use a read-only agent for substantial changes.
+use a read-only agent for substantial changes. Run review without a window or
+in a verified hidden window; review is not an exception to the visibility rule.
 
 ```sh
 tuios review -s "$SESSION" -w "$PANE" --stat
@@ -37,31 +38,24 @@ are removed with the worktree; preserve useful evidence before cleanup.
 
 ## Checks without pane debris
 
-Use one reusable checks shell per active checkout when shell integration is
-available. Name and record it once. Use run to execute commands and return
-their output/status:
+Run checks through the agent's execution tool without creating a terminal
+window. Set the checkout as cwd and save output, exit status, and candidate
+identity outside disposable worktrees. Run the actual project checks as well
+as diff --check. Use the required host: Linux checks must execute on Linux.
 
 ```sh
-tuios run -s "$SESSION" -w "$CHECK_PANE" --timeout 600000 --json -- 'env GIT_PAGER=cat PAGER=cat git --no-pager diff --check'
-```
-
-Run refuses a shell without OSC 133; it types nothing in that case. Use a
-bounded command pane instead, then close it after saving the log:
-
-```sh
-tuios new-window -s "$SESSION" checks --cwd "$WORKTREE" --no-focus --grants none --keep-open --wait -- sh -c 'export GIT_PAGER=cat PAGER=cat; git --no-pager diff --check'
+(cd "$WORKTREE" && env GIT_PAGER=cat PAGER=cat git --no-pager diff --check) > "$LOG" 2>&1
 check_exit=$?
-tuios capture-pane -s "$SESSION" -w checks --scrollback --lines 0 > "$LOG"
-tuios close-window -s "$SESSION" checks
+printf '\nexit_code=%s\n' "$check_exit" >> "$LOG"
 ```
 
-Only use the name checks after confirming that no unrelated pane has that name.
-Save the exit code with the log and candidate identity. Use the actual project
-checks as well as diff --check. Close failed command panes too, after saving
-their diagnostics; do not open check-1b/check-1c beside abandoned failures.
-Without --keep-open, a command pane closes on exit; write its log from the
-command when that is the better choice. new-window --wait returns the command's
-status, while wait-for window-exit reports wait success: read its exit_code.
+If a native terminal is required, first confirm a supported method that keeps
+it hidden from creation. Reuse one hidden checks shell per checkout where
+possible. `run` requires OSC 133; if unavailable, return to windowless execution
+or record a blocker. Do not open a visible command pane as a fallback.
+`--no-focus` only prevents focus changes; it does not hide a window.
+Do not assume a detached session or another workspace makes windows invisible.
+Save results and close hidden command windows after success or failure.
 
 Do not use a pager for noninteractive Git. Do not modify global Git settings
 to repair a missing pager. Check-generated files belong in the task checkout;
@@ -71,7 +65,10 @@ handle them according to repository conventions before delivery.
 
 Use ship commit as the normal commit operation. Dedicated task worktrees make
 its inclusion of all nonignored changes useful, not a reason to avoid it.
-Review scope and checks once at the candidate, then deliver:
+Review scope and checks once at the candidate, then deliver. Execute ship
+through the windowless tool, not a merge terminal. Confirm that the installed
+ship path does not create visible helper windows; if it does, use supported
+hidden execution or record the delivery blocker before running it:
 
 ```sh
 tuios ship commit -s "$SESSION" -w "$PANE" -m "$COMMIT_MESSAGE"
@@ -84,7 +81,8 @@ must be at rest; the target checkout must be ready for integration. Let native
 ship enforce its commit/merge preconditions. Resolve conflicts in the task
 branch, then recheck; do not switch policies just to make a merge pass.
 
-Save source/target SHAs and run integrated checks. For remote candidates, link
-the Linux check evidence to the pulled local candidate. Observe existing CI
+Save source/target SHAs and run integrated checks without visible windows.
+Apply the same rule to conflict repair, Git commands, and delivery retries.
+For remote candidates, link the Linux check evidence to the pulled local candidate. Observe existing CI
 with `tuios ship status -s "$SESSION" -w "$PANE" --json`.
 Do not initiate push/PR approval. Mark tasks done only after acceptance passes.

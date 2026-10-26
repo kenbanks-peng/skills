@@ -64,15 +64,18 @@ Pull copies commits and uncommitted files, without changing the source. Record
 both identities and the tested revision. Use local review/checkpoints/ship on
 the returned local candidate. A corrected remote candidate needs a new pull
 identity; do not review or merge a stale copy. Close the pulled session's
-unused shell when another pane has replaced its purpose.
+shell after native delivery no longer needs its identity. Keep the pulled
+session and its shell hidden from creation; --detach alone does not prove
+invisibility. Review, ship, and integrated checks must not open visible windows.
 
 ## Containers
 
 Containers can be execution targets, not a reason to hide workers. Prefer a
 configured native Linux host for orchestration. If the objective specifically
-requires containers, use the repository's container command in a visible tuios
-pane and check state, mail, worktree paths, and review at that boundary before
-relying on them. Native host support does not certify arbitrary container
+requires containers, show only the Linux worker in its permitted worker
+window. Run container setup, checks, and teardown windowlessly or hidden.
+Check state, mail, worktree paths, and review at that boundary before relying
+on them. Native host support does not certify arbitrary container
 transport. Do not invent a custom bridge or silently drop container isolation.
 Report the exact missing integration if the supplied container path cannot
 provide it; keep supported independent work moving.

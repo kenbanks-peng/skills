@@ -89,7 +89,7 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 - Update the existing surface as work changes instead of emitting repeated static summaries.
 - Use native pane, session, worktree, and agent labels so users can locate work directly.
 - Keep the dashboard in the dispatcher's visible workspace. Show active Linux workers through native pane views or hosted panes, with host-qualified addresses.
-- Remove unused starter shells. Reuse check panes and close completed temporary panes after saving results. Do not accumulate failed check windows.
+- Permit visible windows only for dispatch, Aven, and active Linux workers. Run all other work windowlessly, or hidden from creation when a window is required. No visible starter shell, merge, review, check, integration, or monitoring windows.
 - Arrange only owned run workspaces. Do not move the user's focus or switch their client to provide status.
 - Keep the dashboard free of questions, approval actions, and input forms.
 
@@ -99,7 +99,7 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 - Reuse existing resources and queued assignments when their identities are known. Do not repeat launches, commits, or merges solely because output was lost.
 - Keep only the run metadata needed to link tasks, resources, decisions, and evidence. Do not reproduce tuios's internal state in a custom control system.
 - Use native worktree and fleet cleanup for owned resources after their outcomes are recorded.
-- Preserve unrelated resources and useful unresolved work.
+- Preserve unrelated resources and useful unresolved work on disk. Close all run-owned windows, including Aven, workers, views, and hidden helpers, at every run end except dispatch.
 - Distinguish delivered work from completed cleanup in the final status.
 
 ## 12. No human-input workflow
@@ -118,6 +118,6 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 - An interrupted run resumes without duplicate workers or repeated delivery.
 - A live dashboard reflects task, worker, review, check, delivery, and cleanup changes. Its overview is readable at 80 columns.
 - A Linux run shows actual Linux workers and native state, runs checks on Linux, and pulls the selected result for local review/delivery.
-- Final pane inventory contains no abandoned starter shells, check commands, reviewer panes, or worker views.
+- During execution, only dispatch, Aven, and active Linux workers are visible. Final run-owned window inventory, including hidden windows, contains dispatch only.
 - No supported path asks the user a question or initiates an approval request.
 - The resulting skill documents capability gaps explicitly and does not retain old architectural restrictions as requirements.

@@ -3,7 +3,9 @@
 Documentation and helper tests do not prove orchestration. Run these exercises
 in a scratch repository with configured harnesses, not the user's working tree.
 Keep logs outside disposable worktrees. Record command exits, resource IDs,
-candidate/target commits, and before/after pane inventories.
+candidate/target commits, and before/after pane inventories (including hidden
+windows and all owned hosts). Observe visibility during commands as well as
+after them; closing a stray window later does not pass the workspace check.
 
 ## Required exercises
 
@@ -16,7 +18,7 @@ candidate/target commits, and before/after pane inventories.
 | Competing attempts | fan launch, grouped wait, compare/diff/verify, selection, selected delivery, sibling disposition |
 | Recovery | Checkpoint inspect/restore with safety checkpoint; interrupted-run reconciliation without duplicate work |
 | Dashboard | One opened TML surface; same ID after patches; actual capture before/after; readable 80-column overview |
-| Workspace | Starter shell removed; no abandoned pass/fail checks or reviewers; active workers discoverable; final pane inventory bounded |
+| Workspace | Throughout the run, only dispatch, Aven, and active Linux workers visible; no transient shell/merge/review/check/integration windows; final owned inventory contains dispatch only, including after failure |
 | No human input | No question, form, approval request, or approval answer in the full run |
 
 Use the commands in the relevant guide; installed help remains the contract.

@@ -19,7 +19,12 @@ tuios integration status pi --json
 
 Read feature help when selecting a workflow. Check actual daemon responses.
 An old daemon can advertise fewer verbs than the installed CLI. A help page
-alone does not prove support. Do not restart a shared daemon during a run.
+alone does not prove support. Inventory existing windows and record ownership.
+Check visibility effects before each launch, including implicit starter, merge,
+fan verify, and pulled-worktree windows. Only dispatch, Aven, and active Linux
+workers may be visible. Require windowless or verified hidden auxiliary work;
+--no-focus and --detach do not establish invisibility. If unavailable, record
+a blocker rather than open a visible fallback. Do not restart a shared daemon.
 A separate named test server is suitable for release tests, but passing there
 does not prove the user's running daemon works.
 

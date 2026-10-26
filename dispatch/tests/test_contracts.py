@@ -143,7 +143,28 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('worktree pull "$REMOTE_SESSION"', execution)
         self.assertIn("--all-hosts", execution)
         self.assertIn("GIT_PAGER=cat PAGER=cat", checks)
-        self.assertIn('close-window -s "$SESSION" checks', checks)
+        self.assertIn('> "$LOG" 2>&1', checks)
+        self.assertIn('check_exit=$?', checks)
+        self.assertNotIn('tuios new-window', checks)
+
+    def test_window_visibility_and_final_cleanup_contract(self):
+        skill = (ROOT / "SKILL.md").read_text()
+        checks = (ROOT / "references/review-delivery.md").read_text()
+        workers = (ROOT / "references/workers.md").read_text()
+        recovery = (ROOT / "references/recovery.md").read_text()
+        acceptance = (ROOT / "references/acceptance.md").read_text()
+        for phrase in ("Visible windows are limited to dispatch",
+                       "hidden from creation", "including Aven and Linux workers",
+                       "including hidden windows"):
+            self.assertIn(phrase, skill)
+        self.assertIn("--no-focus", checks)
+        self.assertIn("does not hide a window", checks)
+        self.assertIn("integrated checks without visible windows", checks)
+        self.assertIn("Never expose verify windows", workers)
+        self.assertIn("including blocked and failed runs", recovery)
+        self.assertIn("dispatch only", recovery)
+        self.assertIn("Do not close unrelated windows", recovery)
+        self.assertIn("closing a stray window later does not pass", acceptance)
 
     def test_readme_is_short_and_skill_is_installable(self):
         self.assertLessEqual(len((ROOT / "README.md").read_text().splitlines()), 70)

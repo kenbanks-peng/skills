@@ -3,7 +3,8 @@
 A concise multi-agent coding workflow built on tuios. It uses native worktrees,
 fleet monitoring, agent queues and mail, review, checkpoints, and ship delivery.
 Aven stores durable tasks. One live TML dashboard shows the run; named native
-pane views show Linux workers without abandoned check windows.
+pane views show Linux workers. Only dispatch, Aven, and Linux workers may have
+visible windows. Cleanup leaves only dispatch.
 
 ## Install
 
