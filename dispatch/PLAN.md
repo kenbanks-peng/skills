@@ -88,7 +88,9 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 - Show task dependencies, worker states, active attempts, queued work, review results, checks, delivery status, blockers, and cleanup status.
 - Update the existing surface as work changes instead of emitting repeated static summaries.
 - Use native pane, session, worktree, and agent labels so users can locate work directly.
-- Do not move the user's focus or switch their client to provide status.
+- Keep the dashboard in the dispatcher's visible workspace. Show active Linux workers through native pane views or hosted panes, with host-qualified addresses.
+- Remove unused starter shells. Reuse check panes and close completed temporary panes after saving results. Do not accumulate failed check windows.
+- Arrange only owned run workspaces. Do not move the user's focus or switch their client to provide status.
 - Keep the dashboard free of questions, approval actions, and input forms.
 
 ## 11. Recovery and cleanup
@@ -114,6 +116,8 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 - A busy worker receives a queued correction and completes it without a duplicate assignment.
 - A checkpoint can be inspected and restored in a controlled recovery exercise.
 - An interrupted run resumes without duplicate workers or repeated delivery.
-- A live dashboard reflects task, worker, review, check, delivery, and cleanup changes.
+- A live dashboard reflects task, worker, review, check, delivery, and cleanup changes. Its overview is readable at 80 columns.
+- A Linux run shows actual Linux workers and native state, runs checks on Linux, and pulls the selected result for local review/delivery.
+- Final pane inventory contains no abandoned starter shells, check commands, reviewer panes, or worker views.
 - No supported path asks the user a question or initiates an approval request.
 - The resulting skill documents capability gaps explicitly and does not retain old architectural restrictions as requirements.

@@ -117,17 +117,33 @@ class SafetyTests(unittest.TestCase):
 
 
 class CoverageTests(unittest.TestCase):
-    def test_all_plan_sections_and_acceptance_exercises_have_matrix_entries(self):
-        # This checks traceability only. It does not prove any live behavior.
-        plan = (ROOT / "PLAN.md").read_text()
+    def test_release_checks_distinguish_live_from_static(self):
         doc = (ROOT / "references/acceptance.md").read_text()
-        sections = re.findall(r"^## (\d+)\. ", plan, re.M)
-        self.assertEqual(len(sections), 12)
-        for number in sections:
-            self.assertRegex(doc, rf"(?m)^\| R{int(number):02d} ")
-        for number in range(8):
-            self.assertRegex(doc, rf"(?m)^## E{number}: ")
-        self.assertIn("Live end-to-end acceptance is not yet passed.", (ROOT / "README.md").read_text())
+        for exercise in ("Native lifecycle", "Linux execution", "Busy worker",
+                         "Agent communication", "Competing attempts", "Recovery",
+                         "Dashboard", "Workspace", "No human input"):
+            self.assertIn("| " + exercise + " |", doc)
+        self.assertTrue((ROOT / "references/verification.md").is_file())
+        self.assertIn("Static tests are not live acceptance.", (ROOT / "README.md").read_text())
+
+    def test_operating_guides_stay_bounded(self):
+        # Prevent the former sprawling procedure from returning.
+        self.assertLessEqual(len((ROOT / "SKILL.md").read_text().splitlines()), 85)
+        for path in (ROOT / "references").glob("*.md"):
+            if path.name != "verification.md":
+                with self.subTest(path=path.name):
+                    self.assertLessEqual(len(path.read_text().splitlines()), 120)
+
+    def test_linux_and_pane_lifecycle_have_native_procedures(self):
+        workers = (ROOT / "references/workers.md").read_text()
+        execution = (ROOT / "references/pi.md").read_text()
+        checks = (ROOT / "references/review-delivery.md").read_text()
+        self.assertIn("pane-view", workers)
+        self.assertIn("starter shell", workers)
+        self.assertIn('worktree pull "$REMOTE_SESSION"', execution)
+        self.assertIn("--all-hosts", execution)
+        self.assertIn("GIT_PAGER=cat PAGER=cat", checks)
+        self.assertIn('close-window -s "$SESSION" checks', checks)
 
     def test_readme_is_short_and_skill_is_installable(self):
         self.assertLessEqual(len((ROOT / "README.md").read_text().splitlines()), 70)

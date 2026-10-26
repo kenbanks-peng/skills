@@ -20,7 +20,7 @@ class DashboardTests(unittest.TestCase):
         self.snapshot = dash.load(ROOT / "assets/dashboard-example.json")
 
     def test_template_and_render_are_read_only(self):
-        allowed = {"tml", "state", "scroll", "col", "heading", "text", "table", "column"}
+        allowed = {"tml", "state", "scroll", "col", "heading", "text", "table", "column", "tabs", "tab"}
         for document in (dash.TEMPLATE.read_text(), dash.render(self.snapshot)):
             root = ET.fromstring(document)
             self.assertEqual(root.attrib["version"], "1")
@@ -31,6 +31,17 @@ class DashboardTests(unittest.TestCase):
                 if node.tag == "table":
                     self.assertEqual(node.attrib["select"], "none")
             json.loads(root.find("state").text)
+
+    def test_overview_is_compact_and_details_are_tabbed(self):
+        root = ET.fromstring(dash.render(self.snapshot))
+        tabs = list(root.iter("tab"))
+        self.assertEqual([tab.attrib["id"] for tab in tabs],
+                         ["overview", "work", "delivery", "resources"])
+        overview = tabs[0].find("table")
+        self.assertEqual([c.attrib["field"] for c in overview],
+                         ["task", "state", "environment", "blockers"])
+        for table in root.iter("table"):
+            self.assertLessEqual(len(list(table)), 4)
 
     def test_all_fields_are_visible(self):
         root = ET.fromstring(dash.render(self.snapshot))
