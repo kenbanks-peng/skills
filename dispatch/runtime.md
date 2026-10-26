@@ -104,21 +104,21 @@ worker_id=$(tuios new-window -s "$session" "$worker_name" \
   --workspace "$workspace" --cwd "$worktree" --no-focus --keep-open --print-id -- \
   bash -c '
     set +e
-    tuios set-agent-state working -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \\
+    tuios set-agent-state working -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
       --harness pi -m "pi worker running"
     container exec --workdir "$1" "$2" bash -eu -c '\''
       cd "$1"
-      printf "started\\n" > "$2/pi.started"
+      printf "started\n" > "$2/pi.started"
       exec pi --session "$2/pi.jsonl" --print -- "@$2/prompt.md"
     '\'' _ "$1" "$3"
     rc=$?
-    printf "%s\\n" "$rc" > "$3/pi.exit.tmp"
+    printf "%s\n" "$rc" > "$3/pi.exit.tmp"
     mv "$3/pi.exit.tmp" "$3/pi.exit"
     if [ "$rc" -eq 0 ]; then
-      tuios set-agent-state done -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \\
+      tuios set-agent-state done -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
         --harness pi -m "pi exited; dispatcher review required"
     else
-      tuios set-agent-state errored -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \\
+      tuios set-agent-state errored -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
         --harness pi -m "pi execution failed: $rc"
     fi
     exit "$rc"
