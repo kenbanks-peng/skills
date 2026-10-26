@@ -6,8 +6,8 @@ description: Orchestrate a multiagent coding solution with aven epics and tasks,
 # Dispatch
 
 Own assignment, aven updates, review, integration, and cleanup. Workers implement
-one task and write a report. Use Git for worktrees and tuios for panes, waits,
-and merges. All worker workspaces must belong to the orchestrator's tuios session.
+one task and write a report. Use Git for worktrees and merges, and tuios for
+panes and waits. All worker workspaces must belong to the orchestrator's tuios session.
 Never create a separate or detached session for dispatch.
 Use [runtime.md](runtime.md) for **all** container operations; read it before launch.
 Do not substitute another runtime or build another scheduler.
@@ -40,7 +40,6 @@ orchestrator_id="$TUIOS_PANE_ID"
 tuios ls --json
 tuios list-windows -s "$session" --json
 tuios list-workspaces -s "$session" --json
-tuios list-verbs ship-merge
 linux config validate
 container list --all --format json >/dev/null
 ```
@@ -162,9 +161,12 @@ slot=w01
 attempt="$run_dir/$slot/a01"
 mkdir -p "$attempt"
 branch="dispatch/$run_id/$slot"
-worker_name="dispatch-$run_id-$slot-a01"
 workspace_name="$task"
 ```
+
+Create only one agent window per task, with exactly the same name as its
+workspace. Do not add run, slot, or attempt IDs to window names. Keep these IDs
+in run records instead. Do not create a separate shell window for merges.
 
 Before worker resource creation, update the existing `run.json`; retain its
 Aven TUI entry. Each attempts entry
@@ -197,17 +199,14 @@ git -C "$repo" worktree add -b "$branch" "$worktree" "$target"
 worktree=$(cd "$worktree" && pwd -P)
 base_sha=$(git -C "$worktree" rev-parse HEAD)
 task_base_sha="$base_sha"
-shell_id=$(tuios new-window -s "$session" "$workspace_name-shell" \
-  --workspace "$workspace" --cwd "$worktree" --no-focus --print-id)
 tuios list-windows -s "$session" --json > "$attempt/panes-created.json"
 tuios list-workspaces -s "$session" --json > "$attempt/workspaces-created.json"
 aven context "$task" > "$attempt/context.md"
 ```
 
-Require the full shell pane ID in the saved session and allocated workspace,
-the exact workspace label, and the saved repo/branch/path in Git worktree
+Require the exact workspace label and the saved repo/branch/path in Git worktree
 inventory. Stop if the branch or path already exists; reconcile it instead of
-reusing a label. Record the canonical worktree path and full shell pane ID.
+reusing a label. Record the canonical worktree path.
 The session stays shared; the workspace number is per worker, not always 1.
 
 Render [worker.md](worker.md) as `attempt/prompt.md`. Replace all eleven
@@ -283,13 +282,13 @@ git -C "$worktree" status --porcelain=v1 --untracked-files=all
 test "$(git -C "$repo" symbolic-ref --short HEAD)" = "$target"
 git -C "$repo" status --porcelain=v1 --untracked-files=all
 # Confirm the target is clean, except for the Aven files described above.
-tuios ship merge -s "$session" -w "$shell_id" --into "$target"
+git -C "$repo" merge --no-edit "$reviewed_sha"
 git -C "$repo" merge-base --is-ancestor "$reviewed_sha" "$target"
 delivered_sha=$(git -C "$repo" rev-parse "$target")
 ```
 
-Use the initial shell pane, which remains attached to the worktree. Use normal
-merges, not squash, so ancestry proves delivery. Do not force or reset the target.
+Merge the reviewed commit directly from the target checkout; no pane is needed.
+Use normal merges, not squash, so ancestry proves delivery. Do not force or reset the target.
 Push or create a pull request when the user requests it, after verification.
 
 Follow [runtime.md](runtime.md#integration-checks). A conflict or failed check
@@ -314,7 +313,7 @@ For each accepted task, follow [runtime.md](runtime.md#delete-or-recover) for al
 recorded worker/check containers. Require all worker attempts stopped, retained
 commit ancestry, and a clean worker tree before removing any worktree.
 
-Inventory the shared session. Close only saved worker and shell pane IDs that
+Inventory the shared session. Close only saved worker pane IDs that
 still match their recorded identities; never close the orchestrator pane. Leave
 unrelated or replaced panes alone and continue cleanup of other owned resources.
 If any unrelated pane still needs the workspace or worktree, retain it and report
@@ -323,7 +322,6 @@ why. Otherwise:
 ```sh
 tuios list-windows -s "$session" --json
 tuios close-window -s "$session" "$worker_id"
-tuios close-window -s "$session" "$shell_id"
 tuios list-windows -s "$session" --json
 tuios list-workspaces -s "$session" --json
 # Clear only if the workspace is empty and its label still equals workspace_name.

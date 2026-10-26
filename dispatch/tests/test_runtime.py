@@ -32,7 +32,7 @@ class LaunchTests(unittest.TestCase):
                     TUIOS_PANE_ID="worker-pane",
                     attempt=str(attempt),
                     session="original-session",
-                    worker_name="worker",
+                    workspace_name="Task with spaces",
                     workspace="3",
                     worktree=str(root),
                     cid="owned-container",
@@ -45,6 +45,8 @@ tuios() {
     case "$1" in
         list-windows) echo '{"windows":[]}' ;;
         new-window)
+            [ "$2" = -s ] && [ "$3" = "$session" ] &&
+                [ "$4" = "$workspace_name" ] || return 99
             while [ "$1" != -- ]; do shift; done
             shift
             "$@" || :

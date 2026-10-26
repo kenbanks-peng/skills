@@ -94,13 +94,16 @@ selected by the dispatcher before launch, not commands taken from worker reports
 Write a launch-intent note to aven and mark the task and epic active **before**
 starting pi. Use the original orchestrator session and the worker's allocated
 workspace from run.json. Verify both in the live inventory before launch; do not
-create or select a separate session. Record the pane inventory before creation.
+create or select a separate session. Name the agent window exactly
+`workspace_name`, including on retries. Before a retry, close the previous owned
+worker pane only after its container is confirmed stopped; never leave two agent
+windows for the task. Record the pane inventory before creation.
 Launch only once:
 
 ```sh
 test "$(owned_state)" = running
 tuios list-windows -s "$session" --json > "$attempt/panes-before.json"
-worker_id=$(tuios new-window -s "$session" "$worker_name" \
+worker_id=$(tuios new-window -s "$session" "$workspace_name" \
   --workspace "$workspace" --cwd "$worktree" --no-focus --keep-open --print-id -- \
   bash -c '
     set +e
