@@ -1,5 +1,5 @@
 ---
-name: dispatch
+name: dispatch-herdr
 description: Use when the user explicitly requests dispatch to run coding tasks with Workmux workers and Aven tracking, or to resume a dispatch run.
 ---
 
