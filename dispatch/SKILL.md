@@ -63,8 +63,11 @@ tracked changes. All other uncommitted changes must be resolved before merging
 or removing a worktree.
 
 Record the original tuios server/socket, session, and orchestrator pane identities.
-Verify that the pane belongs to that session. Use these identities for the whole
-run, with explicit `-s "$session"` on session-scoped commands. Do not follow focus,
+Verify that the pane belongs to that session. Find its workspace number in the
+live inventory and rename that workspace to exactly `dispatch` with
+`tuios set-workspace-name -s "$session" "$orchestrator_workspace" dispatch`.
+Use these identities for the whole run, with explicit `-s "$session"` on
+session-scoped commands. Do not follow focus,
 create another session, or switch or detach the person's client. If the original
 session is unavailable, stop launch and reconcile; do not use a detached fallback.
 
@@ -88,7 +91,7 @@ Initialize run records before worker launch:
 run_id=$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')
 run_dir="$common_git/dispatch/$run_id"
 mkdir -p "$run_dir"
-aven_workspace_name="dispatch-$run_id-aven"
+aven_workspace_name="aven"
 aven_args=()
 # Put the user's --db and --workspace options in aven_args as separate arguments.
 ```
@@ -160,7 +163,7 @@ attempt="$run_dir/$slot/a01"
 mkdir -p "$attempt"
 branch="dispatch/$run_id/$slot"
 worker_name="dispatch-$run_id-$slot-a01"
-workspace_name="dispatch-$run_id-$slot"
+workspace_name="$task"
 ```
 
 Before worker resource creation, update the existing `run.json`; retain its
@@ -176,7 +179,8 @@ recheck the inventory before naming it. Use only an empty, unnamed workspace
 that is not reserved by the Aven TUI, another run, or another indexed attempt.
 Never use the Aven TUI workspace for a worker. If none is available, wait for
 an owned slot to be cleaned up or ask the user; do not create another session.
-Never rename an occupied or user-named workspace, including the orchestrator's.
+Do not use or rename the orchestrator's workspace for a worker. Never rename
+another occupied or user-named workspace.
 
 Do not use `tuios worktree new` or `tuios worktree rm`: they create or delete a
 session. Save the selected workspace number and launch intent before each mutation:
