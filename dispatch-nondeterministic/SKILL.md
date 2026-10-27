@@ -1,5 +1,5 @@
 ---
-name: dispatch
+name: dispatch-nondeterministic
 description: Orchestrate a multiagent coding solution with aven epics and tasks, tuios worktrees and named workspaces, and pi workers in linux dev-containers. Use also to resume or close a dispatch run.
 ---
 
