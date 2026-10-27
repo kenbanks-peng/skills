@@ -18,7 +18,7 @@ verify final cleanup.
 | Competing attempts | fan launch, grouped wait, compare/diff/verify, selection, selected delivery, sibling disposition |
 | Recovery | Checkpoint inspect/restore with safety checkpoint; interrupted-run reconciliation without duplicate work |
 | Dashboard | Native inventory refresh replaces stale states; readable 80-column report in existing dispatch; no extra status window |
-| Workspace | Active Linux workers visible; starter/helper ownership recorded; final owned inventory contains dispatch only, including after failure |
+| Workspace | Each worker or live view in its own task workspace, separate from dispatch; window names equal exact Aven task refs; starter/helper ownership recorded; final owned inventory contains dispatch only, including after failure |
 | No human input | No question, form, approval request, or approval answer in the full run |
 
 Use the commands in the relevant guide; installed help remains the contract.

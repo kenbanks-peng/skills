@@ -21,8 +21,9 @@ repeatable operations. Read [script procedures](references/automation.md).
 3. **Show status.** Keep the [dashboard](references/dashboard.md) in the existing
    dispatch pane with dashboard.py observe/report. Refresh after meaningful events.
 4. **Launch Linux workers.** Follow [workers](references/workers.md). Create a
-   native worktree, then use the execution tool to run
-   `tuios new-window -s "$SESSION" "$WORKER" --keep-open --print-id --cwd "$WORKTREE" -- linux container -- pi "$ASSIGNMENT"`.
+   native worktree and select a separate, empty tuios workspace for the task.
+   Set TASK_REF to the exact Aven task reference. Use the execution tool to run
+   `tuios new-window -s "$SESSION" "$TASK_REF" --workspace "$WORKER_WORKSPACE" --no-focus --keep-open --print-id --cwd "$WORKTREE" -- linux container -- pi "$ASSIGNMENT"`.
    The linux launcher selects and starts the Linux environment. Give it the
    task checkout as cwd. Register returned pane IDs and audit ownership.
 5. **Coordinate.** Use [queue, mail, asks, and events](references/coordination.md)
@@ -43,8 +44,9 @@ repeatable operations. Read [script procedures](references/automation.md).
 
 - Use `linux container --` for every worker, including review agents.
 - Launch directly; the launcher owns runtime and operating-system selection.
-- Show active workers in tuios. Register starter and helper panes, and close
-  them when their work ends.
+- Keep dispatch in its own workspace. Place each worker or its live view in a
+  separate task workspace, with its window named exactly as the Aven task reference.
+  Register starter and helper panes, and close them when their work ends.
 - Use explicit session and pane IDs. Reconcile uncertain operations from saved
   state before retrying.
 - Use repository defaults for ordinary task decisions. Record unresolved scope

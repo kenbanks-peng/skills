@@ -3,15 +3,22 @@
 ## Launch a task
 
 Use the execution tool to run the following commands. Set REPO, BASE, BRANCH,
-SESSION, WORKER, and ASSIGNMENT from the plan.
+SESSION, TASK_REF, and ASSIGNMENT from the plan. TASK_REF is the exact Aven
+task reference, including its prefix. Use it as the worker window name.
 
 ```sh
 tuios worktree new "$BRANCH" --repo "$REPO" --base "$BASE" --name "$SESSION" --detach --json
 tuios list-windows -s "$SESSION" --json
-tuios new-window -s "$SESSION" "$WORKER" --keep-open --print-id --cwd "$WORKTREE" -- linux container -- pi "$ASSIGNMENT"
+WORKER_WORKSPACE=$(tuios list-workspaces -s "$SESSION" --json | jq -r '[.workspaces[] | select(.window_count == 0 and .current == false)][0].workspace // empty')
+test -n "$WORKER_WORKSPACE" || exit 1
+tuios new-window -s "$SESSION" "$TASK_REF" --workspace "$WORKER_WORKSPACE" --no-focus --keep-open --print-id --cwd "$WORKTREE" -- linux container -- pi "$ASSIGNMENT"
 tuios list-windows -s "$SESSION" --json
 ```
 
+Give each task its own empty workspace, separate from dispatch and other tasks.
+If none is available, report the workspace limit. Select again before each
+launch: closing or moving panes can change workspace numbers. Verify the returned
+pane has the selected workspace and exact TASK_REF name in list-windows.
 Set WORKTREE to the path returned by worktree new. Save the returned full pane
 IDs. The tool for Linux execution is `linux`: container mode mounts cwd at the
 same path and runs the supplied command inside Linux. Pi receives ASSIGNMENT
@@ -35,7 +42,7 @@ Make that directory available at the same path inside the container. Use
 Add a mount for its parent repository when it is outside WORKTREE:
 
 ```sh
-tuios new-window -s "$SESSION" "$WORKER" --keep-open --print-id --cwd "$WORKTREE" -- linux container --mount "$REPO:$REPO:rw" -- pi "$ASSIGNMENT"
+tuios new-window -s "$SESSION" "$TASK_REF" --workspace "$WORKER_WORKSPACE" --no-focus --keep-open --print-id --cwd "$WORKTREE" -- linux container --mount "$REPO:$REPO:rw" -- pi "$ASSIGNMENT"
 ```
 
 Give each worker its own task checkout and use one integration owner.
@@ -63,12 +70,17 @@ for other cases. Preserve useful alternatives on disk after pane cleanup.
 ## Visibility
 
 Keep active worker panes visible and refresh the dashboard after meaningful
-events. For workers in another session, use a native pane-view:
+events. Keep dispatch alone in its workspace. For workers in another session,
+select a separate empty task workspace in DISPATCH_SESSION and use a native
+pane-view. Name the view exactly TASK_REF, the same as the source worker:
 
 ```sh
-tuios new-window -s "$DISPATCH_SESSION" "view-$WORKER" --workspace "$WORKERS_WORKSPACE" --no-focus -- tuios pane-view -s "$SESSION" -w "$PANE" --size pane
+VIEW_WORKSPACE=$(tuios list-workspaces -s "$DISPATCH_SESSION" --json | jq -r '[.workspaces[] | select(.window_count == 0 and .current == false)][0].workspace // empty')
+test -n "$VIEW_WORKSPACE" || exit 1
+tuios new-window -s "$DISPATCH_SESSION" "$TASK_REF" --workspace "$VIEW_WORKSPACE" --no-focus -- tuios pane-view -s "$SESSION" -w "$PANE" --size pane
 ```
 
 Register each view and save its source address. Close the view when its source
 finishes. Close the source worker after results and logs are saved.
-Use one live view per worker and keep layout changes within the run's workspace.
+Use one live view per worker. Verify its task name and workspace after creation.
+Keep layout changes within the task workspace; keep the dispatch workspace intact.

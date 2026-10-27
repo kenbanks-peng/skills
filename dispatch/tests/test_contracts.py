@@ -167,6 +167,29 @@ class CoverageTests(unittest.TestCase):
         self.assertIn("Preserve unrelated windows", recovery)
         self.assertIn("starter/helper ownership recorded", acceptance)
 
+    def test_task_windows_use_exact_refs_and_explicit_workspaces(self):
+        skill = (ROOT / "SKILL.md").read_text()
+        workers = (ROOT / "references/workers.md").read_text()
+        launches = re.findall(r'tuios new-window [^\n\x60]+', skill)
+        for block in shell_blocks(workers):
+            launches.extend(line for line in block.splitlines()
+                            if line.startswith("tuios new-window "))
+        self.assertEqual(len(launches), 4)
+        for launch in launches:
+            with self.subTest(launch=launch):
+                tokens = shlex.split(launch)
+                self.assertEqual(tokens[4], "$TASK_REF")
+                self.assertIn("--workspace", tokens)
+                self.assertIn(tokens[tokens.index("--workspace") + 1],
+                              {"$WORKER_WORKSPACE", "$VIEW_WORKSPACE"})
+                self.assertIn("--no-focus", tokens)
+        self.assertIn("exact Aven task reference", skill)
+        self.assertIn("Keep dispatch alone in its workspace.", workers)
+        self.assertEqual(workers.count(
+            "select(.window_count == 0 and .current == false)"), 2)
+        self.assertIn('test -n "$WORKER_WORKSPACE" || exit 1', workers)
+        self.assertIn('test -n "$VIEW_WORKSPACE" || exit 1', workers)
+
     def test_guides_use_positive_linux_launcher_instructions(self):
         paths = [ROOT / "SKILL.md", ROOT / "README.md", ROOT / "PLAN.md"]
         paths += [p for p in (ROOT / "references").glob("*.md")
