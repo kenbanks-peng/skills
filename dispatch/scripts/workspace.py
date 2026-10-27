@@ -74,8 +74,6 @@ def inspect(state, native, final=False):
         issues.append(
             "unclassified new windows; register ownership or exclude unrelated IDs"
         )
-    if auxiliary and not final:
-        issues.append("auxiliary windows exist; no hidden-window support is certified")
     if remaining and final:
         issues.append("run-owned windows remain besides dispatch")
     return {
@@ -108,7 +106,7 @@ def register(state, native, args):
         raise ValueError("window was excluded as unrelated")
     if args.role == "linux-worker" and args.system != "Linux":
         raise ValueError(
-            "Linux worker registration requires --system Linux from host preflight"
+            "Linux worker registration requires --system Linux from the launcher contract"
         )
     resource = {"role": args.role, "session": args.session, "window_id": args.window}
     if address in state["owned"] and state["owned"][address] != resource:

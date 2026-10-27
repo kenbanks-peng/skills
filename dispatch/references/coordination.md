@@ -11,7 +11,7 @@ tuios wait-for agent-state --select "$OWNED_SELECTOR" --until idle,done,needs_in
 ```
 
 Use host-scoped waits where the installed version does not aggregate hosts.
-Do not put the state being awaited in the selector. A rest state ends a turn,
+Select workers by stable identity and put awaited states in --until. A rest state ends a turn,
 not acceptance. For each assignment require a new completed turn and its result;
 an already idle worker is not a completed assignment.
 
@@ -25,16 +25,16 @@ tuios queue ls -s "$SESSION" -w "$PANE" --json
 
 Use ask-agent for an immediate answer from a ready worker. Check its reply:
 a success with empty reply is not an answer. Read the worker result through
-native capture or an explicit reply; do not repeat the assignment. Use queue for
+native capture or an explicit reply, retaining the original assignment. Use queue for
 authorized next work while busy. This can be a correction or a dependency-ready
 next task in the same bounded scope. A task needing a separate checkout gets a
-separate assignment/worktree. Do not send the same instruction by two channels.
+separate assignment/worktree. Use one delivery channel per instruction.
 
 Write the authorized follow-up once in PROMPT_FILE. Reuse its stable --id for
 the same work. The script submits through native queue and records the receipt.
 A repeated identical request returns the saved receipt without requeueing.
 Changed text/target for that ID, blocked state, and uncertain submissions fail.
-Do not bypass a pending request with a new ID. Reconcile native state instead.
+Reconcile pending requests against native state, keeping their original IDs.
 A submitted receipt is not completion, even after a daemon restart.
 Save the returned queue ID. Wait for its result, not just queue disappearance.
 Prompt text visible in the input box is delivery in progress, not execution.
@@ -55,10 +55,9 @@ tuios wait-for agent-message -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" --thread "$
 tuios read-agent-messages -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" --thread "$MESSAGE" --unread --json
 ```
 
-Mail threads are session-scoped. Do not add coordinator agents merely to make
-mail work across worktree sessions: use ask/queue for direct cross-session work.
+Mail threads are session-scoped. Use ask/queue for direct cross-session work.
 For remote mail, read the thread in HOST:SESSION as documented in the hosts
-topic. Do not claim another pane's sender identity. A read is not an outcome;
+topic. Use your own sender identity. A read is not an outcome;
 require an explicit result when the assignment needs a reply.
 
 ## Events and exceptions
@@ -72,14 +71,13 @@ tuios subscribe --hosts --types agent-state,attention,agent-message,command-fini
 
 Use a bounded stream read, not a background event service. Filter events by owned
 IDs. Save boot/sequence cursors for reconnect if needed. On a gap, inventory
-again. Use grouped waits when waiting for a whole stage. Do not spend the whole
-run blocked on a final grouped wait while the dashboard stays stale.
+again. Use bounded grouped waits for a stage and refresh the dashboard between waits.
 
 - needs_input: inspect with peek-prompt, record the blocker, continue other work.
 - errored/timeout: inspect state and one bounded capture; repair the cause.
-- prompt stalled: text may already be typed. Do not resend or press Enter blindly.
+- prompt stalled: inspect delivery state and reconcile the original prompt.
 - host down: retain the worker identity; wait for its existing link.
-- forbidden: stop that operation. Do not change grants or route around it.
+- permission error: record the operation and required authority; continue independent work.
 
 Use capture for diagnosis and view verification, not polling for completion.
 Keep important replies/results in Aven; native mail and queues are volatile.

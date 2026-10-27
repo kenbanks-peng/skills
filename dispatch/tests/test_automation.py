@@ -431,10 +431,11 @@ class WorkspaceTests(RepoTest):
         self.assertFalse(cached["ok"])
         self.assertEqual(cached["panes"], {})
 
-    def test_auxiliary_windows_fail_audit_even_if_unfocused(self):
+    def test_registered_auxiliary_windows_pass_during_run_and_need_cleanup(self):
         self.register(role="auxiliary")
         self.native.panes["dispatch/" + WORKER]["focused"] = False
-        self.assertFalse(workspace.inspect(self.state, self.native)["ok"])
+        self.assertTrue(workspace.inspect(self.state, self.native)["ok"])
+        self.assertFalse(workspace.inspect(self.state, self.native, final=True)["ok"])
         self.assertTrue(
             workspace.cleanup(self.state, self.native, self.run, True)["ok"]
         )

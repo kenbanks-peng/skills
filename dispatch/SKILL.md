@@ -1,51 +1,56 @@
 ---
 name: dispatch
-description: Orchestrate coding agents with native tuios worktrees, fleet, queues, review, checkpoints, ship, and a live dashboard. Support Linux workers without human-input steps.
+description: Coordinate Linux coding agents with the linux launcher, tuios worktrees, queues, review, checks, and delivery. Use Aven for durable tasks.
 ---
 
 # Dispatch
 
-Use tuios as the orchestration system. Use Aven for durable tasks and outcomes.
-Use the supplied scripts for repeatable operations. Native tuios still owns
-live state, queues, mail, and worktrees; do not build a second scheduler.
-Read [script procedures](references/automation.md) before starting a run.
+Use tuios for worktrees, panes, coordination, review, and delivery.
+Use Aven for durable objectives and outcomes. Use the supplied scripts for
+repeatable operations. Read [script procedures](references/automation.md).
 
-## Working rules
+## Procedure
 
-- Work within the objective. Preserve unrelated work. Never ask a person a question or initiate an approval flow; record missing authority as a blocker.
-- Do not use `ask-human`, `respond`, `request-approval`, approval forms, or unattended `ship push/pr`. Never type into `needs_input` or bypass a refusal.
-- Keep one writer per task checkout. A finished turn permits review and checks; task acceptance requires passing checks and review.
-- Use explicit session/pane IDs and native state. Reconcile uncertain delivery before retrying.
-- Visible windows are limited to dispatch (with its dashboard), Aven, and active Linux workers. No visible shell, merge, review, check, integration, or monitoring windows. Use windowless execution first; required auxiliary windows must be hidden from creation. `--no-focus`, a background workspace, and closing later do not mean hidden.
-- Before launch, confirm that native operations and their implicit starter/check windows obey this rule. If hidden execution is not supported, use a windowless path or record a blocker; do not create a visible fallback. At the end, close all run-owned windows except dispatch, including Aven and Linux workers. Preserve evidence, not extra windows.
-- Use the requested execution environment. Linux work must run on Linux. Do not silently replace it with local macOS work.
+1. **Prepare.** Read repository instructions and [planning](references/planning.md).
+   Read `tuios --skill recipes`. Save the initial inventory with
+   `workspace.py --run-dir DIR init --repo REPO --session SESSION --dispatch UUID`.
+   On resume, reuse DIR and run status.
+2. **Plan.** Search Aven. Record scope, acceptance checks, dependencies, branch,
+   merge policy, and concurrency. Use the current branch as target and squash
+   independent task branches. Give each writing task its own checkout.
+3. **Show status.** Keep the [dashboard](references/dashboard.md) in the existing
+   dispatch pane with dashboard.py observe/report. Refresh after meaningful events.
+4. **Launch Linux workers.** Follow [workers](references/workers.md). Create a
+   native worktree, then use the execution tool to run
+   `tuios new-window -s "$SESSION" "$WORKER" --keep-open --print-id --cwd "$WORKTREE" -- linux container -- pi "$ASSIGNMENT"`.
+   The linux launcher selects and starts the Linux environment. Give it the
+   task checkout as cwd. Register returned pane IDs and audit ownership.
+5. **Coordinate.** Use [queue, mail, asks, and events](references/coordination.md)
+   when the worker integration provides them. Use the worker's actual output
+   and check results as completion evidence. Record specific tool failures.
+6. **Review and repair.** Inspect the candidate diff and checkpoints. Review
+   independently, send precise corrections, and rerun checks after repairs.
+   See [review and delivery](references/review-delivery.md).
+7. **Check and deliver.** Run project checks in the worker's Linux environment.
+   Save logs and revision identity. Use checks.py for repeatable check plans
+   and deliver.py for reviewed local candidates and integrated checks.
+8. **Finish.** Save outcomes, stop queues and writers, then use
+   `workspace.py --run-dir DIR cleanup --evidence-saved` and `audit --final`.
+   Leave dispatch with final status. Preserve useful branches, worktrees, and
+   logs. See [recovery](references/recovery.md).
 
-## Run
+## Operating practice
 
-1. **Prepare.** Read repository instructions and [planning](references/planning.md). Read `tuios --skill recipes` and needed topics. Run `workspace.py --run-dir DIR init --repo REPO --session SESSION --dispatch UUID` before creating resources. On resume, reuse DIR and run `status`, not init. Confirm actual daemon support.
-2. **Plan.** Search Aven. Record tasks, acceptance checks, dependencies, target branch, merge policy, and concurrency. Use sensible repository defaults: current branch as target; squash for independent task branches unless instructed otherwise. Keep records short.
-3. **Show the run.** Use `workspace.py --run-dir DIR status` and `dashboard.py observe/report` for [status in the existing dispatch pane](references/dashboard.md). Refresh after meaningful native events. Do not open an extra dashboard window.
-4. **Launch.** Use [native workers](references/workers.md) and [Linux host execution](references/pi.md). Confirm that implicit starter windows stay hidden from creation. After each launch, use `workspace.py register` with the returned full IDs and run `audit`. Aven and Linux workers are the only permitted visible additions.
-5. **Coordinate.** Use [ask, queue, mail, grouped waits, and events](references/coordination.md). Use `workspace.py queue --id ID --prompt-file FILE` for authorized follow-ups; reuse the ID to prevent duplicate submissions. Use state events, not repeated captures, to follow progress. Update the same dashboard after meaningful changes.
-6. **Review and repair.** Inspect native review diffs and checkpoints. Use an independent reviewer or review the work yourself. Send line-specific corrections with `review note/send`; queue other follow-ups once. See [review and delivery](references/review-delivery.md).
-7. **Check and deliver.** Use `checks.py --plan PLAN --cwd CHECKOUT --output DIR --require-system Linux` (or authorized Darwin). After review acceptance, use `deliver.py` with recorded source/target, policy, check evidence, and integration plan. It runs native ship and integrated checks without visible helper windows. See [delivery](references/review-delivery.md).
-8. **Finish.** Use [cleanup and recovery](references/recovery.md). Save results and unresolved work, stop queues/writers, then run `workspace.py --run-dir DIR cleanup --evidence-saved` and `audit --final`, including hidden windows. Leave final status in dispatch. Report changes, checks, blockers, and retained non-window resources.
+- Use `linux container --` for every worker, including review agents.
+- Launch directly; the launcher owns runtime and operating-system selection.
+- Show active workers in tuios. Register starter and helper panes, and close
+  them when their work ends.
+- Use explicit session and pane IDs. Reconcile uncertain operations from saved
+  state before retrying.
+- Use repository defaults for ordinary task decisions. Record unresolved scope
+  or authority in Aven and continue independent work.
+- Accept a task after its checks and independent review pass.
+- Report changes, checks, unresolved work, and retained resources.
 
-## Native tools by purpose
-
-| Purpose | Use |
-| --- | --- |
-| Isolation | `worktree new/ls/diff/rm`; remote `worktree pull` |
-| Parallel alternatives | `fan`, `compare`, `verify`, `diff`, verdict, `keep` |
-| Assignment | `start-agent --prompt`, `ask-agent`, `queue` |
-| Coordination | `send-agent-message`, explicit reply/read, thread waits |
-| Monitoring | fleet selectors, `wait-for`, `subscribe`, `list-attention` |
-| Visibility | workspace.py ownership/audit/status; dashboard.py observe/report |
-| Review/recovery | `review note/send`, `checkpoint list/diff/restore` |
-| Delivery | deliver.py; native `ship status` |
-| Checks | checks.py plan execution, logs, timeouts, and evidence |
-
-Use features for a purpose, not to inflate command counts. Read only the linked
-guide needed for the current step. Installed command contracts define syntax.
-[Acceptance](references/acceptance.md) defines the live release checks; static
-tests do not prove that orchestration works.
+Read the linked guide for the current step. Installed tool help defines command
+syntax. [Acceptance](references/acceptance.md) separates live checks from tests.

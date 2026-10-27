@@ -1,6 +1,6 @@
 # Status in the existing dispatch pane
 
-Do not open another dashboard window. Use the existing dispatch pane for the
+Use the existing dispatch pane for the
 run's status. Refresh after launch, native events, queue delivery, review,
 checks, merge, and cleanup. A saved TML file is not a live native surface.
 
@@ -17,10 +17,10 @@ python3 "$skill/scripts/dashboard.py" observe "$run_dir/snapshot-1.json" --inven
 python3 "$skill/scripts/dashboard.py" report "$run_dir/snapshot-2.json"
 ```
 
-Use the successful new snapshot for the next refresh. Do not continue observe
+Use the successful new snapshot for the next refresh. Retry status
 after a failed inventory command. observe rejects failed inventory and data
 older than 60 seconds; run status again instead of using an old file. Native
-events trigger refresh; do not build a polling loop.
+events trigger refresh.
 Missing workers become unknown, not done. Report does not create a window.
 Its overview fits 80 columns. Full results stay in task notes and script logs.
 
@@ -32,7 +32,7 @@ environment, queue, review, checks, delivery, blockers, cleanup; dependencies is
 a text list. native contains state, source, identity (text), evidence_age_ms,
 completion_seq, subagents (nonnegative integers or null).
 Use full window UUIDs and host-qualified session addresses. Use unknown/not run
-for facts not observed. Do not invent results or retain a stale done state.
+for facts not observed. Replace stale results with fresh observations.
 observe replaces native fields only; it does not accept a task or infer delivery.
 
 ## Existing TML surfaces
@@ -47,7 +47,7 @@ tuios tml get "$SURFACE"
 ```
 
 Patches check run/revision before replacement. If a patch fails, read current
-state before retrying. Do not open a replacement window to hide the failure.
+state before retrying, keeping the same surface.
 For offline inspection, render SNAPSHOT writes a read-only TML document to
 stdout. No script opens TML windows or asks for input.
 

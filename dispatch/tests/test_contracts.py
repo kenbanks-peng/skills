@@ -146,7 +146,7 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('scripts/checks.py', checks)
         self.assertIn('--require-system Linux', checks)
         self.assertIn('scripts/deliver.py', checks)
-        self.assertNotIn('tuios new-window', checks)
+        self.assertIn("Linux environment", checks)
 
     def test_window_visibility_and_final_cleanup_contract(self):
         skill = (ROOT / "SKILL.md").read_text()
@@ -154,18 +154,30 @@ class CoverageTests(unittest.TestCase):
         workers = (ROOT / "references/workers.md").read_text()
         recovery = (ROOT / "references/recovery.md").read_text()
         acceptance = (ROOT / "references/acceptance.md").read_text()
-        for phrase in ("Visible windows are limited to dispatch",
-                       "hidden from creation", "including Aven and Linux workers",
-                       "including hidden windows"):
-            self.assertIn(phrase, skill)
-        self.assertIn("--no-focus", checks)
-        self.assertIn("does not hide a window", checks)
-        self.assertIn("checks without visible windows", checks)
-        self.assertIn("Never expose verify windows", workers)
+        self.assertIn("linux container -- pi", skill)
+        self.assertIn("linux container --", workers)
+        self.assertIn("--keep-open --print-id", workers)
+        self.assertIn("Linux environment", checks)
+        for text in (skill, workers):
+            self.assertNotIn("hidden from creation", text)
+            self.assertNotIn("host preflight", text)
+            self.assertNotIn("block launch", text)
         self.assertIn("including blocked and failed runs", recovery)
         self.assertIn("dispatch only", recovery)
-        self.assertIn("Do not close unrelated windows", recovery)
-        self.assertIn("closing a stray window later does not pass", acceptance)
+        self.assertIn("Preserve unrelated windows", recovery)
+        self.assertIn("starter/helper ownership recorded", acceptance)
+
+    def test_guides_use_positive_linux_launcher_instructions(self):
+        paths = [ROOT / "SKILL.md", ROOT / "README.md", ROOT / "PLAN.md"]
+        paths += [p for p in (ROOT / "references").glob("*.md")
+                  if p.name != "verification.md"]
+        for path in paths:
+            with self.subTest(path=path.name):
+                text = path.read_text()
+                self.assertNotRegex(text, r"(?i)\b(do not|never|must not)\b")
+        workers = (ROOT / "references/workers.md").read_text()
+        self.assertIn('linux container --mount "$REPO:$REPO:rw"', workers)
+        self.assertIn("launcher works independently", workers)
 
     def test_repeatable_steps_use_scripts_not_manual_recipes(self):
         skill = (ROOT / "SKILL.md").read_text()

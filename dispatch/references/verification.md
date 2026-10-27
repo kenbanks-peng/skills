@@ -1,5 +1,16 @@
 # Verification
 
+## Linux launcher instruction update
+
+- Launcher contract checked with installed `linux --help` and container dry-run.
+- tuios new-window help confirms argv execution, cwd, keep-open, and print-id.
+- Standard worker instructions now use the linux launcher in a visible pane.
+- Registered auxiliary panes pass run audit; final audit requires cleanup.
+- Current unit suite: 64 tests, 2 native tests skipped.
+- Live container worker launch and agent integration remain untested in this update.
+
+The results below describe earlier probes, not the current launcher workflow.
+
 ## Current script verification
 
 - 63 tests pass with DISPATCH_NATIVE_TEST=1, including both native smoke tests.
