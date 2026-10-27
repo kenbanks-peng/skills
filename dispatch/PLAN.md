@@ -14,7 +14,7 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 ## 2. Tuios-first design
 
 - Prefer documented tuios tools over custom orchestration code that provides the same function.
-- Use tuios recipes as the basis for supported workflows. Recipes are documented procedures, not another scheduling service.
+- Use tuios recipes as the basis for supported workflows. Automate repeatable procedures with bounded scripts; keep task decisions and review with the agent. Do not build another scheduling service.
 - Use the installed tuios capability documentation as the source of command syntax and behavior.
 - Use native agent, worktree, review, checkpoint, ship, queue, mail, wait, and dashboard features as one workflow.
 - Do not require every worker to share the orchestrator's session.
@@ -84,11 +84,11 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 
 ## 10. Dashboard and observability
 
-- Provide a live, read-only TML dashboard for the dispatch run.
+- Show status in the existing dispatch pane. Automate native observation and reports; do not open an extra dashboard window. Existing authorized TML surfaces may be patched.
 - Show task dependencies, worker states, active attempts, queued work, review results, checks, delivery status, blockers, and cleanup status.
 - Update the existing surface as work changes instead of emitting repeated static summaries.
 - Use native pane, session, worktree, and agent labels so users can locate work directly.
-- Keep the dashboard in the dispatcher's visible workspace. Show active Linux workers through native pane views or hosted panes, with host-qualified addresses.
+- Keep status in dispatch. Show active Linux workers through native pane views or hosted panes, with host-qualified addresses.
 - Permit visible windows only for dispatch, Aven, and active Linux workers. Run all other work windowlessly, or hidden from creation when a window is required. No visible starter shell, merge, review, check, integration, or monitoring windows.
 - Arrange only owned run workspaces. Do not move the user's focus or switch their client to provide status.
 - Keep the dashboard free of questions, approval actions, and input forms.
@@ -116,7 +116,8 @@ Build a greenfield dispatch skill that uses tuios as its primary multiagent work
 - A busy worker receives a queued correction and completes it without a duplicate assignment.
 - A checkpoint can be inspected and restored in a controlled recovery exercise.
 - An interrupted run resumes without duplicate workers or repeated delivery.
-- A live dashboard reflects task, worker, review, check, delivery, and cleanup changes. Its overview is readable at 80 columns.
+- A script refreshes native observations and reports task, worker, review, check, delivery, and cleanup status in dispatch at 80 columns without a new window.
+- Scripts automate check plans, timeouts/logs, evidence identity, native ship delivery, ownership audit, and exact-ID cleanup. Tests cover failure, interruption, and repeat execution.
 - A Linux run shows actual Linux workers and native state, runs checks on Linux, and pulls the selected result for local review/delivery.
 - During execution, only dispatch, Aven, and active Linux workers are visible. Final run-owned window inventory, including hidden windows, contains dispatch only.
 - No supported path asks the user a question or initiates an approval request.

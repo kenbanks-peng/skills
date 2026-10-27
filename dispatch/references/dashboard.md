@@ -1,48 +1,28 @@
-# One live dashboard
+# Status in the existing dispatch pane
 
-Open one read-only TML pane in the dispatcher's workspace before workers launch.
-This is the dispatch status window; reuse it rather than opening extra status
-windows. Update it in place. Do not substitute prose, an empty terminal, or a saved TML
-file for an open surface. Read the rendered view before and after opening.
+Do not open another dashboard window. Use the existing dispatch pane for the
+run's status. Refresh after launch, native events, queue delivery, review,
+checks, merge, and cleanup. A saved TML file is not a live native surface.
 
-The supplied helper only renders snapshots and guarded patches. It does not
-launch work, poll agents, or schedule tasks. Aven and native tuios inventories
-remain the sources of truth.
+## Refresh and display
 
-## Open
-
-Set skill to this installed directory and run_dir to the run's evidence folder.
-Use assets/dashboard-example.json for the schema, not as live status. Start with
-the actual run identity and pending tasks; unknown fields say unknown.
+Maintain one task snapshot using assets/dashboard-example.json as its schema,
+not as live status. Aven stores task requirements and durable outcomes.
+The agent supplies task decisions, checks, review, delivery, and blockers.
+The script supplies observed native state and the next revision:
 
 ```sh
-python3 "$skill/scripts/dashboard.py" render "$run_dir/snapshot-1.json" > "$run_dir/dashboard.tml"
-tuios tml validate "$run_dir/dashboard.tml"
-tuios tml render "$run_dir/dashboard.tml" --width 80 --height 24
-tuios tml show "$run_dir/dashboard.tml" --pane -s "$DISPATCH_SESSION" --workspace "$DISPATCH_WORKSPACE" --name "dispatch status" --json
+python3 "$skill/scripts/workspace.py" --run-dir "$run_dir" status
+python3 "$skill/scripts/dashboard.py" observe "$run_dir/snapshot-1.json" --inventory "$run_dir/inventory.json" > "$run_dir/snapshot-2.json"
+python3 "$skill/scripts/dashboard.py" report "$run_dir/snapshot-2.json"
 ```
 
-Record the returned surface ID and pane ID. Confirm it exists with tml get and
-capture-pane. Inspect the actual overview for clipped columns and empty data.
-Name the run's workspaces; do not steal focus or switch the user's session.
-Only Linux worker views may be visible beside dispatch and Aven. Do not create
-visible check, shell, review, merge, or integration windows in any workspace.
-
-## Update
-
-After launch, state changes, queue delivery, review, checks, merge, and cleanup,
-build the next snapshot and increment revision:
-
-```sh
-python3 "$skill/scripts/dashboard.py" patch "$run_dir/snapshot-1.json" "$run_dir/snapshot-2.json" > "$run_dir/dashboard.patch.json"
-tuios tml patch "$SURFACE" "$(cat "$run_dir/dashboard.patch.json")"
-tuios tml get "$SURFACE"
-tuios capture-pane -s "$DISPATCH_SESSION" -w "$DASHBOARD_PANE"
-```
-
-The same owner pane must update the surface. Patches test the run/revision to
-prevent stale updates. If a patch fails, get the current state before retrying.
-If the surface was closed, confirm absence before opening one replacement.
+Use the successful new snapshot for the next refresh. Do not continue observe
+after a failed inventory command. observe rejects failed inventory and data
+older than 60 seconds; run status again instead of using an old file. Native
+events trigger refresh; do not build a polling loop.
+Missing workers become unknown, not done. Report does not create a window.
+Its overview fits 80 columns. Full results stay in task notes and script logs.
 
 ## Snapshot
 
@@ -50,25 +30,26 @@ Top level: run, revision (integer), observed_at, tasks (list). Each task/attempt
 has text fields task, task_state, attempt, agent, session, pane, branch, worktree,
 environment, queue, review, checks, delivery, blockers, cleanup; dependencies is
 a text list. native contains state, source, identity (text), evidence_age_ms,
-completion_seq, subagents (nonnegative integers or null). Use unknown/not run
-for facts not observed. Do not invent a pass or retain stale done after a link
-failure. Use concise summaries; full evidence lives in logs/task notes.
+completion_seq, subagents (nonnegative integers or null).
+Use full window UUIDs and host-qualified session addresses. Use unknown/not run
+for facts not observed. Do not invent results or retain a stale done state.
+observe replaces native fields only; it does not accept a task or infer delivery.
 
-The overview shows task, native state, environment, and blocker. Other tabs show
-execution, checks/delivery, and resource details. Host-qualified addresses must
-identify Linux workers and their views. Read-only tabs are navigation, not
-human-input workflows. Do not add forms, approval buttons, or pane actions.
+## Existing TML surfaces
 
-## Runtime failure
+If the run already has an authorized TML surface, render/patch can still update
+it without opening another pane. Use the same owner pane and saved surface ID:
 
-A CLI/daemon mismatch can prevent tml show even when validation passes.
-Record the actual error and mark visibility blocked. Continue independent work
-only with an explicit degraded status, not a claim that dispatch is working.
-Do not open repeated failed surfaces or restart a shared daemon.
-A client reached through another machine may show a placeholder for TML; keep
-the dashboard on the user's display host and verify there.
+```sh
+python3 "$skill/scripts/dashboard.py" patch "$run_dir/snapshot-1.json" "$run_dir/snapshot-2.json" > "$run_dir/dashboard.patch.json"
+tuios tml patch "$SURFACE" "$(cat "$run_dir/dashboard.patch.json")"
+tuios tml get "$SURFACE"
+```
 
-At run end, close all other run-owned windows, including Aven and Linux
-workers. Leave one final dashboard in dispatch with outcomes and retained
-non-window resources. Close it with
-`tuios tml close "$SURFACE" '"dispatch closed"'` only when closure is required.
+Patches check run/revision before replacement. If a patch fails, read current
+state before retrying. Do not open a replacement window to hide the failure.
+For offline inspection, render SNAPSHOT writes a read-only TML document to
+stdout. No script opens TML windows or asks for input.
+
+At run end, close all other run-owned windows, including Aven and Linux workers.
+Leave final status in dispatch. An extra status window is not an exception.

@@ -19,7 +19,7 @@ an already idle worker is not a completed assignment.
 
 ```sh
 tuios ask-agent -s "$SESSION" -w "$PANE" --timeout 600000 'Return the current task result, checks, and blocker.'
-tuios queue -s "$SESSION" -w "$PANE" 'TASK/repair-1: Apply the recorded correction and rerun the task checks. Report repair-1.'
+python3 "$skill/scripts/workspace.py" --run-dir "$run_dir" queue --session "$SESSION" --window "$PANE" --id TASK/repair-1 --prompt-file "$PROMPT_FILE"
 tuios queue ls -s "$SESSION" -w "$PANE" --json
 ```
 
@@ -30,6 +30,12 @@ authorized next work while busy. This can be a correction or a dependency-ready
 next task in the same bounded scope. A task needing a separate checkout gets a
 separate assignment/worktree. Do not send the same instruction by two channels.
 
+Write the authorized follow-up once in PROMPT_FILE. Reuse its stable --id for
+the same work. The script submits through native queue and records the receipt.
+A repeated identical request returns the saved receipt without requeueing.
+Changed text/target for that ID, blocked state, and uncertain submissions fail.
+Do not bypass a pending request with a new ID. Reconcile native state instead.
+A submitted receipt is not completion, even after a daemon restart.
 Save the returned queue ID. Wait for its result, not just queue disappearance.
 Prompt text visible in the input box is delivery in progress, not execution.
 Use `queue rm` for a known obsolete entry. After uncertain send/launch output,

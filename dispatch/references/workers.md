@@ -18,9 +18,12 @@ tuios start-agent "$HARNESS" -s "$SESSION" --cwd "$WORKTREE" --name "$WORKER" --
 tuios list-agents -s "$SESSION" --json
 ```
 
-WORKTREE is the returned native path. Record the starter shell ID from the
-pre-launch inventory. When the worker is ready, close that unused shell by ID;
-keep it hidden until closure. Keep the worker only while the run is active.
+WORKTREE is the returned native path. Register every returned window through
+workspace.py, then audit. Register the worker as linux-worker only after host
+preflight confirms Linux. Record the starter shell ID from pre-launch inventory.
+After readiness, use workspace.py close for the owned unused starter, with
+--evidence-saved. It must stay hidden until closure; otherwise block launch.
+Keep the worker only while the run is active. See [scripts](automation.md).
 Use the same naming/space policy for the orchestration session where appropriate.
 
 Launch dependency-ready tasks up to the concurrency bound, each with its own
@@ -54,7 +57,8 @@ tuios fan verify "$FAN_SESSION" -- 'git --no-pager diff --check'
 tuios fan diff "$A" "$B"
 ```
 
-Run project checks with fan verify too. Compare correctness, scope, and tests;
+Prefer checks.py on each candidate checkout for windowless project checks.
+Use fan verify only on a separately verified hidden path. Compare scope and tests;
 record the selected attempt and the disposition of the others.
 Use the native judge/verdict when available to this caller. Discover
 `judge-fan` through installed verb help; do not invent its parameters or
@@ -84,7 +88,8 @@ tuios new-window -s "$DISPATCH_SESSION" "view-$WORKER" --workspace "$WORKERS_WOR
 ```
 
 SESSION may be HOST:SESSION. These are views, not new workers. Keep their IDs,
-do not type into them, and close them when the source worker finishes.
+do not type into them. Register each view as linux-worker and use workspace.py
+close when the source worker finishes. Use one visible view per Linux worker.
 At run end, close the source worker windows too, after saving their results.
 Use at most the active concurrency count; do not duplicate a view already open.
 Name workspaces, keep the dashboard in the dispatcher's visible workspace, and

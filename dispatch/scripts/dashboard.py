@@ -2,8 +2,9 @@
 """Render a read-only TML view or a state patch. Do not launch or schedule work."""
 import argparse
 import json
-from pathlib import Path
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 TEMPLATE = Path(__file__).resolve().parents[1] / "assets" / "dashboard.tml"
@@ -101,6 +102,50 @@ def patch(previous, current):
     return result
 
 
+def observe(snapshot, inventory):
+    """Replace native observations, including stale/missing workers, from one inventory."""
+    board(snapshot)
+    if not isinstance(inventory, dict) or not isinstance(inventory.get("panes"), dict):
+        raise ValueError("expected workspace status/audit inventory")
+    stamp = inventory.get("observed_at")
+    if (inventory.get("ok") is not True or type(stamp) not in (int, float)
+            or not 0 <= datetime.now(timezone.utc).timestamp() - stamp <= 60):
+        raise ValueError("inventory failed or is older than 60 seconds; run workspace status")
+    current = json.loads(compact(snapshot))
+    current["revision"] += 1
+    current["observed_at"] = datetime.now(timezone.utc).isoformat()
+    for task in current["tasks"]:
+        address = task["session"] + "/" + task["pane"]
+        pane = inventory["panes"].get(address, {})
+        state = pane.get("agent_state", "unknown")
+        task["native"] = {
+            "state": state if state in STATES else "unknown",
+            "source": "workspace inventory" if pane else "missing from inventory",
+            "identity": address, "evidence_age_ms": None,
+            "completion_seq": pane.get("completion_seq"),
+            "subagents": None,
+        }
+    board(current)
+    return current
+
+
+def report(snapshot):
+    view = board(snapshot)
+
+    def short(value, width):
+        return " ".join(value.split())[:width]
+
+    lines = [f"Dispatch: {short(view['run'], 60)} (revision {snapshot['revision']})",
+             "Task                 State        Environment     Blocker",
+             "-" * 79]
+    for row in view["tasks"]:
+        lines.append(f"{short(row['task'], 20):20} {short(row['state'], 12):12} "
+                     f"{short(row['environment'], 15):15} {short(row['blockers'], 26)}")
+    if not view["tasks"]:
+        lines.append("No tasks.")
+    return "\n".join(line[:80] for line in lines)
+
+
 def load(path):
     def unique(pairs):
         result = {}
@@ -120,10 +165,21 @@ def main(argv=None):
     patch_command = commands.add_parser("patch", help="write JSON Patch to stdout")
     patch_command.add_argument("previous")
     patch_command.add_argument("current")
+    report_command = commands.add_parser("report", help="print status in the existing dispatch pane")
+    report_command.add_argument("snapshot")
+    observe_command = commands.add_parser("observe", help="refresh native fields from workspace inventory")
+    observe_command.add_argument("snapshot")
+    observe_command.add_argument("--inventory", required=True)
     args = parser.parse_args(argv)
     try:
-        result = (render(load(args.snapshot)) if args.command == "render" else
-                  patch(load(args.previous), load(args.current)))
+        if args.command == "render":
+            result = render(load(args.snapshot))
+        elif args.command == "patch":
+            result = patch(load(args.previous), load(args.current))
+        elif args.command == "report":
+            result = report(load(args.snapshot))
+        else:
+            result = compact(observe(load(args.snapshot), load(args.inventory)))
     except (ValueError, TypeError, OSError) as error:
         print(f"dashboard: {error}", file=sys.stderr)
         return 2

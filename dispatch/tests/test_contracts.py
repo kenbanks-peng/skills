@@ -95,9 +95,10 @@ class SafetyTests(unittest.TestCase):
 
     def test_helper_has_no_execution_network_or_mutation_api(self):
         # AST-based import/call limits, not a keyword search through comments.
-        scripts = sorted((ROOT / "scripts").glob("*.py"))
-        self.assertEqual([p.name for p in scripts], ["dashboard.py"])
-        allowed_imports = {"argparse", "json", "pathlib", "sys", "xml.sax.saxutils"}
+        scripts = [ROOT / "scripts/dashboard.py"]  # Pure renderer, not execution scripts.
+        self.assertEqual({p.name for p in (ROOT / "scripts").glob("*.py")},
+                         {"dashboard.py", "checks.py", "deliver.py", "workspace.py", "runtime.py"})
+        allowed_imports = {"argparse", "datetime", "json", "pathlib", "sys", "xml.sax.saxutils"}
         banned_calls = {"eval", "exec", "__import__", "getattr", "setattr", "open",
                         "system", "popen", "run", "Popen", "spawn", "fork", "execv",
                         "write_text", "write_bytes", "unlink", "rename", "replace_file",
@@ -142,9 +143,9 @@ class CoverageTests(unittest.TestCase):
         self.assertIn("starter shell", workers)
         self.assertIn('worktree pull "$REMOTE_SESSION"', execution)
         self.assertIn("--all-hosts", execution)
-        self.assertIn("GIT_PAGER=cat PAGER=cat", checks)
-        self.assertIn('> "$LOG" 2>&1', checks)
-        self.assertIn('check_exit=$?', checks)
+        self.assertIn('scripts/checks.py', checks)
+        self.assertIn('--require-system Linux', checks)
+        self.assertIn('scripts/deliver.py', checks)
         self.assertNotIn('tuios new-window', checks)
 
     def test_window_visibility_and_final_cleanup_contract(self):
@@ -159,12 +160,23 @@ class CoverageTests(unittest.TestCase):
             self.assertIn(phrase, skill)
         self.assertIn("--no-focus", checks)
         self.assertIn("does not hide a window", checks)
-        self.assertIn("integrated checks without visible windows", checks)
+        self.assertIn("checks without visible windows", checks)
         self.assertIn("Never expose verify windows", workers)
         self.assertIn("including blocked and failed runs", recovery)
         self.assertIn("dispatch only", recovery)
         self.assertIn("Do not close unrelated windows", recovery)
         self.assertIn("closing a stray window later does not pass", acceptance)
+
+    def test_repeatable_steps_use_scripts_not_manual_recipes(self):
+        skill = (ROOT / "SKILL.md").read_text()
+        automation = (ROOT / "references/automation.md").read_text()
+        for name in ("workspace.py", "checks.py", "deliver.py", "dashboard.py"):
+            self.assertIn(name, skill)
+            self.assertIn(name, automation)
+            self.assertTrue((ROOT / "scripts" / name).is_file())
+        dashboard = (ROOT / "references/dashboard.md").read_text()
+        self.assertNotIn("tuios tml show", dashboard)
+        self.assertIn("existing dispatch pane", dashboard)
 
     def test_readme_is_short_and_skill_is_installable(self):
         self.assertLessEqual(len((ROOT / "README.md").read_text().splitlines()), 70)

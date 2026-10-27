@@ -1,6 +1,28 @@
 # Verification
 
-## Tested in this revision
+## Current script verification
+
+- 63 tests pass with DISPATCH_NATIVE_TEST=1, including both native smoke tests.
+- Script tests cover command failure, missing executables, timeouts, child
+  process cleanup, SIGTERM interruption, stale/changed evidence, fresh native
+  observations, exact ownership, unknown windows, queues, missing worker state,
+  refused/partial cleanup, duplicate follow-ups, and uncertain delivery journals.
+- Native scripted lifecycle passes on an isolated tuios 0.11.1 daemon: baseline
+  capture, exact-ID registration, windowless checks, native ship commit/squash
+  merge, integrated checks, cleanup, and dispatch-only final window inventory.
+  The other native smoke covers existing TML and pane-view capabilities.
+- Ruff checks E4/E7/E9/F and git diff --check pass.
+- Tests use scratch repositories and random named servers without attached
+  clients. They do not restart or change the shared daemon.
+
+No Linux host or live agent was exercised for these scripts. Remote schemas,
+Linux execution, live follow-up consumption, and hidden-at-creation native
+launch remain unverified. The scripts do not create helper windows, certify
+hidden launch flags, or control UI that a project check command opens itself.
+Task planning, independent review, and safe worker shutdown remain agent
+decisions. Scripts automate their repeatable execution and evidence, not judgment.
+
+## Earlier capability probes (not rerun as live-agent acceptance)
 
 - 21 local tests pass: links, examples, helper CLI, snapshot validation, guarded
   patches, read-only tabs, compact overview, and pane/Linux procedures.

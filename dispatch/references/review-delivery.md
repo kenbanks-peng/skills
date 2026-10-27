@@ -38,24 +38,21 @@ are removed with the worktree; preserve useful evidence before cleanup.
 
 ## Checks without pane debris
 
-Run checks through the agent's execution tool without creating a terminal
-window. Set the checkout as cwd and save output, exit status, and candidate
-identity outside disposable worktrees. Run the actual project checks as well
-as diff --check. Use the required host: Linux checks must execute on Linux.
+Use checks.py for candidate checks, repairs, competing attempts, and integrated
+checks without visible windows. Select the project commands once in a check
+plan, then use the same plan after repairs. See [script procedures](automation.md).
 
 ```sh
-(cd "$WORKTREE" && env GIT_PAGER=cat PAGER=cat git --no-pager diff --check) > "$LOG" 2>&1
-check_exit=$?
-printf '\nexit_code=%s\n' "$check_exit" >> "$LOG"
+python3 "$skill/scripts/checks.py" --plan "$PLAN" --cwd "$WORKTREE" --output "$run_dir/checks-1" --require-system Linux
 ```
 
-If a native terminal is required, first confirm a supported method that keeps
-it hidden from creation. Reuse one hidden checks shell per checkout where
-possible. `run` requires OSC 133; if unavailable, return to windowless execution
-or record a blocker. Do not open a visible command pane as a fallback.
-`--no-focus` only prevents focus changes; it does not hide a window.
-Do not assume a detached session or another workspace makes windows invisible.
-Save results and close hidden command windows after success or failure.
+Use Darwin only when macOS execution is authorized. Linux acceptance must run
+on Linux. Preserve its result when pulling a candidate. Each attempt gets a new
+output directory outside checkouts. Read result.json and logs; failed, timed
+out, or checkout-changing commands do not pass. Do not type checks into panes.
+--no-focus does not hide a window. A detached session is not proof of hiding.
+If a required check cannot run windowlessly, record the exact blocker instead
+of opening a visible command pane.
 
 Do not use a pager for noninteractive Git. Do not modify global Git settings
 to repair a missing pager. Check-generated files belong in the task checkout;
@@ -63,26 +60,23 @@ handle them according to repository conventions before delivery.
 
 ## Local delivery
 
-Use ship commit as the normal commit operation. Dedicated task worktrees make
-its inclusion of all nonignored changes useful, not a reason to avoid it.
-Review scope and checks once at the candidate, then deliver. Execute ship
-through the windowless tool, not a merge terminal. Confirm that the installed
-ship path does not create visible helper windows; if it does, use supported
-hidden execution or record the delivery blocker before running it:
+After checks and independent review, use deliver.py. It is the normal path for
+native ship commit/merge and integrated checks. Do not reproduce its operations
+manually. Set the recorded target and merge policy; never choose a policy only
+to make a merge pass.
 
 ```sh
-tuios ship commit -s "$SESSION" -w "$PANE" -m "$COMMIT_MESSAGE"
-tuios ship merge -s "$SESSION" -w "$PANE" --into "$TARGET" --squash -m "$COMMIT_MESSAGE"
+python3 "$skill/scripts/deliver.py" --run-dir "$run_dir" --session "$SESSION" --window "$PANE" --cwd "$WORKTREE" --target-repo "$REPO" --into "$TARGET" --policy squash --message "$COMMIT_MESSAGE" --checks "$run_dir/checks-1/result.json" --integration-plan "$PLAN" --output "$run_dir/delivery-1" --reviewed
 ```
 
-Use --ff-only instead of --squash when the plan calls for fast-forward delivery.
-Use the worker's full pane ID and recorded target, not focus. The candidate
-must be at rest; the target checkout must be ready for integration. Let native
-ship enforce its commit/merge preconditions. Resolve conflicts in the task
-branch, then recheck; do not switch policies just to make a merge pass.
+Use ff-only when required. The script refuses stale checks, unreviewed changes,
+active/queued workers, wrong pane/checkouts, and dirty targets. Source worktrees
+must be dedicated to the task: ship commit includes all nonignored changes.
+Resolve conflicts in the task branch; recheck and review before a new delivery.
 
-Save source/target SHAs and run integrated checks without visible windows.
-Apply the same rule to conflict repair, Git commands, and delivery retries.
-For remote candidates, link the Linux check evidence to the pulled local candidate. Observe existing CI
-with `tuios ship status -s "$SESSION" -w "$PANE" --json`.
-Do not initiate push/PR approval. Mark tasks done only after acceptance passes.
+Read the saved delivery result. A pending native step is uncertain, not a reason
+to repeat it. Reconcile native ship status and Git history first. The journal
+records source/target commits, native responses, and integrated check results.
+Do not mark done when the target merged but integrated checks failed.
+Keep remote Linux evidence linked to the local candidate and its local checks.
+Observe existing CI with tuios ship status. No push/PR approval is initiated.

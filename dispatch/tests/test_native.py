@@ -7,6 +7,7 @@ shared daemon or uses a production worktree.
 import copy
 import json
 import os
+import platform
 from pathlib import Path
 import secrets
 import subprocess
@@ -19,6 +20,74 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.environ.get("DISPATCH_NATIVE_TEST") == "1", "opt-in native smoke")
 class NativeSmokeTests(unittest.TestCase):
+    def test_scripted_lifecycle(self):
+        server = "dsp-a-" + secrets.token_hex(3)
+        env = {**os.environ, "TUIOS_SERVER": server}
+
+        def command(*argv, cwd=None):
+            result = subprocess.run(list(argv), cwd=cwd, env=env, text=True,
+                                    capture_output=True, timeout=60)
+            self.assertEqual(result.returncode, 0,
+                             f"{argv}: {result.stdout}\\n{result.stderr}")
+            return result.stdout
+
+        def tuios(*args):
+            return command("tuios", "--server", server, *args)
+
+        def script(name, *args):
+            return command("python3", str(ROOT / "scripts" / name), *map(str, args))
+
+        with tempfile.TemporaryDirectory(prefix="dispatch-automation-") as directory:
+            base = Path(directory)
+            repo = base / "repo"
+            repo.mkdir()
+            command("git", "init", "-b", "main", str(repo))
+            command("git", "config", "user.name", "Dispatch Test", cwd=repo)
+            command("git", "config", "user.email", "test@example.invalid", cwd=repo)
+            command("git", "config", "commit.gpgsign", "false", cwd=repo)
+            (repo / "seed").write_text("seed\\n")
+            command("git", "add", ".", cwd=repo)
+            command("git", "commit", "-m", "seed", cwd=repo)
+            try:
+                # These fixture panes use an isolated daemon with no attached client.
+                tuios("new", "dispatch", "--detach", "--cwd", str(repo))
+                windows = json.loads(tuios("list-windows", "-s", "dispatch", "--json"))
+                dispatch = windows["windows"][0]["window_id"]
+                run = base / "run"
+                script("workspace.py", "--run-dir", run, "init", "--repo", repo,
+                       "--session", "dispatch", "--dispatch", dispatch)
+                tuios("worktree", "new", "automation-change", "--repo", str(repo),
+                      "--base", "main", "--name", "worker", "--detach", "--json")
+                inventory = json.loads(tuios("ls", "--json"))
+                worker = next(row for row in inventory if row["name"] == "worker")
+                source = Path(worker["worktree"]["path"])
+                window = worker["windows"][0]["id"]
+                script("workspace.py", "--run-dir", run, "register", "--session",
+                       "worker", "--window", window, "--role", "auxiliary")
+                (source / "result").write_text("reviewed result\\n")
+                plan = base / "plan.json"
+                plan.write_text(json.dumps([{
+                    "name": "diff", "argv": ["git", "--no-pager", "diff", "--check"],
+                    "timeout_s": 10}]))
+                script("checks.py", "--plan", plan, "--cwd", source,
+                       "--output", base / "checks", "--require-system", platform.system())
+                script("deliver.py", "--run-dir", run, "--session", "worker",
+                       "--window", window, "--cwd", source, "--target-repo", repo,
+                       "--into", "main", "--policy", "squash", "--message", "Integrate",
+                       "--checks", base / "checks/result.json", "--integration-plan", plan,
+                       "--output", base / "delivery", "--reviewed")
+                result = json.loads((base / "delivery/result.json").read_text())
+                self.assertEqual(result["status"], "delivered")
+                self.assertEqual((repo / "result").read_text(), "reviewed result\\n")
+                script("workspace.py", "--run-dir", run, "cleanup", "--evidence-saved")
+                script("workspace.py", "--run-dir", run, "audit", "--final")
+                remaining = json.loads(tuios("list-windows", "--all", "--all-hosts", "--json"))
+                self.assertEqual([row["window_id"] for row in remaining["panes"]], [dispatch])
+                tuios("worktree", "rm", "worker", "--json")
+            finally:
+                subprocess.run(["tuios", "--server", server, "kill-server"],
+                               env=env, capture_output=True, timeout=15)
+
     def test_dashboard_checks_ship_and_cleanup(self):
         server = "dsp-" + secrets.token_hex(3)
         env = os.environ.copy()

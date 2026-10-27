@@ -6,7 +6,9 @@ description: Orchestrate coding agents with native tuios worktrees, fleet, queue
 # Dispatch
 
 Use tuios as the orchestration system. Use Aven for durable tasks and outcomes.
-Follow native recipes. Do not build a scheduler, state bridge, or terminal wrapper.
+Use the supplied scripts for repeatable operations. Native tuios still owns
+live state, queues, mail, and worktrees; do not build a second scheduler.
+Read [script procedures](references/automation.md) before starting a run.
 
 ## Working rules
 
@@ -20,14 +22,14 @@ Follow native recipes. Do not build a scheduler, state bridge, or terminal wrapp
 
 ## Run
 
-1. **Prepare.** Read repository instructions and [planning](references/planning.md). Read `tuios --skill recipes` and the topics needed for this run. Confirm the running daemon supports the chosen path, not just that CLI help lists it.
+1. **Prepare.** Read repository instructions and [planning](references/planning.md). Read `tuios --skill recipes` and needed topics. Run `workspace.py --run-dir DIR init --repo REPO --session SESSION --dispatch UUID` before creating resources. On resume, reuse DIR and run `status`, not init. Confirm actual daemon support.
 2. **Plan.** Search Aven. Record tasks, acceptance checks, dependencies, target branch, merge policy, and concurrency. Use sensible repository defaults: current branch as target; squash for independent task branches unless instructed otherwise. Keep records short.
-3. **Show the run.** Open and capture one [live dashboard](references/dashboard.md) in the dispatcher's workspace before launching workers. Group owned sessions in a run space. If the dashboard cannot open, report the exact failure; do not call the run ready or silently omit it.
-4. **Launch.** Use [native worktrees and workers](references/workers.md). Choose distinct task workers or native fan for competing solutions. For Linux use [native host execution](references/pi.md). Name each worker by task, role, and host. Keep starter shells hidden from creation and remove them after the worker is ready.
-5. **Coordinate.** Use [ask, queue, mail, grouped waits, and events](references/coordination.md). Queue authorized next work for busy agents. Use state events, not repeated captures, to follow progress. Update the same dashboard after meaningful changes.
+3. **Show the run.** Use `workspace.py --run-dir DIR status` and `dashboard.py observe/report` for [status in the existing dispatch pane](references/dashboard.md). Refresh after meaningful native events. Do not open an extra dashboard window.
+4. **Launch.** Use [native workers](references/workers.md) and [Linux host execution](references/pi.md). Confirm that implicit starter windows stay hidden from creation. After each launch, use `workspace.py register` with the returned full IDs and run `audit`. Aven and Linux workers are the only permitted visible additions.
+5. **Coordinate.** Use [ask, queue, mail, grouped waits, and events](references/coordination.md). Use `workspace.py queue --id ID --prompt-file FILE` for authorized follow-ups; reuse the ID to prevent duplicate submissions. Use state events, not repeated captures, to follow progress. Update the same dashboard after meaningful changes.
 6. **Review and repair.** Inspect native review diffs and checkpoints. Use an independent reviewer or review the work yourself. Send line-specific corrections with `review note/send`; queue other follow-ups once. See [review and delivery](references/review-delivery.md).
-7. **Check and deliver.** Run task and integrated checks without windows through the execution tool. Use a hidden native command only when needed and supported. Use noninteractive Git and native `ship commit/merge` without visible helper windows. See [review and delivery](references/review-delivery.md).
-8. **Finish.** Use [native cleanup and recovery](references/recovery.md). Save results and unresolved work, stop owned agents safely, and close every run-owned window except dispatch. Verify the final inventory, including hidden windows. Leave the final dashboard in dispatch and report changes, checks, blockers, and retained non-window resources.
+7. **Check and deliver.** Use `checks.py --plan PLAN --cwd CHECKOUT --output DIR --require-system Linux` (or authorized Darwin). After review acceptance, use `deliver.py` with recorded source/target, policy, check evidence, and integration plan. It runs native ship and integrated checks without visible helper windows. See [delivery](references/review-delivery.md).
+8. **Finish.** Use [cleanup and recovery](references/recovery.md). Save results and unresolved work, stop queues/writers, then run `workspace.py --run-dir DIR cleanup --evidence-saved` and `audit --final`, including hidden windows. Leave final status in dispatch. Report changes, checks, blockers, and retained non-window resources.
 
 ## Native tools by purpose
 
@@ -38,10 +40,10 @@ Follow native recipes. Do not build a scheduler, state bridge, or terminal wrapp
 | Assignment | `start-agent --prompt`, `ask-agent`, `queue` |
 | Coordination | `send-agent-message`, explicit reply/read, thread waits |
 | Monitoring | fleet selectors, `wait-for`, `subscribe`, `list-attention` |
-| Visibility | session spaces, worker names, `pane-view`, TML show/patch/capture |
+| Visibility | workspace.py ownership/audit/status; dashboard.py observe/report |
 | Review/recovery | `review note/send`, `checkpoint list/diff/restore` |
-| Delivery | `ship commit/merge/status` |
-| Checks | windowless execution; hidden native commands only when required |
+| Delivery | deliver.py; native `ship status` |
+| Checks | checks.py plan execution, logs, timeouts, and evidence |
 
 Use features for a purpose, not to inflate command counts. Read only the linked
 guide needed for the current step. Installed command contracts define syntax.

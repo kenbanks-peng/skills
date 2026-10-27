@@ -17,7 +17,7 @@ after them; closing a stray window later does not pass the workspace check.
 | Agent communication | ask-agent answer; mail send, explicit inbox read/reply, thread wait/read |
 | Competing attempts | fan launch, grouped wait, compare/diff/verify, selection, selected delivery, sibling disposition |
 | Recovery | Checkpoint inspect/restore with safety checkpoint; interrupted-run reconciliation without duplicate work |
-| Dashboard | One opened TML surface; same ID after patches; actual capture before/after; readable 80-column overview |
+| Dashboard | Native inventory refresh replaces stale states; readable 80-column report in existing dispatch; no extra status window |
 | Workspace | Throughout the run, only dispatch, Aven, and active Linux workers visible; no transient shell/merge/review/check/integration windows; final owned inventory contains dispatch only, including after failure |
 | No human input | No question, form, approval request, or approval answer in the full run |
 
@@ -27,10 +27,12 @@ non-approval fixture. Do not provoke an approval merely to test refusal.
 
 ## Test layers
 
-- Unit tests: schema, escaping, patches, helper CLI, compact dashboard structure.
+- Unit tests: schema, escaping, patches, compact reports, command logs/timeouts,
+  evidence identity, ownership, unknown windows, refusal, cleanup, and journals.
 - Documentation checks: links, executable examples, native workflow requirements.
-- Native smoke: actual daemon show/get/patch/capture, native worktrees, command
-  execution with exit/log cleanup, and ship delivery in an isolated repository.
+- Native smoke: actual daemon show/get/patch/capture plus scripted ownership,
+  windowless checks, native ship, target checks, and dispatch-only final inventory
+  in an isolated repository. Fixture windows use an unattached test server.
 - Live agents: actual native harness state, asks/queue/mail/checkpoints/fan.
 - User setup: real Linux host and visible attached-client layout.
 

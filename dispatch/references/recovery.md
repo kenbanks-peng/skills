@@ -3,7 +3,9 @@
 ## Resume
 
 Read Aven context and reconcile the recorded host/session/pane/worktree IDs with
-native worktree, agent, queue, review, and ship inventories. Inspect repository
+native worktree, agent, queue, review, and ship inventories. Reuse the saved
+run directory and run workspace.py status first. Read pending close/ship
+journal steps before any new mutation; see [scripts](automation.md). Inspect repository
 history for commits/merges whose output was lost. Reuse matching resources.
 Do not relaunch, requeue, recommit, or remerge solely because output is missing.
 
@@ -39,10 +41,13 @@ All auxiliary windows in the table must be hidden from creation:
 Use exact owned IDs. Do not close unrelated demo panes as part of another run.
 
 ```sh
-tuios close-window -s "$SESSION" "$TEMP_PANE"
-tuios worktree rm "$SESSION" --json
+python3 "$skill/scripts/workspace.py" --run-dir "$run_dir" cleanup --evidence-saved
+python3 "$skill/scripts/workspace.py" --run-dir "$run_dir" audit --final
 ```
 
+Do not repeat manual close-window calls. The script captures logs, closes exact
+owned idle IDs, and checks the final inventory. Unknown windows and offline
+hosts block a success claim. Use close for one completed resource during a run.
 Native worktree rm removes the session/tree and retains the branch.
 For useful dirty alternatives, retain the worktree or use native --stash when
 preservation in stash fits the recorded disposition. Use fan keep for group

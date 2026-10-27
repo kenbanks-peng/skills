@@ -2,14 +2,12 @@
 
 ## Preflight
 
-Read the target repository instructions and inspect its branch, HEAD, and changes.
-Keep unrelated changes intact. Resolve the objective from repository context;
+Read repository instructions. Run workspace.py init before creating resources;
+its run.json records the branch, HEAD, content identity, and existing windows.
+On resume, use status with that same run directory. Keep unrelated changes intact. Resolve the objective from repository context;
 do not demand a questionnaire or an exhaustive authorization manifest.
 
 ```sh
-git rev-parse --show-toplevel
-git status --short
-git branch --show-current
 tuios --skill recipes
 tuios pane-grants --json
 tuios ls --all-hosts --json
