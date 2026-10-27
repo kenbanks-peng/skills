@@ -31,6 +31,7 @@ target=$(git symbolic-ref --short HEAD)
 git status --porcelain=v1 --untracked-files=all
 aven skill
 tuios --skill
+linux skill
 : "${TUIOS_SESSION:?Run dispatch from a tuios pane}"
 : "${TUIOS_PANE_ID:?Run dispatch from a tuios pane}"
 test "${TUIOS_ENV:-}" = 1
@@ -40,9 +41,10 @@ tuios ls --json
 tuios list-windows -s "$session" --json
 tuios list-workspaces -s "$session" --json
 linux config validate
-container list --all --format json >/dev/null
+linux list --all --format json >/dev/null
 ```
 
+Read `linux skill` before container operations and use its command syntax.
 Use the command syntax returned by `aven skill`. Before adding an option not
 shown there, check that command's `--help`; do not assume commands support
 `--json`. Capture task refs from supported output and verify them with `aven show`.
@@ -222,7 +224,7 @@ requirements, write scope, and checks. The report path is `attempt/report.md`.
 Require no remaining `{{...}}` fields. Save dispatcher-owned `checks.sh` with
 `set -euo pipefail` and the selected commands.
 
-Follow [runtime.md](runtime.md#create-and-identify) through preflight. Prepare a
+Follow [runtime.md](runtime.md#create-and-identify) to prepare launch. Prepare a
 `DISPATCH:` note containing the task assignment, branch, session, container ID,
 attempt path, and checks. Before launching pi:
 

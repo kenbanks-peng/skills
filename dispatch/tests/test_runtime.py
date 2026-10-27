@@ -36,11 +36,11 @@ class LaunchTests(unittest.TestCase):
                     workspace="3",
                     worktree=str(root),
                     cid="owned-container",
+                    skill="/skill with spaces",
                 )
                 # Run the documented nested Bash unchanged, with no live resources.
                 prelude = r"""
 set -euo pipefail
-owned_state() { echo running; }
 tuios() {
     case "$1" in
         list-windows) echo '{"windows":[]}' ;;
@@ -58,14 +58,13 @@ tuios() {
         *) return 99 ;;
     esac
 }
-container() {
-    [ "$1" = exec ] && [ "$2" = --interactive ] &&
-        [ "$3" = --tty ] && [ "$4" = --workdir ] &&
-        [ "$5" = "$worktree" ] && [ "$6" = "$cid" ] || return 99
-    shift 6
-    "$@"
+python3() {
+    [ "$1" = "$skill/scripts/create_container.py" ] &&
+        [ "$2" = --attempt ] && [ "$3" = "$attempt" ] &&
+        [ "$4" = --launch ] || return 99
+    pi --session "$attempt/pi.jsonl" --tui-mode regular -- "@$attempt/prompt.md"
 }
-export -f tuios container
+export -f tuios python3
 """
                 result = subprocess.run(
                     ["bash", "-c", prelude + launch],
