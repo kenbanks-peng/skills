@@ -41,29 +41,17 @@ It does not edit shared Git configuration, trust a wildcard, use `--rm`, or save
 environment values. It saves launch intent before calling linux and refuses
 another launch after that point, including after failure.
 
-Define the ownership check on the host:
+Use the receipt-based identity check before exec:
 
 ```sh
-owned_state() {
-  linux inspect "$cid" | jq -er \
-    --arg id "$cid" --arg worktree "$worktree" --arg common "$common_git" '
-      if length == 1
-        and .[0].configuration.id == $id
-        and .[0].configuration.initProcess.workingDirectory == $worktree
-        and any(.[0].configuration.mounts[];
-          .source == $worktree and .destination == $worktree)
-        and any(.[0].configuration.mounts[];
-          .source == $common and .destination == $common)
-      then .[0].status.state
-      else error("container identity or mount mismatch")
-      end'
-}
+python3 "$skill/scripts/container_state.py" --attempt "$attempt" state
 ```
 
-Require the saved launch intent as well as matching live identity and mounts.
-Call `owned_state` before exec, stop, or delete. A mismatch blocks operations.
-Do not save full inspect output, which can contain secrets. Never infer
-ownership from a name prefix. An uncertain identity blocks destructive cleanup.
+It requires saved launch intent, the exact container ID and working directory,
+and matching checkout, common Git, and external attempt mounts. It prints only
+the state, not inspect output or environment values. A mismatch blocks operations.
+Use its `stop` and `delete` actions below; each checks identity before mutation.
+Never infer ownership from a name prefix. An uncertain identity blocks cleanup.
 
 ## Launch pi through tuios
 
@@ -79,33 +67,16 @@ then close only its owned worker pane. Record the pane inventory before creation
 Launch only once:
 
 ```sh
-tuios list-windows -s "$session" --json > "$attempt/panes-before.json"
-worker_id=$(tuios new-window -s "$session" "$workspace_name" \
-  --workspace "$workspace" --cwd "$worktree" --no-focus --keep-open --print-id -- \
-  bash -c '
-    set +e
-    tuios set-agent-state working -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
-      --harness pi -m "pi worker running"
-    printf "started\n" > "$3/pi.started"
-    python3 "$4/scripts/create_container.py" --attempt "$3" --launch
-    rc=$?
-    printf "%s\n" "$rc" > "$3/pi.exit.tmp"
-    mv "$3/pi.exit.tmp" "$3/pi.exit"
-    if [ "$rc" -eq 0 ]; then
-      tuios set-agent-state done -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
-        --harness pi -m "pi exited; dispatcher review required"
-    else
-      tuios set-agent-state errored -s "$TUIOS_SESSION" -w "$TUIOS_PANE_ID" \
-        --harness pi -m "pi execution failed: $rc"
-    fi
-    exit "$rc"
-  ' _ "$worktree" "$cid" "$attempt" "$skill")
-printf '%s\n' "$worker_id" > "$attempt/worker-pane-id"
+worker_id=$(bash "$skill/scripts/launch_worker.sh" \
+  "$session" "$workspace" "$workspace_name" "$worktree" "$attempt")
 ```
 
+The script saves the pane inventory and returned pane ID. It refuses a session
+mismatch or another launch when `panes-before.json` already exists. Reconcile
+live resources after any failure; do not remove the file just to retry.
 The host wrapper writes `pi.exit` only after linux returns. The `pi.started`
 file records the launch attempt, not proof that pi ran. Confirm the live
-container with `owned_state` and inspect the pane before reporting a running
+container with the state script and inspect the pane before reporting a running
 worker. While running, use `linux exec "$cid" ...` for read-only preflight:
 confirm the checkout path, writable attempt path, pi version, and Git identities.
 Repair missing tools or configuration within authorization. Do not invent a Git
@@ -134,13 +105,13 @@ tuios wait-for window-exit -s "$session" -w "$worker_id" --timeout 600000
 test -f "$attempt/pi.started"
 test "$(cat "$attempt/pi.exit")" = 0
 test -s "$attempt/report.md"
-test "$(owned_state)" = stopped
+test "$(python3 "$skill/scripts/container_state.py" --attempt "$attempt" state)" = stopped
 ```
 
 Pi is the container's main process. Its exit stops the container; it does not
 leave a sleep process for later exec. Confirm stopped state before review or
 checks. If still running, diagnose it, then stop the exact owned container when
-safe with `linux stop --time 10 "$cid"` and confirm stopped.
+safe with the receipt-based stop action below.
 A timeout or missing exit file means unknown state, not success. Capture at most
 80 lines for diagnosis. Nonzero exit or a BLOCKED report leaves the task active.
 
@@ -166,7 +137,7 @@ else
   rc=$?
   printf '%s\n' "$rc" > "$attempt/checks.exit"
 fi
-test "$(owned_state)" = stopped
+test "$(python3 "$skill/scripts/container_state.py" --attempt "$attempt" state)" = stopped
 test "$(cat "$attempt/checks.exit")" = 0
 ```
 
@@ -190,16 +161,17 @@ Do not reset the target or mark the task done.
 Delete only a stopped container whose receipt and live identity match:
 
 ```sh
-test "$(owned_state)" = stopped
-linux delete "$cid"
-linux list --all --format json | jq -e --arg id "$cid" \
-  'all(.[]; .id != $id)' >/dev/null
+python3 "$skill/scripts/container_state.py" --attempt "$attempt" delete
 ```
 
 After interruption, load the receipt and inspect the exact container. Leave a
 running worker alone while checking outstanding work. To cancel or stop an
 abandoned execution, record the cancellation or blocker in aven, then use
-`linux stop --time 10 "$cid"` and confirm stopped.
+the stop action, which confirms stopped state:
+
+```sh
+python3 "$skill/scripts/container_state.py" --attempt "$attempt" stop
+```
 
 If inspect fails, use the exact list command above. Only a successful list
 excluding the ID proves absence. A connection failure does not.

@@ -10,6 +10,8 @@ one task and write a report. Use Git for worktrees and merges, and tuios for
 panes and waits. All worker workspaces must belong to the orchestrator's tuios session.
 Never create a separate or detached session for dispatch.
 Use [runtime.md](runtime.md) for **all** container operations; read it before launch.
+Use its scripts for worker pane launch and container identity checks, stop, and
+delete. Do not copy their implementation into orchestration commands.
 Do not substitute another runtime or build another scheduler.
 Resolve recoverable failures within the authorized scope and continue independent
 work. Ask the user only when progress requires a decision, permission, or

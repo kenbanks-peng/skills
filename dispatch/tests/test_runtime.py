@@ -13,9 +13,15 @@ class LaunchTests(unittest.TestCase):
         ]
         for rc in (0, 7):
             with self.subTest(rc=rc), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)
+                root = Path(tmp).resolve()
                 attempt = root / "attempt with spaces"
                 attempt.mkdir()
+                skill = root / "skill with spaces"
+                scripts = skill / "scripts"
+                scripts.mkdir(parents=True)
+                (scripts / "launch_worker.sh").write_text(
+                    (Path(__file__).parents[1] / "scripts/launch_worker.sh").read_text()
+                )
                 binary = root / "bin"
                 binary.mkdir()
                 pi = binary / "pi"
@@ -36,9 +42,9 @@ class LaunchTests(unittest.TestCase):
                     workspace="3",
                     worktree=str(root),
                     cid="owned-container",
-                    skill="/skill with spaces",
+                    skill=str(skill),
                 )
-                # Run the documented nested Bash unchanged, with no live resources.
+                # Run the documented script call with no live resources.
                 prelude = r"""
 set -euo pipefail
 tuios() {
@@ -117,3 +123,28 @@ export -f tuios python3
                     ]
                     expected.extend([str(len(args)), *args])
                 self.assertEqual(calls, expected)
+                retry = subprocess.run(
+                    ["bash", "-c", prelude + launch],
+                    env=env,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(retry.returncode, 0)
+                self.assertEqual(
+                    (attempt / "states").read_text().splitlines(), expected
+                )
+
+    def test_session_mismatch_does_not_launch(self):
+        script = Path(__file__).parents[1] / "scripts/launch_worker.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                ["bash", str(script), "other-session", "3", "task", tmp, tmp],
+                env=dict(os.environ, TUIOS_SESSION="original-session"),
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Session mismatch", result.stderr)
+            self.assertFalse((Path(tmp) / "panes-before.json").exists())
