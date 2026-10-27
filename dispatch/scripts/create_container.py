@@ -38,7 +38,7 @@ def launch_argv(record, command):
         "-mount",
         f"{common}:{common}:rw",
     ]
-    if not Path(attempt).is_relative_to(common):
+    if not any(Path(attempt).is_relative_to(root) for root in (worktree, common)):
         argv += ["-mount", f"{attempt}:{attempt}:rw"]
     environment = {
         "GIT_CONFIG_COUNT": "1",
@@ -105,11 +105,12 @@ def main():
             cwd=worktree,
         ).strip()
     ).resolve(strict=True)
-    if (attempt == worktree or worktree in attempt.parents) and not (
-        attempt != common and common in attempt.parents
+    if attempt.is_relative_to(worktree) and not (
+        attempt.is_relative_to(worktree / ".dispatch")
+        or (attempt != common and attempt.is_relative_to(common))
     ):
         raise ValueError(
-            "Attempt records must be outside source files or inside common Git metadata"
+            "Attempt records must be outside source files, inside .dispatch, or inside common Git metadata"
         )
     for location in (worktree, common, attempt):
         if any(char in str(location) for char in ":,\n"):

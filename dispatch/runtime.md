@@ -34,7 +34,10 @@ Host symlinks such as `/var` and `/private/var` are not interchangeable guest pa
 
 With `--launch`, the helper runs `linux launch --name "$cid" -it -- pi ...`
 from the worktree. It adds writable mounts for the common Git directory and,
-when needed, the attempt directory. Linux mounts the current checkout and
+when the attempt is outside both mounts, the attempt directory. Run records live
+in the target repository’s `.dispatch/` directory. A worker in a separate
+worktree needs an attempt mount; checks in the target checkout do not.
+Linux mounts the current checkout and
 selects its working directory. The helper passes the host Git author/committer
 identities and process-scoped `safe.directory` for this exact checkout.
 It does not edit shared Git configuration, trust a wildcard, use `--rm`, or save

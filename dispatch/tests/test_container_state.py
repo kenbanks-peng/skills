@@ -21,7 +21,7 @@ class ContainerStateTests(unittest.TestCase):
             "phase": "launch-intent",
             "worktree": "/tree",
             "common_git": "/common",
-            "attempt": "/common/dispatch/attempt",
+            "attempt": "/tree/.dispatch/run/w01/a01",
         }
         self.entry = {
             "configuration": {
@@ -44,6 +44,10 @@ class ContainerStateTests(unittest.TestCase):
             return MODULE.owned_state(self.record if record is None else record)
 
     def test_matching_state(self):
+        self.assertEqual(self.state(), "stopped")
+
+    def test_common_git_attempt_needs_no_extra_mount(self):
+        self.record["attempt"] = "/common/records/attempt"
         self.assertEqual(self.state(), "stopped")
 
     def test_prepared_receipt_is_not_ownership(self):

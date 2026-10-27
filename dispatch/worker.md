@@ -43,7 +43,7 @@ Before your final response, write the report to the absolute report path above.
 Write a temporary file beside it, close the completed file, then rename it to
 the report path. The final path is the dispatcher's report-ready signal. Do not
 publish a partial report or change it after publication. Keep logs beside the
-report, outside the source tree. Do not put secrets in reports.
+report, in the assigned `.dispatch/` run directory. Do not put secrets in reports.
 
 Use this structure:
 

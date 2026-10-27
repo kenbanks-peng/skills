@@ -6,6 +6,29 @@ from pathlib import Path
 
 
 class LaunchTests(unittest.TestCase):
+    def test_run_records_are_local_and_ignored(self):
+        skill = (Path(__file__).parents[1] / "SKILL.md").read_text()
+        setup = skill.split("run_id=$(", 1)[1].split("aven_workspace_name=", 1)[0]
+        setup = "run_id=$(" + setup
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp).resolve()
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            result = subprocess.run(
+                ["bash", "-c", "set -euo pipefail\n" + setup +
+                 'printf "%s" "$run_dir"'],
+                cwd=repo, env=dict(os.environ, repo=str(repo)),
+                check=True, capture_output=True, text=True,
+            )
+            run_dir = Path(result.stdout)
+            self.assertEqual(run_dir.parent, repo / ".dispatch")
+            (run_dir / "report.md").write_text("RESULT")
+            status = subprocess.run(
+                ["git", "status", "--porcelain", "--untracked-files=all"],
+                cwd=repo, check=True, capture_output=True, text=True,
+            )
+            self.assertEqual(status.stdout, "")
+            self.assertFalse((repo / ".gitignore").exists())
+
     def test_documented_wrapper(self):
         runtime = (Path(__file__).parents[1] / "runtime.md").read_text()
         launch = runtime.split("Launch only once:\n\n```sh\n", 1)[1].split("\n```", 1)[

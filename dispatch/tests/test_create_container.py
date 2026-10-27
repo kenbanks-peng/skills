@@ -17,8 +17,9 @@ class LaunchTests(unittest.TestCase):
     def prepare(self, root, internal=False):
         worktree = root / "tree"
         common = worktree / ".git" if internal else root / "common"
-        attempt = common / "dispatch" / "attempt"
+        attempt = (worktree if internal else root / "project") / ".dispatch" / "attempt"
         worktree.mkdir(exist_ok=True)
+        common.mkdir(exist_ok=True)
         attempt.mkdir(parents=True, exist_ok=True)
         with (
             patch(
@@ -132,6 +133,24 @@ class LaunchTests(unittest.TestCase):
             self.prepare(root)
             with self.assertRaises(FileExistsError):
                 self.prepare(root)
+
+    def test_source_directory_records_are_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            worktree = root / "tree"
+            attempt = worktree / "src" / "attempt"
+            attempt.mkdir(parents=True)
+            common = worktree / ".git"
+            common.mkdir()
+            with (
+                patch("sys.argv", ["helper", "--worktree", str(worktree),
+                                   "--attempt", str(attempt)]),
+                patch.object(MODULE.shutil, "which", return_value="/bin/linux"),
+                patch.object(MODULE, "capture", return_value=str(common)),
+                self.assertRaisesRegex(ValueError, "outside source files"),
+            ):
+                MODULE.main()
+            self.assertFalse((attempt / "container.json").exists())
 
     def test_target_metadata_and_external_attempt_mount(self):
         with tempfile.TemporaryDirectory() as tmp:

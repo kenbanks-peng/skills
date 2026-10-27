@@ -99,12 +99,23 @@ Initialize run records before worker launch:
 
 ```sh
 run_id=$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')
-run_dir="$common_git/dispatch/$run_id"
+run_dir="$repo/.dispatch/$run_id"
+# Keep local run records out of commits without changing .gitignore.
+test -z "$(git ls-files -- .dispatch)"
+exclude=$(git rev-parse --path-format=absolute --git-path info/exclude)
+mkdir -p "$(dirname "$exclude")"
+if ! git check-ignore -q -- .dispatch/; then
+  printf '\n/.dispatch/\n' >> "$exclude"
+fi
 mkdir -p "$run_dir"
 aven_workspace_name="aven"
 aven_args=()
 # Put the user's --db and --workspace options in aven_args as separate arguments.
 ```
+
+Store reports and run evidence in the target repository’s `.dispatch/` directory.
+Keep this directory after container and worktree cleanup. Stop if it contains
+tracked files; do not remove or untrack them automatically.
 
 Save initial `run.json` before resource creation with: run ID, repo, common Git
 directory, target, initial target SHA, aven routing, tuios server/socket,

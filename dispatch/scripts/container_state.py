@@ -22,7 +22,7 @@ def owned_state(record):
     config = entry["configuration"]
     mounts = config["mounts"]
     expected = {record["worktree"], record["common_git"]}
-    if not Path(record["attempt"]).is_relative_to(record["common_git"]):
+    if not any(Path(record["attempt"]).is_relative_to(root) for root in expected):
         expected.add(record["attempt"])
     if (
         config["id"] != record["id"]
