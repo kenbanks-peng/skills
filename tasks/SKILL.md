@@ -1,11 +1,11 @@
 ---
 name: tasks
-description: Use when the user or a calling workflow needs Aven task management, dependencies, or durable handoffs.
+description: Use when the workflow needs task management, dependency tracking, or durable handoffs.
 ---
 
 # Tasks
 
-Use Aven as the durable work record. The user or calling workflow controls assignment and completion. Consult `aven <command> --help` for unfamiliar syntax.
+Use Aven as the durable work record. Consult `aven <command> --help` for unfamiliar syntax.
 
 Common commands:
 
@@ -24,14 +24,13 @@ aven edit <ref> --status done
 
 ## Workflow rules
 
-- Run from the target repository; use configured database/workspace defaults and project inference.
-- Search before creating tasks; read task context before acting. Give new tasks scope, acceptance criteria, and rationale sufficient to resume independently.
-- Prefer epics over labels for grouping. Create labels before applying them. Epic membership is not a dependency; dependency arguments are blocked task first, blocker second.
-- Check dependencies before changing status or order. The agent field identifies a type, not a session; clear it when leaving active status. Mark `done` only after completion criteria pass.
+- Give new tasks scope, acceptance criteria, and rationale sufficient to resume independently.
+- Prefer epics over labels for grouping. Create labels before applying them.
+- Check dependencies before changing status or order. Mark `done` only after completion criteria pass.
 
 ## Selective notes
 
-Notes are a handoff, not an execution transcript. Select by relevance, then format for scanning.
+Notes are a handoff. Select by relevance, then format for scanning.
 
 - Lead with the outcome, decision, or blocker; use a short heading and bullets for supporting facts.
 - Include new facts needed to review, resume, or decide the next action. Record stable context once and refer back to its task or note; record changes explicitly.
