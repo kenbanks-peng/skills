@@ -1,39 +1,95 @@
 ---
 name: terminal-browser
-description: A real browser running inside the terminal. It splits the human's terminal pane automatically, so you can show a website side by side with the conversation, render HTML to visualize something, and drive whatever tab is open — snapshot, click, fill, eval — with the `terminal-browser action` subcommand.
+description: A real browser running inside Rex terminal blocks. Use it to show websites or local HTML beside the conversation and drive open browser tabs — snapshot, click, fill, eval — with the `terminal-browser action` subcommand.
 ---
 
-`terminal-browser open <url>` puts a browser in a terminal pane. On its own it
-takes over the current pane. `--split right` (or `down`, `left`, `up`) opens a
-new pane beside the human, which is how you show a page next to the
-conversation. A path to a local html file works the same as a url, so writing a
-page and opening it is a way to show something you built.
+Run `terminal-browser open <url>` in a new Rex terminal block using the workflow
+below. A local HTML path works like a URL. Never take over the block running
+the conversation.
 
-`terminal-browser ls` shows the browsers and tabs in this terminal tab, with the
-tab ids the other commands take.
-
-`terminal-browser action -- <command>` is an agent-browser compatible CLI for a
-tab that is already open. It targets this terminal tab's browser and its active
-tab unless you select another one.
+Use `terminal-browser ls --all --json` to discover browsers and tabs. Always pass
+`--browser` and `--tab` when using the agent-browser compatible
+`terminal-browser action` CLI from the agent's block.
 
 When you use the terminal-browser action sub command, the user will visually
 see in the browser tab an indication that you are acting on the browser tab. This
 will automatically hide after a preset duration, where the countdown resets
 everytime terminal-browser action is used. But its a much better experience
 for the user if after the last time you plan to use terminal-browser action you
-run terminal-browser action done, which immediately clears the indication
+run `terminal-browser action --browser "$browser_key" --tab "$tab_id" done`,
+which immediately clears the indication
 that you are using the browser tab
 
 Some pages publish WebMCP tools: named actions with a JSON schema that the
 page runs itself. agent-browser announces them when a page has them, and
-`terminal-browser action -- webmcp list --json` shows the full schemas. Prefer
-`terminal-browser action -- webmcp invoke <tool> --params '<json>'` over
+`terminal-browser action --browser "$browser_key" --tab "$tab_id" -- webmcp list --json` shows the full schemas. Prefer
+`terminal-browser action --browser "$browser_key" --tab "$tab_id" -- webmcp invoke <tool> --params '<json>'` over
 snapshot, click and fill when a tool covers what you need; it is faster and
 does not break when the layout changes. Tools can carry annotations. Treat
 `readOnly: false` as a change to the user's data and `consequential: true` as
 something to confirm with the user before invoking.
 
+## Rex terminal blocks
+
+This skill targets Rex only. Run
+`rex __internal skill --feature-session-naming=false` for the installed CLI's
+guide; if unavailable, use `rex --help` and `rex split --help`.
+
+1. Resolve the anchor. For “here” or no specified location, use `REX_SESSION`
+   and `REX_BLOCK`. If either is absent or stale, run `rex whoami --json` and
+   use its `session_id` and `block_id`. If the location remains unknown, inspect
+   `rex ls --json` and `rex block ls -s SESSION --json`; do not guess between
+   ambiguous targets. Explicit user targets take precedence over inherited IDs.
+2. Record `terminal-browser ls --all --json` before launching.
+3. Create a Rex terminal block and run the browser **without** its own
+   `--split` option. Set `session_id` and `anchor_block` to the resolved full IDs,
+   and `url` to the requested URL or absolute HTML path:
+
+   ```sh
+   created=$(rex split -s "$session_id" -b "$anchor_block" \
+     --split=right --ratio 50 --focus=false -c "$PWD" \
+     --label Browser --json -- terminal-browser open "$url" --no-merge) || exit
+   browser_block=$(printf '%s' "$created" | jq -er '.block_ids[0]') || exit
+   ```
+
+   Rex directions are `right`, `left`, `above`, and `below`.
+   `--ratio 50` gives the new block 50 percent of the split.
+   `--focus=false` preserves conversation focus; `--no-merge` keeps the new
+   browser from merging into a neighboring browser. Do not use `--wait`:
+   the browser is long-lived. After a timeout, inspect the layout before retrying
+   to avoid duplicate blocks.
+4. Run `terminal-browser ls --all --json` again. Identify the new browser by
+   comparing keys with the earlier listing, then verify its tab URL. Startup
+   may take a moment. Rex blocks may have null pane metadata and
+   `inCurrentTab: false`, so do not rely on the default terminal-tab filter or
+   assume a Rex block ID is a browser key. If concurrent launches make the
+   result ambiguous, inspect further rather than choosing an arbitrary browser.
+5. Save the browser `key` and tab `id` as `browser_key` and `tab_id`.
+   Explicitly target them for every action from the agent's block:
+
+   ```sh
+   terminal-browser action --browser "$browser_key" --tab "$tab_id" -- snapshot
+   terminal-browser action --browser "$browser_key" --tab "$tab_id" -- eval "document.title"
+   # After the final action, including when an action fails:
+   terminal-browser action --browser "$browser_key" --tab "$tab_id" done
+   ```
+
+   Use these selectors for WebMCP commands too. To add a browser tab, use
+   `terminal-browser new-tab --browser "$browser_key" "$url"`; list tabs again
+   to obtain the new tab ID.
+6. Verify page content with a snapshot or eval before reporting it loaded.
+   For startup failures, inspect
+   `rex capture -s "$session_id" -b "$browser_block" --trim` and
+   `rex block call -s "$session_id" -b "$browser_block" process`.
+   Leave the browser visible unless asked to close it. To close only the block
+   created for this task, use
+   `rex block close -s "$session_id" "$browser_block"`, not
+   `terminal-browser shutdown`, which closes all browsers.
+
 ## Command reference
+
+The following notes cover Rex usage, not verbatim CLI help. Use
+`terminal-browser <command> --help` for additional options.
 
 ```
 $ terminal-browser help
@@ -42,7 +98,7 @@ Usage: terminal-browser [url] [options]
 
   open                 Open the browser in a terminal pane
   ls                   List running browsers and their tabs
-  setup                Configure terminals and agents so terminal-browser works best
+  setup                Install terminal-browser agent skills
   upgrade              Upgrade to the latest release
   new-tab              Open a tab here, and a browser too if there is none
   clear-browsing-data  Clear cookies, site data and cache, like a browser's Clear browsing data
@@ -61,14 +117,11 @@ terminal-browser --version prints the installed version
 $ terminal-browser open --help
 Usage: terminal-browser open [url] [options]
 
-Opens the browser in the current pane. Pass --split to open it in a new
-split pane instead.
+Run this inside the new Rex block created by rex split, as shown above.
 
 The url can be a normal url, a localhost port, or a path to an html file.
 
 Options:
-  --split <direction>   Open in a new pane: right, left, down, up
-  --size <fraction>     How much of the space the split takes (0.2 to 0.95)
   --ssh <user@host>     Perform all network requests through a remote server, then
                         proxy the result back to the local terminal-browser instance
   --allow-clipboard-read
@@ -79,21 +132,20 @@ Options:
 
 
 Examples:
-  terminal-browser open localhost:3000
-  terminal-browser open ./report.html --split right
-  terminal-browser open github.com/zenbu-labs --split down --size 0.4
-  terminal-browser open --ssh dev@build-box localhost:8080
+  # Commands to run inside the new Rex block:
+  terminal-browser open localhost:3000 --no-merge
+  terminal-browser open /absolute/path/report.html --no-merge
+  terminal-browser open --ssh dev@build-box localhost:8080 --no-merge
 ```
 
 ```
 $ terminal-browser ls --help
-Usage: terminal-browser ls [options]
+Usage: terminal-browser ls --all --json
 
-Lists the browsers running in this terminal tab, each with its tabs. The tab
-ids it prints are what --tab takes in terminal-browser action.
+Lists every browser with its tabs. Use the browser key and tab id for actions.
 
 Options:
-  --all               Every browser, not just this terminal tab
+  --all               Include browsers in other Rex blocks
   --json              Machine readable, including cdp ports and pane ids
 ```
 
@@ -115,21 +167,13 @@ nothing when already up to date.
 
 ```
 $ terminal-browser new-tab --help
-Usage: terminal-browser new-tab [url] [options]
+Usage: terminal-browser new-tab --browser <key> [url]
 
-Opens a tab in a browser already open. By default, if there is a single
-browser open in the current terminal tab, it will open a tab in that browser.
-If there are no browsers, a new browser will be opened with the specified tab
-as the initial (if ran from a shell without a TTY, it will open in a split to
-the right). If there are multiple browsers, new-tab will error and a
---browser <key> is a required argument (<key> can be found by running
-terminal-browser ls)
-
-Options:
-  --browser <key>     A browser key from terminal-browser ls
+Opens a tab in the explicitly selected browser. Discover the key with
+terminal-browser ls --all --json. If no browser exists, create a Rex block
+using the workflow above first.
 
 Examples:
-  terminal-browser new-tab github.com
   terminal-browser new-tab --browser 90107-1 localhost:3000
 ```
 
@@ -215,11 +259,11 @@ Examples:
 
 ```
 $ terminal-browser action --help
-Usage: terminal-browser action [selectors] -- <command>
+Usage: terminal-browser action --browser <key> --tab <id> -- <command>
 
 An agent-browser compatible CLI for the browser you already have open.
-Everything after -- is an agent-browser command. With no selectors it targets
-the browser in this terminal tab and that browser's active tab.
+Everything after -- is an agent-browser command. Always select the browser
+and tab explicitly when acting from a different Rex block.
 
 Selectors:
   --browser <key>     A browser key from terminal-browser ls
@@ -228,9 +272,9 @@ Selectors:
   --follow            Bring the tab to the front before running the command
 
 Examples:
-  terminal-browser action -- snapshot
-  terminal-browser action -- click @e14
-  terminal-browser action -- eval "document.title"
+  terminal-browser action --browser 90107-1 --tab 2 -- snapshot
+  terminal-browser action --browser 90107-1 --tab 2 -- click @e14
+  terminal-browser action --browser 90107-1 --tab 2 -- eval "document.title"
   terminal-browser action --browser 90107-1 --tab 2 -- fill @e3 "hello"
-  terminal-browser action done
+  terminal-browser action --browser 90107-1 --tab 2 done
 ```
