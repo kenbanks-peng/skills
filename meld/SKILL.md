@@ -8,35 +8,6 @@ description: Create self-contained HTML reports with Meld when a conversation re
 1. Run `meld skill` for current syntax, components, and rendering instructions.
 2. Write UTF-8 Markdown plus Meld components to a meld document, for example, `document.meld`.
 3. Run `meld document.meld` to produce `document.html`. Resolve rendering errors before proceeding.
-4. Open the generated HTML using its absolute path in a new Rex browser block, following the steps below. Never replace the conversation block.
+4. Open the generated HTML using its absolute path in a new Rex browser block, following [the terminal-browser instructions](terminal-browser.md). Never replace the conversation block.
 5. Verify the rendered content before reporting success. Clear the browser activity indicator and leave the output visible.
 
-## Open and verify
-
-1. Use the user's target or `REX_SESSION` and `REX_BLOCK` for `session_id` and `anchor_block`. If missing or stale, run `rex whoami --json`. Use full IDs; never guess an ambiguous target.
-2. Run `terminal-browser ls --all --json` to record existing browsers, then open the report:
-
-   ```sh
-   rex split -s "$session_id" -b "$anchor_block" \
-     --split=right --ratio 50 --focus=false -c "$PWD" \
-     --label Browser --json -- terminal-browser open "$html_path" --no-merge
-   ```
-
-   Set `html_path` to the absolute HTML path. Save `.block_ids[0]` as `browser_block`. Do not use `--wait` or pass `--split` to the browser command.
-3. List browsers again after startup. Identify the new browser `key` and tab `id` by comparing lists and checking the report URL. Block IDs are not browser keys.
-4. Inspect the rendered content:
-
-   ```sh
-   terminal-browser action --browser "$browser_key" --tab "$tab_id" -- snapshot
-   ```
-
-   Use `-- eval "document.body.innerText"` instead of `-- snapshot` if needed. Always specify both browser and tab.
-5. After the final action, even on failure, clear the activity indicator:
-
-   ```sh
-   terminal-browser action --browser "$browser_key" --tab "$tab_id" done
-   ```
-
-After a timeout, inspect before retrying with `rex capture -s "$session_id" -b "$browser_block" --trim` and `rex block call -s "$session_id" -b "$browser_block" process`. Leave the report visible unless asked to close it; close only this task's block with `rex block close -s "$session_id" "$browser_block"`. Never use `terminal-browser shutdown`, which closes all browsers.
-
-If the renderer or Rex browser is unavailable, report the limitation and any files created.
