@@ -3,11 +3,7 @@ name: meld
 description: Use Meld for agent responses that present results, findings, comparisons, or handoffs. Only the simplest responses should omit Meld.
 ---
 
-## When to use
-
-Use Meld whenever an agent response involves a presentation of results. This is the default, not an optional enhancement based on whether a visual document would help. Only the simplest responses, such as brief acknowledgments or direct one-line answers, should omit Meld.
-
-## Workflow
+# Workflow
 
 1. Run `meld skill` for current syntax, components, and rendering instructions.
 2. Create `.meld/source/` in the project root. Write UTF-8 Markdown plus Meld components to a source file there, for example, `.meld/source/document.meld`.
