@@ -12,7 +12,11 @@ Use at most three columns in tables unless more are necessary.
 1. Run `meld skill` for current syntax, components, and rendering instructions.
 2. Create `.meld/source/` in the project root. Write UTF-8 Markdown plus Meld components to a source file there, for example, `.meld/source/document.meld`.
 3. Render HTML directly into `.meld/` with an explicit output path: `meld .meld/source/document.meld --output .meld/document.html`. Keep source files in `.meld/source/` and rendered HTML in `.meld/`. Resolve rendering errors before proceeding.
-4. Open the generated HTML using its absolute path in the Rex tab's existing terminal browser, or a new browser block if none exists, following [the terminal-browser instructions](terminal-browser.md).
-5. Verify the rendered content before reporting success. Clear the browser activity indicator and leave the output visible.
-6. Keep the agent response to a single sentence summarizing the result and linking to the generated HTML; do not repeat the report in chat.
+4. Set `html_path` to the generated HTML’s absolute path and open it:
+
+   ```sh
+   terminal-browser open "$html_path" --split right
+   ```
+
+5. Keep the agent response to a single sentence summarizing the result and linking to the generated HTML; do not repeat the report in chat.
 
