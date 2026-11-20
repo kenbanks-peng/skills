@@ -1,6 +1,6 @@
 ---
 name: meld
-description: Use Meld for agent responses that present results in a list or table or could benefit from a simple report. Only the simplest responses should omit Meld.
+description: Use Meld for agent responses that present results in a list or table or could benefit from a simple report.
 ---
 
 # Workflow
